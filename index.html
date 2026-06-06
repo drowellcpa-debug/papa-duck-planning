@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Papa Duck — Planning Workspace</title>
+<style>
+:root{--cream:#F7F4EE;--paper:#FFFDF8;--ink:#3A3530;--ink2:#5A544C;--ink3:#8A8178;--line:#E3DBCB;--sage:#6B8F71;--sage-d:#4F7355;--sage-l:#E7EFE6;--teal:#3F7E83;--amber:#8B6914;--rose:#B0656A;--lav:#7C6FA6;--r:10px;--ui:'Segoe UI',system-ui,sans-serif;--serif:'Fraunces','Newsreader',Georgia,serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--ui);font-size:14px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:22px}
+h1{font-family:var(--serif);font-weight:600;font-size:25px;margin:0}
+h2{font-family:var(--serif);font-weight:600;font-size:18px;margin:0 0 8px}
+.sub{color:var(--ink3);font-size:12.5px}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.btn{border:1px solid var(--line);background:var(--paper);color:var(--ink2);border-radius:20px;padding:7px 14px;font-family:var(--ui);font-size:12.5px;font-weight:600;cursor:pointer}
+.btn:hover{border-color:var(--sage);color:var(--sage-d)}
+.btn.p{background:var(--sage);color:#fff;border-color:var(--sage)}
+.btn.p:hover{background:var(--sage-d);color:#fff}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.grid{display:grid;gap:12px}
+.muted{color:var(--ink3)}
+.pill{display:inline-block;background:var(--sage-l);color:var(--sage-d);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600;margin:2px 4px 2px 0}
+input,select,textarea{font-family:var(--ui);font-size:13px;color:var(--ink);background:var(--cream);border:1px solid var(--line);border-radius:8px;padding:6px 9px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--sage);background:#fff}
+textarea{width:100%;resize:vertical;min-height:46px}
+label{font-size:11px;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+table{width:100%;border-collapse:collapse}
+.daycol{background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:10px;min-height:90px}
+.dayname{font-weight:700;font-size:12px;color:var(--ink2);margin-bottom:6px}
+.act{background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--sage);border-radius:8px;padding:6px 8px;margin-bottom:6px;font-size:12.5px}
+.act .t{font-weight:600}
+.act .d{color:var(--ink3);font-size:11.5px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.rowx{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.chip{font-size:11px;color:var(--ink3)}
+.wkhead{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.wknum{font-family:var(--serif);font-size:22px;color:var(--sage-d)}
+.x{color:var(--rose);border:none;background:none;cursor:pointer;font-size:15px;font-weight:700}
+.daypick{display:flex;gap:4px}
+.daypick span{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:2px 6px;cursor:pointer;color:var(--ink3)}
+.daypick span.on{background:var(--sage);color:#fff;border-color:var(--sage)}
+.note{background:var(--sage-l);border:1px solid #D6E4D4;border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--sage-d);margin-bottom:14px}
+.empty{text-align:center;padding:40px;color:var(--ink3)}
+.flex{display:flex;gap:14px;align-items:flex-start}
+.col{flex:1;min-width:0}
+.small{font-size:11.5px}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <div style="margin-right:auto">
+      <h1>Papa Duck — Planning Workspace</h1>
+      <div class="sub" id="subtitle">Load a course you exported from the planner, plan it here, then export it back.</div>
+    </div>
+    <button class="btn" onclick="document.getElementById('pack-in').click()">⤓ Load course file</button>
+    <input id="pack-in" type="file" accept="application/json,.json" style="display:none" onchange="loadPack(this)">
+    <button class="btn p" onclick="exportPack()">⤴ Export for the planner</button>
+  </div>
+
+  <div id="app"></div>
+</div>
+
+<script>
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const TYPES=['reading','scripture','writing','journal','worksheet','project','lab','discussion','memorize','quiz','test','other'];
+let course=null;        // the loaded papaduck-course pack's .course
+let curWeek=1;
+
+function el(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function schoolDays(){return (course.classDays&&course.classDays.length?course.classDays:[1,2,3,4,5]).slice().sort((a,b)=>a-b);}
+
+function loadPack(input){
+  const f=input&&input.files&&input.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const pack=JSON.parse(r.result);
+      const c=pack&&pack.course?pack.course:pack;     // accept a raw class too
+      if(!c||!c.name) throw new Error('That file does not look like a Papa Duck course.');
+      c.tasks=c.tasks||[]; c.books=c.books||[]; c.assessments=c.assessments||[];
+      c.gradeTypes=c.gradeTypes||[]; c.weekContent=c.weekContent||{};
+      c.weeks=c.weeks||36; c.classDays=c.classDays&&c.classDays.length?c.classDays:[1,2,3,4,5];
+      course=c; curWeek=1; render();
+    }catch(e){ alert('Could not load: '+e.message); }
+  };
+  r.readAsText(f); input.value='';
+}
+
+function exportPack(){
+  if(!course){alert('Load a course first.');return;}
+  const pack={type:'papaduck-course',app:'Papa Duck Homeschool',packVersion:1,source:'planning-workspace',exportedAt:new Date().toISOString(),course:course};
+  const blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  const safe=(course.name||'course').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'').toLowerCase()||'course';
+  a.download='papaduck-course-'+safe+'-planned.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href),800);
+}
+
+// ---- week content helpers (theme + notes live on weekContent[w]) ----
+function wc(w){ if(!course.weekContent[w]) course.weekContent[w]={theme:'',notes:'',wordList:'',wordListName:'',videos:[],articles:[]}; return course.weekContent[w]; }
+function chaptersForWeek(w){ const out=[]; (course.books||[]).forEach(b=>(b.chapters||[]).forEach(ch=>{ if(+ch.week===+w) out.push({book:b.title,title:ch.title,pages:ch.pages||''}); })); return out; }
+function tasksForDay(d){ return (course.tasks||[]).filter(t=>(t.days||[]).includes(d) && !(t.skipWeeks||[]).includes(curWeek)); }
+function quizzesForWeek(w){ return (course.assessments||[]).filter(a=>+a.week===+w); }
+
+function render(){
+  if(!course){ el('app').innerHTML='<div class="card empty">No course loaded yet. Click <b>Load course file</b> and choose the <code>.json</code> you exported from the planner.</div>'; return; }
+  el('subtitle').textContent=course.name+(course.subject?(' · '+course.subject):'')+' · '+course.weeks+' weeks · meets '+schoolDays().map(d=>DOW[d]).join(' ');
+  el('app').innerHTML =
+    bookPanel() +
+    rhythmPanel() +
+    weekPanel();
+  wireWeek();
+}
+
+// ---- books & chapters reference (editable weeks + pages) ----
+function bookPanel(){
+  const rows=(course.books||[]).map((b,bi)=>{
+    const chs=(b.chapters||[]).map((ch,ci)=>`<tr>
+      <td style="padding:3px 6px"><input style="width:100%" value="${esc(ch.title)}" onchange="course.books[${bi}].chapters[${ci}].title=this.value"></td>
+      <td style="padding:3px 6px;width:90px"><input style="width:80px" value="${esc(ch.pages||'')}" placeholder="pp" onchange="course.books[${bi}].chapters[${ci}].pages=this.value"></td>
+      <td style="padding:3px 6px;width:70px"><input type="number" min="1" max="${course.weeks}" style="width:56px" value="${ch.week||''}" onchange="course.books[${bi}].chapters[${ci}].week=+this.value||'';render()"></td>
+    </tr>`).join('');
+    return `<div style="margin-bottom:10px"><div style="font-weight:700">${esc(b.title)} ${b.isSpine?'<span class="pill">spine</span>':''}</div>
+      <table class="small"><tr style="color:var(--ink3)"><td style="padding:2px 6px">Chapter</td><td style="padding:2px 6px">Pages</td><td style="padding:2px 6px">Week</td></tr>${chs||'<tr><td class="muted" style="padding:4px 6px">No chapters yet — add them in the planner from the TOC.</td></tr>'}</table></div>`;
+  }).join('');
+  return `<div class="card"><h2>Books &amp; chapters</h2><div class="sub" style="margin-bottom:8px">Set which week each chapter lands in — that drives what shows up below.</div>${rows||'<div class="muted">No books in this course.</div>'}</div>`;
+}
+
+// ---- recurring daily rhythm (tasks) ----
+function rhythmPanel(){
+  const rows=(course.tasks||[]).map((t,i)=>`
+    <div class="rowx">
+      <select onchange="course.tasks[${i}].type=this.value;render()">${TYPES.map(tp=>`<option ${t.type===tp?'selected':''}>${tp}</option>`).join('')}</select>
+      <input style="flex:1;min-width:140px" value="${esc(t.title||t.ref||'')}" placeholder="What they do" onchange="course.tasks[${i}].title=this.value;render()">
+      <input style="width:150px" value="${esc(t.detail||'')}" placeholder="detail (e.g. this week's chapter)" onchange="course.tasks[${i}].detail=this.value;render()">
+      <span class="daypick">${schoolDays().map(d=>`<span class="${(t.days||[]).includes(d)?'on':''}" onclick="toggleDay(${i},${d})">${DOW[d]}</span>`).join('')}</span>
+      <button class="x" title="Remove" onclick="course.tasks.splice(${i},1);render()">×</button>
+    </div>`).join('');
+  return `<div class="card"><h2>Daily rhythm <span class="sub">(repeats every week)</span></h2>
+    <div class="sub" style="margin-bottom:10px">These are the recurring assignments. Pick which weekdays each one happens. Week-specific content (the actual chapter) comes from the books above.</div>
+    ${rows||'<div class="muted small">No recurring tasks yet.</div>'}
+    <button class="btn" style="margin-top:8px" onclick="addTask()">+ Add a recurring task</button></div>`;
+}
+function toggleDay(i,d){ const t=course.tasks[i]; t.days=t.days||[]; const k=t.days.indexOf(d); if(k>=0)t.days.splice(k,1); else t.days.push(d); render(); }
+function addTask(){ course.tasks.push({id:'t'+Math.random().toString(36).slice(2,8),type:'reading',title:'',detail:'',gradeType:null,days:schoolDays().slice(0,1),skipWeeks:[]}); render(); }
+
+// ---- the week view (mirrors the planner's day columns) ----
+function weekPanel(){
+  const w=curWeek, W=course.weeks, c=wc(w);
+  const chs=chaptersForWeek(w);
+  const qz=quizzesForWeek(w);
+  const days=schoolDays().map(d=>{
+    const acts=tasksForDay(d).map(t=>`<div class="act"><div class="t">${esc(t.title||t.ref||t.type)}</div>${t.detail?`<div class="d">${esc(t.detail)}</div>`:''}</div>`).join('');
+    const dayQ=qz.filter(a=>+a.day===d).map(a=>`<div class="act" style="border-left-color:var(--amber)"><div class="t">${esc(a.title||a.kind||'Assessment')}</div><div class="d">${(a.questions||[]).length} questions</div></div>`).join('');
+    return `<div class="col"><div class="daycol"><div class="dayname">${DOW[d]}</div>${acts}${dayQ}${(!acts&&!dayQ)?'<div class="muted small">—</div>':''}</div></div>`;
+  }).join('');
+  return `<div class="card">
+    <div class="wkhead">
+      <button class="btn" onclick="goWeek(${w-1})" ${w<=1?'disabled':''}>‹</button>
+      <span class="wknum">Week ${w}</span>
+      <select onchange="goWeek(+this.value)">${Array.from({length:W},(_,k)=>`<option value="${k+1}" ${k+1===w?'selected':''}>Week ${k+1}</option>`).join('')}</select>
+      <button class="btn" onclick="goWeek(${w+1})" ${w>=W?'disabled':''}>›</button>
+    </div>
+    <div class="row"><div style="flex:1"><label>Weekly theme</label><br><input style="width:100%" value="${esc(c.theme||'')}" placeholder="e.g. Creation &amp; Origins" onchange="wc(${w}).theme=this.value"></div></div>
+    <div class="row"><div style="flex:1"><label>Notes / focus for the week</label><textarea onchange="wc(${w}).notes=this.value" placeholder="What we're aiming for this week...">${esc(c.notes||'')}</textarea></div></div>
+    ${chs.length?`<div style="margin:6px 0 12px"><label>Covering this week</label><br>${chs.map(x=>`<span class="pill">${esc(x.title)}${x.pages?(' · pp '+esc(x.pages)):''}</span>`).join('')}</div>`:'<div class="note">No chapters are assigned to week '+w+' yet. Set chapter weeks in the Books panel above.</div>'}
+    <label>Daily plan</label>
+    <div class="grid" style="grid-template-columns:repeat(${schoolDays().length},1fr);margin-top:6px">${days}</div>
+    <div style="margin-top:12px"><label>Word / vocab list for the week</label><br><input style="width:100%;max-width:520px" value="${esc(c.wordList||'')}" placeholder="comma separated" onchange="wc(${w}).wordList=this.value"></div>
+  </div>`;
+}
+function goWeek(w){ if(w<1||w>course.weeks)return; curWeek=w; render(); }
+function wireWeek(){}
+
+render();
+</script>
+</body></html>
