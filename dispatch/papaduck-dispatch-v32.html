@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Papa Duck Dispatch</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--ink:#1a1a1a;--brown:#8B4513;--bg:#faf7f2;--card:#fff;--line:#ddd;--ok:#1e7f3c;--warn:#b8860b;--bad:#b3261e;--mute:#666}
+*{box-sizing:border-box}body{margin:0;font-family:Georgia,serif;background:var(--bg);color:var(--ink);line-height:1.5}
+header{background:var(--brown);color:#fff;padding:12px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:20px;margin:0;font-weight:normal}header .v{opacity:.8;font-size:13px}
+.pill{font-size:12.5px;padding:3px 10px;border-radius:14px;background:#5a2d0c}.pill.ok{background:var(--ok)}.pill.bad{background:var(--bad)}.pill.warn{background:var(--warn)}
+#pills{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+nav{background:#f1e8db;border-bottom:1px solid #d9c9b0;padding:0 22px;display:flex;gap:4px;flex-wrap:wrap}
+nav button{border:none;border-radius:0;background:none;padding:10px 14px;color:var(--brown);font:15px Georgia,serif;border-bottom:3px solid transparent}
+nav button.on{border-bottom-color:var(--brown);font-weight:bold}
+main{max-width:1180px;margin:0 auto;padding:18px 22px 60px}.tab{display:none}.tab.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin-bottom:18px}
+.card h2{margin:0 0 6px;font-size:17px;color:var(--brown)}.card p.sub{margin:0 0 12px;color:var(--mute);font-size:13px}
+.drop{border:2px dashed #b9a48a;border-radius:8px;padding:20px;text-align:center;color:var(--mute);cursor:pointer}.drop.over{background:#f1e8db;border-color:var(--brown)}
+textarea,input[type=text],input[type=password],input[type=number],select{font:13px/1.4 Consolas,monospace;padding:7px;border:1px solid var(--line);border-radius:6px}
+textarea{width:100%;min-height:90px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:10px}th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#f3ede3}tr:nth-child(even) td{background:#fbf9f5}td input[type=number]{width:80px}td input[type=text]{width:100%}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff;white-space:nowrap}.tag.ok{background:var(--ok)}.tag.warn{background:var(--warn)}.tag.bad{background:var(--bad)}.tag.mute{background:#999}
+button{font:14px Georgia,serif;padding:8px 16px;border-radius:6px;border:1px solid var(--brown);background:#fff;color:var(--brown);cursor:pointer}
+button.primary{background:var(--brown);color:#fff}button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}.right{margin-left:auto}
+pre{background:#1e1e1e;color:#d6d6d6;padding:12px;border-radius:6px;font:12.5px/1.45 Consolas,monospace;white-space:pre-wrap;max-height:380px;overflow:auto}
+.small{font-size:12.5px;color:var(--mute)}input[type=checkbox]{transform:scale(1.2)}
+.verify{background:#eef7ef;border:1px solid #bfe0c4;border-radius:6px;padding:10px 12px;font:13px/1.5 Consolas,monospace;white-space:pre-wrap;margin-top:10px}
+.verify.warn{background:#fff7e0;border-color:#e8d48a}.verify.bad{background:#fdecea;border-color:#f1b3ad}
+details summary{cursor:pointer;color:var(--brown)}
+.bk{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:10px;background:#fff}.bk.flag{border-color:#e8c76a;background:#fffbea}.bk.hold{opacity:.6}
+.bk .hd{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.bk .hd b{font-size:15px}.bk .ttl{flex:1;min-width:260px}
+.bk .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:8px}.bk label{font-size:12px;color:var(--mute);display:block}
+.bk input[type=number],.bk select,.bk input[type=text]{width:100%}.bk .q{margin-top:8px;padding:8px 10px;background:#fff3cd;border-radius:6px;font-size:13px}
+.pics{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.pics img{height:96px;width:auto;border:1px solid var(--line);border-radius:4px;background:#f6f2ea;cursor:zoom-in}.pics img.big{height:auto;max-height:520px;max-width:100%;cursor:zoom-out}
+.meta{font-size:13px;color:var(--mute);margin-top:4px}
+.det{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:2px 16px;margin-top:8px;font-size:13px}.det div{padding:3px 0;border-bottom:1px dotted #e6dfd2}.det b{color:var(--mute);font-weight:normal;display:inline-block;min-width:118px}.desc{border:1px solid var(--line);border-radius:6px;padding:10px 14px;background:#fff;max-height:420px;overflow:auto;font-size:14px;line-height:1.5}.desc h2{font-size:16px;margin:0 0 8px}.b1{background:#f3ede3;border-radius:6px;padding:8px 12px;font-size:13.5px;margin-top:8px}
+.desc.open{max-height:none;border-color:#cfc3ae;background:#fffdf8;padding:14px 18px}
+.b1.open{max-height:none;background:#f3ede3;padding:10px 14px;font-size:13.5px;line-height:1.55}
+.lbl{margin:14px 0 4px;font-size:13px;color:var(--brown);font-weight:bold;letter-spacing:.02em}
+.bk .hdbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;cursor:pointer;user-select:none}
+.bk .body{display:none;margin-top:10px}.bk.open .body{display:block}
+.bk.done{border-color:#bfe0c4;background:#f7fcf8}.bk.open{box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.bk .chip{font-size:12px;padding:2px 9px;border-radius:12px;background:#e3e3e3;color:#555;white-space:nowrap}
+.bk .chip.ok{background:var(--ok);color:#fff}.bk .chip.flag{background:var(--warn);color:#fff}
+.band{font:12.5px Consolas,monospace;padding:3px 8px;border-radius:6px;background:#eef7ef;border:1px solid #bfe0c4;white-space:nowrap}
+.band.warn{background:#fff7e0;border-color:#e8d48a}.band.bad{background:#fdecea;border-color:#f1b3ad;font-weight:bold}
+.band.mute{background:#f2f2f2;border-color:#ddd;color:#777}
+#revProgress{font-size:15px;margin:10px 0 4px}#revProgress b{color:var(--brown)}
+.bar{height:10px;background:#e8e0d2;border-radius:6px;overflow:hidden;margin-top:5px}.bar i{display:block;height:100%;background:var(--ok);width:0;transition:width .25s}
+.okrow{margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}
+.seg{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.seg button{padding:5px 10px;font-size:13px;border-radius:14px}.seg button.on{background:var(--brown);color:#fff}.seg.dec button.on[data-dec=delete]{background:var(--bad);border-color:var(--bad)}.seg.dec button.on[data-dec=hold]{background:var(--warn);border-color:var(--warn)}.seg.dec{margin:6px 0}
+/* v22: the list price is the thing he checks on every card - make it impossible to miss */
+.pricetag{font:bold 19px Georgia,serif;color:#fff;background:var(--ok);padding:3px 12px;border-radius:8px;white-space:nowrap;letter-spacing:.01em}
+.pricebox{background:#eef7ef;border:2px solid var(--ok);border-radius:8px;padding:8px 12px;margin-bottom:6px}
+.pricebox .big{font:bold 30px Georgia,serif;color:var(--ok);line-height:1.1}
+.pricebox .am{font-size:13px;color:#333;margin-top:2px}
+.bk .grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+/* v23: Etsy */
+.etsyrow{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;background:#fff}
+.etsyrow img{height:70px;width:auto;border-radius:4px;border:1px solid var(--line);background:#f6f2ea}
+.etsyrow .t{flex:1;min-width:200px}.etsyrow .pr{font:bold 18px Georgia,serif;color:#c45500;white-space:nowrap}
+.tag.etsy{background:#f1641e}
+.tag.amz{background:#e88a00}.etsyrow .pr.amz{color:#b36b00}
+/* v24: live progress bars + copy box */
+.prog{margin-top:10px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fff;display:none}
+.prog .ph{font-size:14px;margin-bottom:6px}.prog .ph b{color:var(--brown)}
+.prow{display:grid;grid-template-columns:92px 1fr 170px;gap:10px;align-items:center;font-size:13px;padding:3px 0}
+.prow .pb{height:14px;background:#ece5d8;border-radius:7px;overflow:hidden}
+.prow .pb i{display:block;height:100%;width:0;background:#b9a48a;transition:width .4s}
+.prow.sending .pb i{background:var(--warn)}.prow.done .pb i{background:var(--ok)}.prow.short .pb i,.prow.failed .pb i{background:var(--bad)}
+.prow.data .pb i{background:#8fb3d9;width:100%!important;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.45}}
+.prow.staging .pb i{background:#d9b75a}.prow.uploading .pb i{background:var(--warn);width:100%!important;animation:pulse 1s infinite}
+.prog .plast{font:12px/1.4 ui-monospace,Consolas,monospace;color:var(--mute);margin:2px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .pn{color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.copyrow{display:flex;gap:8px;align-items:center;margin-top:6px}
+.copybtn{font-size:13px;padding:5px 12px;background:var(--brown);color:#fff}
+</style></head><body>
+<header><h1>🦆 Papa Duck Dispatch</h1><span class="v" id="ver">v29</span>
+<div id="pills"><span class="pill" id="pHelper">helper: checking…</span><span class="pill" id="pEbay">ebay</span><span class="pill" id="pAbe">abe</span><span class="pill" id="pEtsy">etsy</span><span class="pill" id="pAT">airtable archive</span><span class="pill" id="pAmz">amazon</span></div></header>
+<nav><button data-t="review" class="on">📚 List new books</button><button data-t="sold">💰 Sold → delete / end</button><button data-t="settings">⚙ Settings</button><button data-t="runs" style="display:none"></button><button data-t="install" style="display:none"></button></nav>
+<div id="fileWarn" style="display:none;background:#b3261e;color:#fff;padding:18px 22px;font-size:17px;line-height:1.5">⚠ The helper isn't answering on this computer. It normally starts by itself at logon (scheduled task <b>PapaDuck Helper</b>). Give it a few seconds and reload; if it stays red, tell Claude.</div>
+<main>
+
+<!-- ================= SOLD ================= -->
+<section class="tab" id="tab-sold">
+<div class="card"><h2>1 · Sold on eBay → delete from AbeBooks</h2>
+<p class="sub">Drop the eBay <b>orders report</b> CSV from Seller Hub. Every PD in it gets its live eBay listing checked first — <b>the delete gate</b>. Only a listing eBay has actually ended (stock zero) becomes an AbeBooks delete. Stock remaining = no delete, flagged instead.</p>
+<div class="drop" id="dropCsv">Drop the eBay orders CSV here, or click to choose</div><input type="file" id="fileCsv" accept=".csv,.txt,text/csv,text/plain" hidden>
+<div id="csvInfo" class="verify" style="display:none"></div><div class="row"><button id="btnClearCsv">Clear loaded orders</button></div></div>
+
+<div class="card"><h2>2 · Sold on AbeBooks → end on eBay</h2>
+<p class="sub">Paste the AbeBooks orders page text, or drop screenshots (PD numbers are read out by OCR — check what it found). Last copy → <b>end</b>; more copies on the shelf → <b>quantity reduced by one</b>.</p>
+<textarea id="abeText" placeholder="Paste AbeBooks order text here — anything containing PD-0142 style numbers…"></textarea>
+<div class="drop" id="dropImg" style="margin-top:10px">Or drop AbeBooks screenshots here</div><input type="file" id="fileImg" accept="image/*" multiple hidden>
+<div id="ocrInfo" class="small"></div>
+<div class="row"><button id="btnParseAbe">Find PD numbers</button><span id="abeFound" class="small"></span></div></div>
+
+<div class="card"><h2>2b · Sold on Amazon → end everywhere else <span class="small">v29</span></h2>
+<p class="sub">Reads your Amazon orders straight from Amazon (no buyer details) and adds every PD number to the list below. Check listings, then Run: last copy → <b>eBay ended + AbeBooks deleted + Etsy off</b>; more copies on the shelf → eBay quantity down by one. Amazon lowers its own quantity.</p>
+<div class="row"><select id="amzDays"><option value="2">last 2 days</option><option value="7" selected>last 7 days</option><option value="14">last 14 days</option></select><button id="btnAmzOrders">Get Amazon orders</button><span id="amzOrdInfo" class="small"></span></div></div>
+
+<div class="card"><h2>3 · Review — nothing runs until you press Run</h2>
+<p class="sub">Uncheck anything you don't want touched. AbeBooks deletes run first, then eBay, then <b>Etsy</b> — any of these books that are also on Etsy are set to the copies left on your shelf (last copy → taken off Etsy). Every action is verified afterward (eBay read back from eBay; AbeBooks checked on the public site) and archived.</p>
+<div id="review"><span class="small">Nothing loaded yet.</span></div>
+<div class="row"><button id="btnCheck">Check listings</button><button id="btnRun" class="primary" disabled>▶ Run selected</button>
+<button id="btnReverify" class="right">Re-verify AbeBooks</button><button id="btnClear">Clear list</button></div></div>
+
+<div class="card"><h2>4 · Verification</h2><div id="verify" class="verify">Nothing run yet.</div>
+<details style="margin-top:10px"><summary>Raw output</summary><pre id="out">—</pre></details></div>
+</section>
+
+<!-- ================= REVIEW & LIST ================= -->
+<section class="tab on" id="tab-review">
+
+<div class="card"><h2>Step 1 · Tonight's files</h2>
+<p class="sub">Claude sends two files at blast off, and a third (Etsy) on nights you switched books to Etsy. Download them — that's all. They install themselves within about 15 seconds.</p>
+<div class="row"><span class="tag ok" id="f1tag">eBay</span><select id="rowsFile"><option>— no eBay rows file yet —</option></select><button id="btnLoadRows">Load</button><span id="rowsInfo" class="small"></span></div>
+<div class="row"><span class="tag ok" id="f2tag">AbeBooks</span><select id="abeFile"><option>— no AbeBooks file yet —</option></select><button id="btnAbeList">Refresh</button></div>
+<div class="row"><span class="tag mute" id="f4tag">Amazon</span><select id="amzFile"><option>— no Amazon file tonight —</option></select><button id="btnAmzLoad">Load</button><span id="amzListInfo" class="small"></span></div>
+<div class="row"><span class="tag mute" id="f3tag">Etsy</span><select id="etsyFile"><option>— no Etsy file tonight —</option></select><button id="btnEtsyLoad">Load</button><span id="etsyListInfo" class="small"></span></div>
+</div>
+
+<div class="card"><h2>Step 2 · Review each book</h2>
+<p class="sub">Books open <b>one at a time</b>. Click a line to open it, check it, then press <b>OK</b> — it collapses and the next one opens. <b>Every book has to be OK'd before the List buttons unlock.</b> Nothing here goes live.</p>
+<div class="row"><button id="btnOkAll" class="primary" disabled>✔ OK all books</button><span id="okAllInfo" class="small">marks every book OK in one click — books with an unanswered question are skipped</span></div>
+<label class="small"><input type="checkbox" id="onlyFlagged"> show only flagged / questions</label>
+<div id="revProgress"></div>
+<div id="rowsCards"></div>
+<div class="row"><button id="btnSaveRows" disabled>Save changes</button><span id="saveInfo" class="small"></span></div></div>
+
+<div class="card"><h2>Step 3 · List on eBay</h2>
+<p class="sub">List <b>one</b> first, check it, then list the rest. Each book is read back from eBay and its photos counted. The box turns red if anything is missing — nothing is closed until every photo is accounted for.</p>
+<div class="row"><button id="btnAddOne" class="primary" disabled>▶ List ONE book (test)</button><button id="btnAddAll" disabled>▶ List all marked GO / eBay only</button></div>
+<div id="addVerify" class="verify" style="display:none"></div>
+<details style="margin-top:10px"><summary>Raw output</summary><pre id="addOut">—</pre></details></div>
+
+<div class="card"><h2>Step 4 · Push to AbeBooks</h2>
+<p class="sub">Check the photos first, then push. The push sends the data over FTPS and uploads every photo as a file. It will not say CLOSED until every photo on every book is accounted for.</p>
+<div class="row"><button id="btnAbePhotos">1 · Check photos</button><button id="btnAbeBlast" class="primary">2 · ▶ Push to AbeBooks (data + photos)</button><button id="btnAbeImages">Photos only (retry)</button><button id="btnAbePush">Data only (reprice)</button><span id="abeInfo" class="small"></span></div>
+<div id="abeProg" class="prog"></div>
+<div id="abeVerify" class="verify" style="display:none"></div>
+<details style="margin-top:10px"><summary>Raw output</summary><pre id="abeOut">—</pre></details></div>
+
+<div class="card"><h2>Step 5 · Send to Etsy <span class="small">(only the books you switched Etsy ON)</span></h2>
+<p class="sub">Only on nights Claude sent an Etsy file. Every book is checked first: 20+ years old, Etsy's title rules, no trigger words, photos. If anything is wrong <b>nothing</b> is sent. Each book goes up as a draft, gets every photo (Etsy's limit is 20) and its PD number, then goes live and is read back. Books already on Etsy are skipped, so pressing it twice is safe.</p>
+<div id="etsyBooks"><span class="small">Pick tonight's Etsy file in Step 1 and press Load.</span></div>
+<div class="row"><button id="btnEtsyOne" class="primary" disabled>▶ Send ONE to Etsy (test)</button><button id="btnEtsyAll" disabled>▶ Send the rest to Etsy</button><button id="btnEtsyFix" disabled title="For books already on Etsy: sets the title and shop section from this file">↻ Update titles &amp; sections</button><span id="etsyInfo" class="small"></span></div>
+<div id="etsyProg" class="prog"></div>
+<div id="etsyVerify" class="verify" style="display:none"></div>
+<details style="margin-top:10px"><summary>Raw output</summary><pre id="etsyOut">—</pre></details></div>
+
+<div class="card"><h2>Step 6 · Send to Amazon <span class="small">(Good-fit books only — v29)</span></h2>
+<p class="sub">Only books whose Amazon fit is <b>Good</b> (or that you switched Amazon ON in Drafts). Each one is added to its existing Amazon page as your offer: SKU = PD number, your grade, your Block 1 as the condition note, price and quantity. <b>Preview first</b> — Amazon checks every book and nothing goes live. Books already on Amazon are skipped, so pressing twice is safe. Listings appear within about 15 minutes.</p>
+<div id="amzBooks"><span class="small">Pick tonight's Amazon file in Step 1 and press Load.</span></div>
+<div class="row"><button id="btnAmzPreview" disabled>1 · Preview (nothing goes live)</button><button id="btnAmzOne" class="primary" disabled>▶ List ONE on Amazon (test)</button><button id="btnAmzAll" disabled>▶ List the rest on Amazon</button><span id="amzInfo2" class="small"></span></div>
+<div class="row"><button id="btnAmzCheck" disabled>🔎 Check on Amazon (why not live?)</button><button id="btnAmzResend" disabled>↻ Re-send all (fix)</button><span class="small">Check is read-only. Re-send updates the same listings (SKU = PD) — never makes duplicates.</span></div>
+<div id="amzProg" class="prog"></div>
+<div id="amzVerify2" class="verify" style="display:none"></div>
+<details style="margin-top:10px"><summary>Raw output</summary><pre id="amzOut">—</pre></details></div>
+
+<div class="card"><h2>Step 7 · Done</h2>
+<p class="sub">The boxes above say <b>CLOSED</b> → tell Claude "listed". Claude reads the results from the archive and writes the ItemIDs into Airtable. Nothing to paste.</p></div>
+</section>
+
+<!-- ================= RUNS ================= -->
+<section class="tab" id="tab-runs">
+<div class="card"><h2>Runs archive</h2>
+<p class="sub">Every run is kept for good — locally in <code>C:\PapaDuck\runs\</code> (one file per day, never deleted) and in the Airtable table <b>Helper Runs</b>, which is how Claude reads results without you pasting anything.</p>
+<div class="row"><button id="btnRuns">Refresh</button><span id="runsInfo" class="small"></span></div>
+<div id="runsTable"></div></div>
+</section>
+
+<!-- ================= INSTALL ================= -->
+<section class="tab" id="tab-install">
+<div class="card"><h2>Advanced — files in Downloads</h2>
+<p class="sub"><b>You do not need this tab any more.</b> This page works straight from your Downloads folder — download it, open it, bookmark it, exactly like Book Station. Anything you download that the helper recognises <b>installs itself within about 15 seconds</b>, and the helper restarts itself if it was the thing that changed — just reload the page. This tab stays for when you want to see what is sitting in Downloads, or install something by hand. Tick and Install: it moves into the right folder (old copy kept as <code>.prev</code>). If the helper itself was updated it restarts on its own; reload this page after ~5 seconds.</p>
+<div class="row"><button id="btnDl">Refresh</button><span id="dlInfo" class="small"></span></div>
+<div id="dlTable"></div>
+<div class="row"><button id="btnInstall" class="primary" disabled>Install ticked files</button></div>
+<pre id="installOut">—</pre></div>
+</section>
+
+<!-- ================= SETTINGS ================= -->
+<section class="tab" id="tab-settings">
+<div class="card"><h2>Airtable archive token</h2>
+<p class="sub">Create a personal access token at <b>airtable.com/create/tokens</b> — scopes <code>data.records:read</code> and <code>data.records:write</code>, access to the Papa Duck base only. Paste it here. It is written to <code>C:\PapaDuck\airtable_credentials.ini</code> on this computer and never leaves it. Never paste it in the chat.</p>
+<div class="row"><input type="password" id="atTok" placeholder="pat…" style="width:420px"><button id="btnTok" class="primary">Save token</button><span id="tokInfo" class="small"></span></div></div>
+<div class="card"><h2>Amazon keys (Selling Partner API) <span class="small">v26</span></h2>
+<p class="sub">From Developer Central → your app → <b>View</b> (Client ID + Client Secret) and <b>Authorize app</b> (refresh token). Seller ID = Seller Central → Settings → Account Info → <b>Merchant Token</b>. Keepa key is optional (it adds "sold in the last 180 days"). <b>Leave a box blank to keep the key already saved.</b> Saved to <code>C:\PapaDuck\amazon_credentials.ini</code> on this computer only. <b>Never paste these in the chat.</b></p>
+<div class="grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px">
+<label class="small">Client ID<input type="text" id="amzCid" placeholder="amzn1.application-oa2-client…" style="width:100%"></label>
+<label class="small">Client Secret<input type="password" id="amzSec" style="width:100%"></label>
+<label class="small">Refresh token<input type="password" id="amzTok" placeholder="Atzr|…" style="width:100%"></label>
+<label class="small">Seller ID (Merchant Token)<input type="text" id="amzSid" placeholder="A1B2C3…" style="width:100%"></label>
+<label class="small">Keepa API key (optional)<input type="password" id="amzKeepa" style="width:100%"></label></div>
+<div class="row"><button id="btnAmzSave" class="primary">Save Amazon keys</button><span id="amzInfo" class="small"></span></div>
+<div class="row"><input type="text" id="amzIsbn" placeholder="ISBN to test" style="width:200px"><select id="amzGrade"><option>Like New</option><option selected>Very Good</option><option>Good</option><option>Acceptable</option><option>Brand New</option></select>
+<button id="btnAmzTest">Test one book</button><button id="btnAmzSweep">Check Drafts now</button></div>
+<div id="amzVerify" class="verify" style="display:none"></div></div>
+<div class="card"><h2>Advanced</h2><p class="sub">Only when Claude asks.</p>
+<div class="row"><button onclick="document.querySelector('nav [data-t=runs]').click()">Runs archive</button><button onclick="document.querySelector('nav [data-t=install]').click()">Files in Downloads</button></div></div>
+<div class="card"><h2>What runs where</h2>
+<p class="sub">eBay: <code>C:\PapaDuck\ebay\papaduck_ebay.py</code> (Trading API, credentials in <code>ebay_credentials.ini</code>). AbeBooks: <code>C:\PapaDuck\abe\papaduck_abe.py</code>. Etsy: built into the helper (Etsy API v3, keys in <code>C:\ShelfIQ</code> or <code>C:\PapaDuck\etsy</code>; nightly files land in <code>C:\PapaDuck\etsy</code>). Helper: <code>C:\PapaDuck\papaduck_local.py</code>, started by the scheduled task <b>PapaDuck Helper</b> at logon, listening only on this computer.</p>
+</section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"></script>
+<script>
+const VERSION="32";const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];const HDR={"Content-Type":"application/json","X-PapaDuck":"1"};
+const PD=/PD-\d{4}[A-Z]?/g;let helperOK=false;let items={};const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const say=(el,t,append=true)=>{const o=$(el);o.textContent=(append&&o.textContent!=="—"?o.textContent+"\n":"")+t;o.scrollTop=o.scrollHeight};
+const HELPER="http://127.0.0.1:8765";
+async function api(path,body){const r=await fetch(HELPER+path,{method:"POST",headers:HDR,body:JSON.stringify(body||{})});return r.json()}
+async function get(path){const r=await fetch(HELPER+path);return r.json()}
+function copyText(t,btn){const done=()=>{if(btn){const o=btn.textContent;btn.textContent="✔ Copied — paste it to Claude";setTimeout(()=>btn.textContent=o,2500)}};
+ const fallback=()=>{const ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");done()}catch(e){alert("Could not copy - select the text and press Ctrl+C")}ta.remove()};
+ if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t).then(done,fallback)}else fallback()}
+function addCopy(v){let row=v.nextElementSibling;if(!row||!row.classList.contains("copyrow")){row=document.createElement("div");row.className="copyrow";
+ row.innerHTML='<button class="copybtn">📋 Copy for Claude</button><span class="small">copies this result so you can paste it in the chat</span>';v.after(row);
+ row.querySelector("button").onclick=e=>copyText(v.textContent,e.target)}}
+function showVerify(el,text,extra){const v=$(el);v.style.display="block";const t=(text||"")+(extra?"\n"+extra:"");v.textContent=t||"(no verification returned)";addCopy(v);
+ v.className="verify "+(/NOT CLOSED|BLOCKED|DEAD|REFUSED/i.test(t)?"bad":/NOT YET GONE|Active|warning|could not/i.test(t)?"warn":/fail|error|refused|nothing/i.test(t)?"bad":"")}
+const vclass=r=>({ok:"ok",warning:"warn",refused:"warn",failed:"bad"}[r]||"mute");
+$$("nav button").forEach(b=>b.onclick=()=>{$$("nav button").forEach(x=>x.classList.toggle("on",x===b));$$(".tab").forEach(t=>t.classList.toggle("on",t.id==="tab-"+b.dataset.t));
+ if(b.dataset.t==="runs")loadRuns();if(b.dataset.t==="install")loadDl();if(b.dataset.t==="review"){loadRowsList();loadAbeList();loadEtsyList();loadAmzFiles()}});
+async function ping(){try{const j=await get("/ping");helperOK=!!j.ok;const same=String(j.version)===VERSION;$("#pHelper").textContent=same?(j.busy?"working… · ":"connected · ")+j.time:"helper is v"+j.version+" — page is v"+VERSION+": install the matching file";$("#pHelper").className="pill "+(same?"ok":"warn");$("#ver").textContent="v"+VERSION+(same?"":" (helper v"+j.version+")");
+ $("#pEbay").className="pill "+(j.ebay?"ok":"bad");$("#pEbay").textContent="ebay "+(j.ebay?"✓":"missing");$("#pAbe").className="pill "+(j.abe?"ok":"bad");$("#pAbe").textContent="abe "+(j.abe?"✓":"missing");
+ $("#pEtsy").className="pill "+(j.etsy?"ok":"warn");$("#pEtsy").textContent=j.etsy?"etsy ✓":"etsy keys not found";
+ $("#pAmz").className="pill "+(j.amazon?"ok":"warn");$("#pAmz").textContent=j.amazon?("amazon ✓"+(j.keepa?" · keepa ✓":"")):"amazon: keys in Settings";
+ $("#pAT").className="pill "+(j.airtable?"ok":"warn");$("#pAT").textContent=j.airtable?"airtable archive ✓":"airtable archive: set token in Settings"}
+ catch(e){helperOK=false;$("#pHelper").textContent="helper restarting or not running — give it a minute, then reload";$("#pHelper").className="pill bad";$("#fileWarn").style.display="block"}}
+ping();setInterval(ping,60000);loadRowsList();loadAbeList();loadEtsyList();setTimeout(()=>loadAmzFiles(),0);
+try{const last=localStorage.getItem("pd_seen_version");if(last&&last!==VERSION){const n=document.createElement("div");n.style.cssText="background:#1e7f3c;color:#fff;padding:10px 22px;font-size:15px";n.textContent="Updated to v"+VERSION+" (was v"+last+")";document.querySelector("nav").after(n);setTimeout(()=>n.remove(),12000)}localStorage.setItem("pd_seen_version",VERSION)}catch(e){}
+
+/* ---------- 1. eBay orders CSV ---------- */
+function parseCSV(t){const rows=[];let row=[],f="",q=false;for(let i=0;i<t.length;i++){const c=t[i];
+ if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+ else if(c==='"')q=true;else if(c===','){row.push(f);f=""}else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(f);rows.push(row);row=[];f=""}else f+=c}
+ if(f!==""||row.length){row.push(f);rows.push(row)}return rows}
+const find=(h,...names)=>{const H=h.map(x=>x.toLowerCase().trim());for(const n of names){const i=H.findIndex(x=>x===n||x.includes(n));if(i>=0)return i}return -1};
+function loadCsv(text,fname){
+ try{
+  text=String(text||"").replace(/^\uFEFF/,"");
+  const rows=parseCSV(text).filter(r=>r.some(c=>c.trim()));
+  let hi=rows.findIndex(r=>r.some(c=>/item number|item id|custom label|sku/i.test(c)));
+  if(hi<0){showVerify("#csvInfo","COULD NOT READ THIS FILE\n\n"+(fname||"")+"\n\nNo header row containing Item Number / Custom Label was found.\nIs this the Orders report from Seller Hub (Orders -> Download report)?");return}
+  const h=rows[hi],
+   ci=find(h,"item number","item id","itemid"),
+   cl=find(h,"custom label","sku"),
+   cq=find(h,"quantity"),
+   cp=find(h,"sold for","item price","total price","sale price"),
+   ct=find(h,"item title","title"),
+   cd=find(h,"sale date","paid on date","order date");
+  /* v17b: a NEW file REPLACES the eBay rows. Merging is what showed yesterday's
+     orders on top of today's. AbeBooks rows typed/pasted by hand are kept. */
+  for(const k of Object.keys(items))if(items[k].channel==="ebay")delete items[k];
+  let n=0;const dates=[];
+  for(const r of rows.slice(hi+1)){
+   const iid=(r[ci]||"").replace(/\D/g,""),pd=((r[cl]||"").match(PD)||[])[0]||"";
+   if(!iid&&!pd)continue;
+   const key=pd||iid;
+   if(!items[key])items[key]={key,pd,itemid:iid,title:(r[ct]||"").slice(0,70),soldQty:0,soldFor:r[cp]||"",saledate:(r[cd]||"").trim(),channel:"ebay",action:"?",sel:true};
+   items[key].soldQty+=parseInt(r[cq]||"1")||1;
+   if(!items[key].itemid&&iid)items[key].itemid=iid;
+   if((r[cd]||"").trim())dates.push((r[cd]||"").trim());
+   n++}
+  const uniq=[...new Set(dates)];
+  const books=Object.values(items).filter(x=>x.channel==="ebay").length;
+  if(!n){showVerify("#csvInfo","FILE READ, BUT NO ORDERS IN IT\n\n"+(fname||"")+"\n\n"+rows.length+" rows, header found, but no row had an Item Number or a PD number.\nCheck the date range on the download.");render();return}
+  showVerify("#csvInfo",
+   "LOADED  "+(fname||"(file)")+"\n"+
+   n+" order rows  ->  "+books+" books sold on eBay\n"+
+   "SALE DATES IN THIS FILE: "+(uniq.join(", ")||"(no date column)")+"\n"+
+   "PDs: "+Object.values(items).filter(x=>x.channel==="ebay").map(x=>x.pd||("ItemID "+x.itemid)).join(", ")+
+   "\n\nWrong dates? You grabbed an older report from Downloads. Re-download from Seller Hub and drop the new one - it replaces this list.");
+  render()}
+ catch(e){showVerify("#csvInfo","COULD NOT READ THIS FILE\n\n"+(fname||"")+"\n\n"+e)}}
+/* v17b: without these two the browser OPENS the file when a drop lands even a
+   pixel outside the dashed box - which looks exactly like "it won't accept it". */
+["dragenter","dragover","drop"].forEach(ev=>window.addEventListener(ev,e=>{
+ if(!e.target.closest||!e.target.closest(".drop"))e.preventDefault()},false));
+
+function wireDrop(dz,fi,fn){
+ dz.onclick=()=>fi.click();
+ ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();dz.classList.add("over")}));
+ ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();dz.classList.remove("over")}));
+ dz.addEventListener("drop",e=>{const f=[...(e.dataTransfer&&e.dataTransfer.files||[])];if(f.length)fn(f)});
+ fi.onchange=e=>{const f=[...e.target.files];if(f.length)fn(f);e.target.value=""}}
+
+/* the whole Sold card is a drop target, not just the dashed rectangle */
+function takeCsv(fs){const f=fs[0];if(!f)return;
+ showVerify("#csvInfo","reading "+f.name+" ...");
+ f.text().then(t=>loadCsv(t,f.name)).catch(err=>showVerify("#csvInfo","COULD NOT READ THIS FILE\n\n"+f.name+"\n\n"+err))}
+wireDrop($("#dropCsv"),$("#fileCsv"),takeCsv);
+$("#btnClearCsv").onclick=()=>{for(const k of Object.keys(items))if(items[k].channel==="ebay")delete items[k];
+ $("#csvInfo").style.display="none";render()};
+
+/* ---------- 2. AbeBooks paste / OCR ---------- */
+async function ocr(files){$("#ocrInfo").textContent="Reading "+files.length+" image(s)… (first run downloads the OCR engine, ~15 s)";let all="";
+ for(const f of files){try{const r=await Tesseract.recognize(f,"eng");all+="\n"+r.data.text}catch(e){$("#ocrInfo").textContent="OCR failed: "+e;return}}
+ const found=[...new Set(all.match(PD)||[])];$("#abeText").value+=(($("#abeText").value?"\n":"")+found.join("\n"));
+ $("#ocrInfo").textContent="OCR found: "+(found.join(", ")||"no PD numbers — paste the text instead");}
+wireDrop($("#dropImg"),$("#fileImg"),ocr);
+$("#btnParseAbe").onclick=()=>{const found=[...new Set(($("#abeText").value.match(PD)||[]))];
+ for(const pd of found){if(!items[pd])items[pd]={key:pd,pd,itemid:"",title:"",soldQty:1,soldFor:"",channel:"abe",action:"?",sel:true}}
+ $("#abeFound").textContent=found.length+" PD numbers sold on AbeBooks: "+found.join(", ");render()};
+$("#btnAmzOrders").onclick=async()=>{$("#amzOrdInfo").textContent="asking Amazon for your orders… (about 2 seconds per order)";
+ try{const j=await api("/amazon/orders",{days:+$("#amzDays").value});if(j.error){$("#amzOrdInfo").textContent=j.error;return}
+  const O=j.orders||[];const agg={};const odd=[];for(const o of O){if(!o.pd){odd.push(o.sku||"?");continue}agg[o.pd]=agg[o.pd]||{qty:0,o};agg[o.pd].qty+=o.qty}
+  for(const pd in agg){const a=agg[pd];items[pd]={key:pd,pd,itemid:"",title:a.o.title,soldQty:a.qty,soldFor:a.o.price||"",saledate:a.o.date,channel:"amazon",action:"?",sel:true}}
+  $("#amzOrdInfo").textContent=O.length?(Object.keys(agg).length+" PD number(s) sold on Amazon: "+Object.keys(agg).join(", ")+(odd.length?" · not a PD SKU (not ours to sync): "+odd.join(", "):"")+" — now press Check listings"):"no Amazon orders in that window";render()}
+ catch(e){$("#amzOrdInfo").textContent="failed: "+e}};
+$("#btnClear").onclick=()=>{items={};render();$("#csvInfo").textContent="";$("#abeFound").textContent=""};
+
+/* ---------- 3. Review + gate ---------- */
+function render(){const rows=Object.values(items);if(!rows.length){$("#review").innerHTML='<span class="small">Nothing loaded yet.</span>';$("#btnRun").disabled=true;return}
+ let h='<table><tr><th></th><th>PD</th><th>ItemID</th><th>Sold on</th><th>Sale date</th><th>Qty sold</th><th>eBay listing now</th><th>Action</th><th>Title</th></tr>';
+ for(const r of rows){const st=r.status?(r.status==="Active"?`<span class="tag ${r.remaining>0?"warn":"ok"}">Active · ${r.remaining} left</span>`:`<span class="tag ok">${esc(r.status)}</span>`):'<span class="tag mute">not checked</span>';
+  const ac={"abe-delete":'<span class="tag bad">AbeBooks DELETE</span>',"ebay-end":'<span class="tag bad">eBay END</span>',"ebay-qty":`<span class="tag warn">eBay qty → ${r.newQty}</span>`,"skip-stock":'<span class="tag warn">STOCK REMAINS — no delete</span>',"skip-noid":'<span class="tag mute">no eBay listing found (app or Airtable) — tell Claude the PD</span>',"done":'<span class="tag ok">already ended</span>',"?":'<span class="tag mute">check first</span>'}[r.action]||esc(r.action);
+  h+=`<tr><td><input type="checkbox" data-k="${esc(r.key)}" ${r.sel?"checked":""} ${/^skip|^\?|^done/.test(r.action)?"disabled":""}></td><td>${esc(r.pd)||"—"}</td><td>${esc(r.itemid)||"—"}${r.idsrc==="airtable"?' <span class="small">(Airtable)</span>':""}</td><td>${r.channel==="ebay"?"eBay":r.channel==="amazon"?"Amazon":"AbeBooks"}</td><td>${esc(r.saledate||"—")}</td><td>${r.soldQty}</td><td>${st}</td><td>${ac}</td><td>${esc(r.title)}</td></tr>`}
+ $("#review").innerHTML=h+"</table>";$$("#review input").forEach(cb=>cb.onchange=e=>items[e.target.dataset.k].sel=e.target.checked);
+ $("#btnRun").disabled=!helperOK||!rows.some(r=>r.sel&&/^(abe-delete|ebay-end|ebay-qty)$/.test(r.action))}
+async function fillIds(){let idmap={};try{idmap=await get("/idmap")}catch(e){}for(const r of Object.values(items)){if(!r.itemid&&r.pd&&idmap[r.pd])r.itemid=String(idmap[r.pd])}
+ /* v20: a book the app did not list itself (Seller Hub CSV, by hand) is not in /idmap - look its PD up in Airtable Inventory */
+ const miss=Object.values(items).filter(r=>!r.itemid&&r.pd).map(r=>r.pd);
+ if(miss.length){try{const j=await api("/idlookup",{ids:miss});const F=j.found||{};
+  for(const r of Object.values(items)){const f=F[r.pd];if(!f)continue;if(!r.itemid&&f.itemid){r.itemid=String(f.itemid);r.idsrc="airtable"}if(!r.title&&f.title)r.title=f.title.slice(0,70)}
+  const got=miss.filter(p=>(items[p]||{}).itemid);say("#out","Airtable lookup: "+(got.length?"found ItemID for "+got.join(", "):"no ItemIDs found")+(miss.length>got.length?" · not found: "+miss.filter(p=>!(items[p]||{}).itemid).join(", "):""))}
+ catch(e){say("#out","Airtable lookup failed: "+e)}}}
+$("#btnCheck").onclick=async()=>{if(!helperOK){showVerify("#verify","Helper not running — cannot check listings.");return}
+ await fillIds();const ids=Object.values(items).filter(r=>r.itemid).map(r=>r.itemid);
+ if(ids.length){say("#out","Checking "+ids.length+" eBay listing(s)…");const j=await api("/ebay/item",{ids});
+  for(const it of (j.items||[])){const r=Object.values(items).find(x=>x.itemid===it.itemid);if(!r)continue;
+   r.status=it.status;r.remaining=it.remaining;r.price=it.price;if(it.sku&&!r.pd)r.pd=it.sku;if(it.title&&!r.title)r.title=it.title.slice(0,70);}}
+ for(const r of Object.values(items)){
+  if(!r.itemid){r.action=(r.channel==="ebay"||r.channel==="amazon")?"abe-delete":"skip-noid";continue}
+  if(r.channel==="ebay"){r.action=(r.status!=="Active"||r.remaining===0)?"abe-delete":"skip-stock"}
+  else{ if(r.status!=="Active")r.action="done"; else if(r.remaining<=1)r.action="ebay-end"; else{r.newQty=r.remaining-1;r.action="ebay-qty"} } }
+ render();say("#out","Checked. Review the Action column, then Run.")};
+
+/* ---------- Run + verify ---------- */
+function etsyTargets(sel){const t={};for(const r of sel){if(!r.pd)continue;
+ if(r.status===undefined){if(r.channel==="amazon")t[r.pd]=0;continue}
+ let left;if(r.action==="ebay-end"||r.action==="done")left=0;else if(r.action==="ebay-qty")left=r.newQty;else left=(r.status==="Active")?(r.remaining||0):0;
+ t[r.pd]=left}return t}
+const titlesOf=pds=>Object.fromEntries(pds.map(p=>[p,(items[p]||{}).title||""]));
+$("#btnRun").onclick=async()=>{const sel=Object.values(items).filter(r=>r.sel);
+ const abe=sel.filter(r=>r.pd&&(r.action==="abe-delete"||(r.channel==="amazon"&&(r.action==="ebay-end"||r.action==="done")))).map(r=>r.pd);const ends=sel.filter(r=>r.action==="ebay-end").map(r=>r.pd||r.itemid);const qtys=sel.filter(r=>r.action==="ebay-qty");
+ if(!confirm(`Run now?\n\nAbeBooks DELETE: ${abe.join(", ")||"none"}\neBay END: ${ends.join(", ")||"none"}\neBay qty change: ${qtys.map(r=>r.pd+"→"+r.newQty).join(", ")||"none"}`))return;
+ $("#btnRun").disabled=true;let V=[];
+ if(abe.length){say("#out","\n=== AbeBooks delete ===");const j=await api("/abe/delete",{ids:abe,titles:titlesOf(abe)});say("#out",j.out||JSON.stringify(j));V.push("ABEBOOKS DELETE\n"+(j.verify||j.error||"?")+(j.archived?"\narchived ✓ ("+j.archived+")":"\narchived locally only"))}
+ if(ends.length){say("#out","\n=== eBay end ===");const j=await api("/ebay/end",{ids:ends});say("#out",j.out||JSON.stringify(j));V.push("EBAY END\n"+(j.verify||j.error||"?")+(j.archived?"\narchived ✓":"\narchived locally only"))}
+ for(const r of qtys){say("#out",`\n=== eBay qty ${r.pd} → ${r.newQty} ===`);const j=await api("/ebay/revise",{id:r.pd||r.itemid,price:r.price,qty:r.newQty});say("#out",j.out||JSON.stringify(j));V.push("EBAY QTY "+r.pd+"\n"+(j.verify||j.error||"?"))}
+ /* v23: Etsy follows the shelf. We SET the copies left (never "minus one"), so the same orders file run twice changes nothing. */
+ const et=etsyTargets(sel);if(Object.keys(et).length){say("#out","\n=== Etsy ===");try{const j=await api("/etsy/close",{targets:et});say("#out",j.out||JSON.stringify(j));V.push("ETSY\n"+(j.verify||j.error||"?")+(j.archived?"\narchived ✓":"\narchived locally only"))}catch(e){V.push("ETSY\nfailed: "+e)}}
+ /* v29: Amazon follows the shelf too (books sold on eBay / AbeBooks). A book sold ON Amazon - Amazon already lowered it. */
+ const at=etsyTargets(sel.filter(r=>r.channel!=="amazon"));if(Object.keys(at).length){say("#out","\n=== Amazon ===");try{const j=await api("/amazon/close",{targets:at});say("#out",j.out||JSON.stringify(j));V.push("AMAZON\n"+(j.verify||j.error||"?")+(j.archived?"\narchived ✓":"\narchived locally only"))}catch(e){V.push("AMAZON\nfailed: "+e)}}
+ showVerify("#verify",V.join("\n\n"),"\nDone "+new Date().toLocaleTimeString()+". Claude reads these results from the archive — nothing to paste. If AbeBooks says NOT YET GONE, press Re-verify in an hour.");$("#btnRun").disabled=false;loadRuns()};
+$("#btnReverify").onclick=async()=>{const pds=Object.values(items).filter(r=>r.pd&&r.action==="abe-delete").map(r=>r.pd);if(!pds.length){showVerify("#verify","No AbeBooks deletes in the list to re-verify.");return}
+ const j=await api("/abe/verify",{ids:pds,titles:titlesOf(pds)});showVerify("#verify","ABEBOOKS RE-VERIFY "+new Date().toLocaleTimeString()+"\n"+(j.verify||j.error))};
+
+/* ---------- Review & list ---------- */
+let rowsFile="",rowsData={},rowsOrig={};
+const GRADES=[["Like New",2750],["Very Good",4000],["Good",5000],["Acceptable",6000]];
+const money=v=>(Math.round(v*2)/2).toFixed(2);
+async function loadRowsList(){try{const j=await get("/rows/list");const s=$("#rowsFile");const n=(j.files||[]).length;s.innerHTML=(j.files||[]).map(f=>`<option>${esc(f)}</option>`).join("")||"<option>— no eBay rows file yet —</option>";
+ const t=$("#f1tag");t.className="tag "+(n?"ok":"warn");t.textContent=n?"eBay file ✓":"eBay file — not downloaded yet"}catch(e){}}
+const DEC=[["go","✔ GO — list both"],["ebay","eBay only"],["abe","Abe only"],["hold","Hold"],["delete","✖ Delete from batch"]];
+const seg=(cls,cur,opts,attr)=>`<div class="seg ${cls}">${opts.map(o=>`<button ${attr}="${esc(o[0])}" class="${o[0]===cur?"on":""}">${esc(o[1]||o[0])}</button>`).join("")}</div>`;
+function qopts(q){return (q&&q.options&&q.options.length)?q.options:["Yes","No","Leave it","Your call"]}
+const STORE={"49462310018":"Homeschool Curriculum","49462311018":"Oregon & Pacific NW History","49462312018":"Orthodox & Christian","49462313018":"Classic Literature","49462314018":"College Textbooks","49462315018":"Young Adult Fiction","49462316018":"Vintage & Antique","49462317018":"Children's & Early Readers","49462318018":"General Interest & Nonfiction"};
+function details(r){const D=[["eBay title",r.title],["Book title",r.booktitle],["Author",r.author],["Publisher",r.publisher],["Year",r.year],["ISBN",r.isbn],
+ ["Format",r.fmt],["Genre",r.genre],["Type",r.narrative||"Non-Fiction"],["Ex-library",r.exlibris||"No"],
+ ["Condition",r.cond+(r.cid?" ("+r.cid+")":"")],["Store section",(STORE[r.store]||r.store||"")+(r.store?" · "+r.store:"")],["eBay category",r.cat],
+ ["Weight",(r.wt??r.wmaj??"?")+" lb"],["Shipping",r.ship],["Returns",r.ret],["Payment",r.pay],["Ships from",(r.loc||"")+(r.postal?" "+r.postal:"")],
+ ["List / auto / min","$"+Number(r.lst).toFixed(2)+" / $"+Number(r.auto).toFixed(2)+" / $"+Number(r.mn).toFixed(2)],["Quantity",r.qty],["Photos",(r.pics||[]).length],
+ ["Channels",r.decision==="ebay"?"eBay only":r.decision==="abe"?"AbeBooks only":r.decision==="hold"?"HOLD":r.decision==="delete"?"DELETE":"eBay + AbeBooks"],["Block 1 length",(r.b1||"").length+" / 1000"]];
+ return '<div class="det">'+D.filter(x=>x[1]!==undefined&&x[1]!==null&&x[1]!=="").map(x=>`<div><b>${esc(x[0])}</b>${esc(x[1])}</div>`).join("")+"</div>"}
+function card(pd,r,listed){const flags=[].concat(r.flags||[]);const qs=[].concat(r.questions||r.question||[]).filter(Boolean).map(q=>typeof q==="string"?{q}:q);
+ const dec=listed?"listed":(r.decision||"go");const isF=flags.length||qs.length;const done=!!r.reviewed||!!listed;
+ const cmp=r.comp&&r.comp.avg?`<div class="q">📈 <b>Claude priced against:</b> average <b>$${Number(r.comp.avg).toFixed(2)}</b> of ${esc(r.comp.n)} matching copies ($${Number(r.comp.low).toFixed(2)}–$${Number(r.comp.high).toFixed(2)}) — ${esc(r.comp.set||"")}${r.comp.dropped?"<br><span class=\"small\">outliers dropped: "+esc(r.comp.dropped)+"</span>":""}</div>`:"";
+ return `<div class="bk ${isF?"flag":""} ${/hold|delete/.test(dec)?"hold":""} ${done?"done":""}" data-pd="${esc(pd)}">
+ <div class="hdbar">
+  <span class="chip ${done?"ok":""}" data-chip>${done?"✔ OK":"review"}</span>
+  <b>${esc(pd)}</b><span class="ttl">${esc(r.title)}</span>
+  <span class="pricetag" data-pricetag>$${Number(r.lst).toFixed(2)}</span><span class="small">${esc(r.cond)} · ${(r.pics||[]).length} photos · ${esc(r.wt??r.wmaj??"?")} lb</span>
+  ${isF?`<span class="chip flag">⚑ ${flags.length+qs.length}</span>`:""}
+  ${listed?'<span class="tag ok">listed · '+esc(listed)+'</span>':""}
+  <span class="band mute" data-band>comps…</span>
+ </div>
+ <div class="body">
+ ${listed?"":seg("dec",dec,DEC,"data-dec")}
+ <div class="meta">${esc(r.author||"")}${r.publisher?" · "+esc(r.publisher):""}${r.year?" · "+esc(r.year):""}${r.fmt?" · "+esc(r.fmt):""} · <b>${(r.pics||[]).length} photos</b> · <b>${esc(r.wt??r.wmaj??"?")} lb</b>${r.ship?" · "+esc(r.ship):""}${r.isbn?" · ISBN "+esc(r.isbn):""}</div>
+ <div class="lbl">📖 The listing, exactly as the buyer sees it</div>
+ <div class="desc open">${r.b2||"<i>no description</i>"}</div>
+ <div class="lbl">📋 Condition line on the eBay listing <span class="small">(${(r.b1||"").length} / 1000 characters)</span></div>
+ <div class="b1 open">${esc(r.b1||"")}</div>
+ <div class="pics">${(r.pics||[]).map((u,i)=>`<img src="${esc(u)}" loading="lazy" alt="photo ${i+1}" title="photo ${i+1} of ${(r.pics||[]).length}" onclick="this.classList.toggle('big')">`).join("")}</div>
+ <details style="margin-top:10px"><summary>The data behind it — fields, category, shipping</summary>${details(r)}</details>
+ ${(cmp||flags.length)?`<details style="margin-top:6px"><summary>Claude's notes on this book (${flags.length+(cmp?1:0)})</summary>${cmp}${flags.length?`<div class="q">⚑ ${flags.map(esc).join("<br>⚑ ")}</div>`:""}</details>`:""}
+ <div class="grid">
+  <div><label>Grade</label>${seg("grade",r.cond,GRADES.map(g=>[g[0]]),"data-grade")}</div>
+  <div><label>Your list price</label><div class="pricebox"><div class="big">$<span class="lst">${Number(r.lst).toFixed(2)}</span></div><div class="am">auto-accept <b class="au">$${Number(r.auto).toFixed(2)}</b> · min offer <b class="mo">$${Number(r.mn).toFixed(2)}</b></div></div>${seg("price",null,[["-10","−$10"],["-5","−$5"],["0","as priced"],["5","+$5"],["10","+$10"]],"data-price")}</div>
+  <div><label>Qty <b class="qty">${esc(r.qty)}</b></label>${seg("qty",null,[["-1","−1"],["1","+1"]],"data-qty")}</div>
+ </div>
+ ${qs.map((q,i)=>`<div class="q" data-qi="${i}">❓ ${esc(q.q)}${seg("ans",((r.answers||{})[i])||"",qopts(q).map(o=>[o]),"data-v")}</div>`).join("")}
+ ${listed?"":`<div class="row okrow"><button class="primary" data-ok>✔ OK — this book is right</button><span class="small">collapses it and opens the next one</span></div>`}
+ </div></div>`}
+function openOnly(el){$$("#rowsCards .bk").forEach(x=>x.classList.toggle("open",x===el));if(el)el.scrollIntoView({block:"nearest",behavior:"smooth"})}
+function gate(){const cards=$$("#rowsCards .bk");
+ const need=cards.filter(el=>{const r=rowsData[el.dataset.pd]||{};return !el.querySelector(".tag.ok")&&/^(go|ebay)$/.test(r.decision||"go")});
+ const left=need.filter(el=>!(rowsData[el.dataset.pd]||{}).reviewed);
+ const tot=need.length,ok=tot-left.length,p=$("#revProgress");
+ if(p)p.innerHTML=(tot?`<b>${ok} of ${tot}</b> books OK'd`+(left.length?` — next up <b>${esc(left[0].dataset.pd)}</b>`:` — <b>all clear, you can list</b>`):"nothing to review")+
+  `<div class="bar"><i style="width:${tot?Math.round(ok/tot*100):100}%"></i></div>`;
+ const block=left.length>0;
+ const oa=$("#btnOkAll");if(oa)oa.disabled=!left.length;
+ $("#btnAddOne").disabled=$("#btnAddAll").disabled=!helperOK||block;
+ $("#btnAddOne").title=$("#btnAddAll").title=block?left.length+" book(s) still need an OK: "+left.slice(0,6).map(x=>x.dataset.pd).join(", "):"";}
+function dirty(){$("#btnSaveRows").disabled=false;$("#saveInfo").textContent="unsaved changes"}
+function applyGrade(r,g){const cid=(GRADES.find(x=>x[0]===g)||[])[1];const old=r.cond;r.cond=g;r.cid=cid;r.ch="Condition: "+g;
+ if(old&&r.b1)r.b1=r.b1.replace(new RegExp("^"+old.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+" as graded in hand"),g+" as graded in hand");
+ if(old&&r.b2)r.b2=r.b2.split("Condition: "+old).join("Condition: "+g).split("Condition:</strong> "+old).join("Condition:</strong> "+g);}
+$("#btnLoadRows").onclick=async()=>{const f=$("#rowsFile").value;if(!f.startsWith("PapaDuck_eBay_Rows_"))return;const j=await api("/rows/get",{file:f});if(j.error){$("#rowsInfo").textContent=j.error;return}
+ rowsFile=f;rowsData=j.rows;rowsOrig=JSON.parse(JSON.stringify(j.rows));let idmap={};try{idmap=await get("/idmap")}catch(e){}
+ const pds=Object.keys(rowsData),only=$("#onlyFlagged").checked;
+ $("#rowsCards").innerHTML=pds.filter(pd=>!only||(rowsData[pd].flags||[]).length||(rowsData[pd].questions||rowsData[pd].question)).map(pd=>card(pd,rowsData[pd],idmap[pd])).join("")||'<span class="small">nothing to show</span>';
+ const nf=pds.filter(p=>(rowsData[p].flags||[]).length||rowsData[p].questions||rowsData[p].question).length;
+ $("#rowsInfo").textContent=pds.length+" books — "+pds.filter(p=>idmap[p]).length+" already listed — "+nf+" flagged / with questions";
+ $$("#rowsCards .bk").forEach(el=>{const pd=el.dataset.pd,r=rowsData[pd];
+  const on=(btn)=>{btn.parentElement.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===btn))};
+  el.querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>{r.decision=b.dataset.dec;on(b);el.classList.toggle("hold",/hold|delete/.test(r.decision));dirty();gate()});
+  el.querySelectorAll("[data-grade]").forEach(b=>b.onclick=()=>{applyGrade(r,b.dataset.grade);on(b);dirty()});
+  el.querySelectorAll("[data-price]").forEach(b=>b.onclick=()=>{const d=parseFloat(b.dataset.price);const base=rowsOrig[pd].lst;const v=Math.max(0.99,+(base+d).toFixed(2));
+   const ratio=(rowsOrig[pd].mn/rowsOrig[pd].lst)||0.65;r.lst=v;r.auto=+money(v*0.80);r.mn=+money(v*ratio);on(b);
+   el.querySelector(".pricebox .lst").textContent=r.lst.toFixed(2);el.querySelector(".pricebox .au").textContent="$"+Number(r.auto).toFixed(2);el.querySelector(".pricebox .mo").textContent="$"+Number(r.mn).toFixed(2);el.querySelector("[data-pricetag]").textContent="$"+r.lst.toFixed(2);dirty()});
+  el.querySelectorAll("[data-qty]").forEach(b=>b.onclick=()=>{r.qty=Math.max(1,(parseInt(r.qty)||1)+parseInt(b.dataset.qty));el.querySelector("label .qty").textContent=r.qty;dirty()});
+  el.querySelectorAll(".seg.ans button").forEach(b=>b.onclick=()=>{const idx=b.closest(".q").dataset.qi;r.answers=r.answers||{};r.answers[idx]=b.dataset.v;on(b);dirty()});
+  el.querySelector(".hdbar").onclick=e=>{if(e.target.closest("button"))return;openOnly(el.classList.contains("open")?null:el)};
+  const okb=el.querySelector("[data-ok]");
+  if(okb)okb.onclick=()=>{r.reviewed=true;el.classList.add("done");const c=el.querySelector("[data-chip]");c.className="chip ok";c.textContent="✔ OK";
+   el.classList.remove("open");dirty();gate();const nxt=$$("#rowsCards .bk").find(x=>!x.classList.contains("done"));if(nxt)openOnly(nxt)};
+ });
+ const first=$$("#rowsCards .bk").find(x=>!x.classList.contains("done"));if(first)openOnly(first);
+ gate();
+ runComps(pds.filter(pd=>!idmap[pd]));
+ $("#btnSaveRows").disabled=true;$("#saveInfo").textContent="";$("#btnAddAll").textContent="▶ List all marked GO / eBay only";gate()};
+/* v30 (2026-10-02) Papa Duck: "can you add on the dispatch a approve all feature". OK every book in one click,
+   but NEVER a book with an unanswered question (his rule the same night: "dont let me send it unless I answer questions"). */
+function unanswered(r){const qs=[].concat(r.questions||r.question||[]).filter(Boolean);return qs.filter((q,i)=>!String((r.answers||{})[i]||"").trim()).length}
+$("#btnOkAll").onclick=()=>{const cards=$$("#rowsCards .bk").filter(el=>{const r=rowsData[el.dataset.pd]||{};return !el.querySelector(".tag.ok")&&/^(go|ebay)$/.test(r.decision||"go")&&!r.reviewed});
+ if(!cards.length)return;const skip=[],ok=[];
+ for(const el of cards){const pd=el.dataset.pd,r=rowsData[pd];if(unanswered(r)){skip.push(pd);continue}
+  r.reviewed=true;el.classList.add("done");el.classList.remove("open");const c=el.querySelector("[data-chip]");if(c){c.className="chip ok";c.textContent="✔ OK"}ok.push(pd)}
+ if(ok.length)dirty();gate();
+ $("#okAllInfo").innerHTML="<b>"+ok.length+" book"+(ok.length===1?"":"s")+" OK'd.</b>"+(skip.length?" Still need your answer first: <b>"+skip.join(", ")+"</b>":"")+(ok.length?" Now press <b>Save changes</b>.":"");
+ const nxt=skip.length?$$("#rowsCards .bk").find(x=>x.dataset.pd===skip[0]):null;if(nxt)openOnly(nxt)};
+$("#onlyFlagged").onchange=()=>{if(rowsFile)$("#btnLoadRows").click()};
+function changesText(){const L=[];for(const pd in rowsData){const a=rowsData[pd],o=rowsOrig[pd]||{};
+ for(const f of ["decision","cond","lst","auto","mn","qty","reviewed"])if(String(a[f]??"")!==String(o[f]??""))L.push(`${pd} ${f}: ${o[f]??""} → ${a[f]??""}`);
+ const qs=[].concat(a.questions||a.question||[]).map(q=>typeof q==="string"?q:q.q);for(const i in (a.answers||{}))if((a.answers[i]||"")!==((o.answers||{})[i]||""))L.push(`${pd} ANSWER "${qs[i]||"?"}" → ${a.answers[i]}`)}return L.join("\n")}
+$("#btnSaveRows").onclick=async()=>{const ch=changesText();const j=await api("/rows/save",{file:rowsFile,rows:rowsData,changes:ch||"(no field changes)"});
+ if(j.ok){rowsOrig=JSON.parse(JSON.stringify(rowsData));$("#btnSaveRows").disabled=true;$("#saveInfo").textContent="Saved "+new Date().toLocaleTimeString()+(ch?" — "+ch.split("\n").length+" change(s) archived for Claude":"")}else $("#saveInfo").textContent=j.error||"save failed"};
+async function addBooks(ids){if(!$("#btnSaveRows").disabled){alert("Save changes first, then list.");return}
+ {const un=$$("#rowsCards .bk").filter(el=>{const r=rowsData[el.dataset.pd]||{};return /^(go|ebay)$/.test(r.decision||"go")&&!r.reviewed&&!el.querySelector(".tag.ok")});
+  if(un.length){alert("These books still need an OK:\n\n"+un.map(x=>x.dataset.pd).join(", "));return}}
+ if(!confirm("List on eBay now (live, real listings):\n\n"+ids.join(", ")))return;$("#btnAddOne").disabled=$("#btnAddAll").disabled=true;say("#addOut","Listing "+ids.join(", ")+"…");
+ const j=await api("/ebay/add",{file:rowsFile,ids});say("#addOut",j.out||JSON.stringify(j));
+ showVerify("#addVerify","EBAY ADD — "+(j.listed||[]).length+" listed"+((j.listed||[]).length?": "+j.listed.map(x=>x[0]+" → "+x[1]).join(", "):"")+"\n"+(j.verify||j.error||"?")+(j.archived?"\narchived ✓ — Claude records the ItemIDs in Airtable from the archive":"\narchived locally only"));
+ $("#btnAddOne").disabled=$("#btnAddAll").disabled=false;$("#btnLoadRows").click()}
+const checkedPds=()=>Object.keys(rowsData).filter(pd=>!(rowsData[pd].itemid)&&/^(go|ebay)$/.test(rowsData[pd].decision||"go")&&!$$("#rowsCards .bk").find(el=>el.dataset.pd===pd&&el.querySelector(".tag.ok")));
+$("#btnAddOne").onclick=()=>{const p=checkedPds();if(!p.length)return;addBooks([p[0]])};$("#btnAddAll").onclick=()=>{const p=checkedPds();if(p.length)addBooks(p)};
+
+/* ---------- eBay comps, automatic on Load (Rule BJ, no command for him) ---------- */
+async function runComps(pds){for(const pd of pds){const el=$$("#rowsCards .bk").find(x=>x.dataset.pd===pd);if(!el)continue;
+ let box=el.querySelector(".comps");if(!box){box=document.createElement("div");box.className="q comps";el.querySelector(".pics").after(box)}
+ const r=rowsData[pd];const q=(r.booktitle||r.title||"").replace(/[^A-Za-z0-9 ]/g," ").split(/\s+/).slice(0,8).join(" ");
+ box.innerHTML="📈 eBay comps: checking sold counts for <i>"+esc(q)+"</i>…";
+ const band=el.querySelector("[data-band]");
+ try{const j=await api("/ebay/comps",{q});const out=(j.out||j.error||"").trim();const lines=out.split("\n").filter(l=>l.trim());
+  const tail=lines.slice(-8).join("\n");box.innerHTML="📈 <b>eBay comps</b> for <i>"+esc(q)+"</i><pre style='margin:6px 0 0;max-height:220px'>"+esc(tail||"(no output)")+"</pre>"+(lines.length>8?"<details><summary>full output</summary><pre style='max-height:400px'>"+esc(out)+"</pre></details>":"");
+  const m=/low\s+([\d.]+)\s+median\s+([\d.]+)\s+high\s+([\d.]+)\s+n=(\d+)/i.exec(out);
+  if(band){ if(m){const lo=+m[1],md=+m[2],hi=+m[3],n=+m[4],mine=Number(rowsData[pd].lst)||0;
+    band.textContent=`live eBay n=${n} · low $${lo.toFixed(2)} · mid $${md.toFixed(2)} · high $${hi.toFixed(2)} — you $${mine.toFixed(2)}`;
+    band.className="band "+(mine<lo?"bad":mine<md?"warn":"");
+    band.title=mine<lo?"BELOW the cheapest live copy - Rule BQ says that is an error":(mine<md?"under the middle of the live range":"at or above the middle");}
+   else{band.textContent="live eBay: no usable range";band.className="band mute"} }}
+ catch(e){box.textContent="📈 eBay comps: could not run ("+e+")";if(band){band.textContent="⚠ COMPS FAILED";band.className="band bad";band.title="the comps call did not return - this book is priced on AbeBooks alone"}}}}
+/* ---------- v24: live progress (one bar per PD) ---------- */
+let progTimer=null,progT0=0;
+const clock=()=>{const s=Math.max(0,Math.round((Date.now()-progT0)/1000));return Math.floor(s/60)+":"+String(s%60).padStart(2,"0")};
+function renderProg(el,p){const box=$(el);if(!p||!p.order||!p.order.length){return}box.style.display="block";
+ const its=p.order.map(pd=>[pd,p.items[pd]||{}]);const nd=its.filter(x=>x[1].state==="done").length;
+ const tp=its.reduce((a,x)=>a+(x[1].total||0),0),dp=its.reduce((a,x)=>a+Math.min(x[1].done||0,x[1].total||0),0);
+ box.innerHTML=`<div class="ph"><b>${esc(p.stage||"")}</b> · ${nd} of ${its.length} done${tp?` · ${dp} of ${tp} steps`:""}${p.running?" · working… ⏱ "+clock():" · finished "+esc(p.finished||"")}</div>`+(p.running&&p.last?`<div class="plast">▸ ${esc(p.last)}${p.last_at?" ("+esc(p.last_at)+")":""}</div>`:"")+
+  `<div class="prow"><b>ALL</b><div class="pb"><i style="width:${tp?Math.round(dp/tp*100):0}%"></i></div><span class="pn">${tp?Math.round(dp/tp*100):0}%</span></div>`+
+  its.map(([pd,it])=>{const pc=it.total?Math.round(Math.min(it.done||0,it.total)/it.total*100):(it.state==="done"?100:0);
+   return `<div class="prow ${esc(it.state||"")}"><b>${esc(pd)}</b><div class="pb"><i style="width:${pc}%"></i></div><span class="pn" title="${esc(it.note||"")}">${esc(it.note||it.state||"")}</span></div>`}).join("")}
+function progStart(el){if(progTimer){clearInterval(progTimer)}progT0=Date.now();$(el).style.display="block";$(el).innerHTML='<div class="ph"><b>starting…</b></div>';
+ progTimer=setInterval(async()=>{try{renderProg(el,await get("/progress"))}catch(e){}},1000)}
+async function progStop(el){if(progTimer){clearInterval(progTimer);progTimer=null}if(el){try{renderProg(el,await get("/progress"))}catch(e){}}}
+
+/* ---------- AbeBooks push ---------- */
+async function loadAbeList(){try{const j=await get("/abe/list");const s=$("#abeFile");const n=(j.files||[]).length;
+ s.innerHTML=(j.files||[]).map(f=>`<option>${esc(f)}</option>`).join("")||"<option>— no AbeBooks file yet —</option>";
+ const t=$("#f2tag");t.className="tag "+(n?"ok":"warn");t.textContent=n?"AbeBooks file ✓":"AbeBooks file — not downloaded yet";$("#abeInfo").textContent=""}catch(e){}}
+$("#btnAbeList").onclick=loadAbeList;
+async function abeRun(path,label){const f=$("#abeFile").value;if(!f.startsWith("PapaDuck_AbeBooks_")){$("#abeInfo").textContent="no AbeBooks file selected";return}
+ if(!confirm(label+" now?\n\n"+f))return;$("#btnAbeBlast").disabled=$("#btnAbePush").disabled=$("#btnAbeImages").disabled=true;
+ $("#abeInfo").textContent="running — watch the bars below…";say("#abeOut",label+" "+f+"…");progStart("#abeProg");
+ try{const j=await api(path,{file:f});await progStop("#abeProg");say("#abeOut",j.out||JSON.stringify(j));
+  showVerify("#abeVerify",(j.verify||j.error||"?")+(j.archived?"\narchived ✓ — Claude reads the result from the archive":"\narchived locally only"));
+  $("#abeInfo").textContent="done "+new Date().toLocaleTimeString()}
+ catch(e){progStop("#abeProg");showVerify("#abeVerify","failed: "+e)}
+ $("#btnAbeBlast").disabled=$("#btnAbePush").disabled=$("#btnAbeImages").disabled=false;loadRuns()}
+$("#btnAbeBlast").onclick=()=>abeRun("/abe/blast","Push to AbeBooks (data + photos)");
+$("#btnAbePush").onclick=()=>abeRun("/abe/push","Data only (no photos)");
+$("#btnAbeImages").onclick=()=>abeRun("/abe/images","Photos only - upload every photo file for the books in this file");
+$("#btnAbePhotos").onclick=async()=>{const f=$("#abeFile").value;if(!f.startsWith("PapaDuck_AbeBooks_"))return;
+ $("#abeInfo").textContent="checking every source image…";const j=await api("/abe/photos",{file:f});
+ showVerify("#abeVerify",j.verify||j.error||"?");$("#abeInfo").textContent=j.ok?"all photos reachable ✓":"dead links found — see above";loadRuns()};
+
+/* ---------- Etsy (v23) ---------- */
+let etsyFile="",etsyBooks=[];
+async function loadEtsyList(){try{const j=await get("/etsy/list");const s=$("#etsyFile");const n=(j.files||[]).length;
+ s.innerHTML=(j.files||[]).map(f=>`<option>${esc(f)}</option>`).join("")||"<option>— no Etsy file tonight —</option>";
+ const t=$("#f3tag");t.className="tag "+(n?"etsy":"mute");t.textContent=n?"Etsy file ✓":"Etsy — none tonight";
+ $("#etsyListInfo").textContent=j.keys?"":"⚠ Etsy keys not found on this computer — tell Claude"}catch(e){}}
+function etsyButtons(){const todo=etsyBooks.filter(b=>!b.listed);const bad=$("#etsyBooks").dataset.bad==="1";
+ $("#btnEtsyOne").disabled=!helperOK||bad||!todo.length;$("#btnEtsyAll").disabled=!helperOK||bad||!todo.length;$("#btnEtsyFix").disabled=!helperOK||!etsyBooks.some(b=>b.listed);
+ $("#btnEtsyAll").textContent=todo.length?"▶ Send "+(todo.length===1?"it":"all "+todo.length)+" to Etsy":"▶ Send the rest to Etsy"}
+$("#btnEtsyLoad").onclick=async()=>{const f=$("#etsyFile").value;if(!f.startsWith("PapaDuck_Etsy_"))return;
+ const j=await api("/etsy/get",{file:f});if(j.error){$("#etsyBooks").textContent=j.error;return}
+ etsyFile=f;etsyBooks=j.books||[];const P=j.problems||[];$("#etsyBooks").dataset.bad=P.length?"1":"";
+ $("#etsyBooks").innerHTML=(P.length?`<div class="verify bad">NOT READY — nothing will be sent until Claude fixes these:\n${esc(P.join("\n"))}</div>`:"")+
+  etsyBooks.map(b=>`<div class="etsyrow">${b.cover?`<img src="${esc(b.cover)}" alt="">`:""}<div class="t"><b>${esc(b.sku)}</b> ${esc(b.title)}<div class="small">${esc(b.year)} · qty ${esc(b.quantity)} · ${esc(b.photos)} photos · ${b.section?"section "+esc(b.section)+" · ":""}${esc(b.profile)} shipping</div></div><span class="pr">$${Number(b.price).toFixed(2)}</span>${b.listed?`<span class="tag ok">on Etsy · ${esc(b.listed)}</span>`:'<span class="tag etsy">to send</span>'}</div>`).join("");
+ $("#etsyInfo").textContent=etsyBooks.length+" book(s) · "+etsyBooks.filter(b=>b.listed).length+" already on Etsy";etsyButtons()};
+async function etsySend(ids){if(!confirm("List on Etsy now (live, real listings):\n\n"+(ids.join(", ")||"every book in "+etsyFile)))return;
+ $("#btnEtsyOne").disabled=$("#btnEtsyAll").disabled=true;$("#etsyInfo").textContent="sending — watch the bars below…";say("#etsyOut","Etsy "+etsyFile+" "+ids.join(", ")+"…");progStart("#etsyProg");
+ try{const j=await api("/etsy/list-books",{file:etsyFile,ids});await progStop("#etsyProg");say("#etsyOut",j.out||JSON.stringify(j));
+  showVerify("#etsyVerify",(j.verify||j.error||"?")+(j.archived?"\narchived ✓ — Claude reads the result from the archive":"\narchived locally only"));$("#etsyInfo").textContent="done "+new Date().toLocaleTimeString()}
+ catch(e){progStop("#etsyProg");showVerify("#etsyVerify","failed: "+e)}
+ loadRuns();$("#btnEtsyLoad").click()}
+$("#btnEtsyOne").onclick=()=>{const b=etsyBooks.find(x=>!x.listed);if(b)etsySend([b.sku])};
+$("#btnEtsyAll").onclick=()=>{const t=etsyBooks.filter(x=>!x.listed).map(x=>x.sku);if(t.length)etsySend(t)};
+/* v25: fix titles + shop sections on books already live on Etsy (reads both back) */
+$("#btnEtsyFix").onclick=async()=>{const ids=etsyBooks.filter(x=>x.listed).map(x=>x.sku);if(!ids.length)return;
+ if(!confirm("Update the title and shop section on Etsy for:\n\n"+ids.join(", ")))return;
+ $("#btnEtsyFix").disabled=true;$("#etsyInfo").textContent="updating — watch the bars below…";progStart("#etsyProg");
+ try{const j=await api("/etsy/update",{file:etsyFile,ids});await progStop("#etsyProg");say("#etsyOut",j.out||JSON.stringify(j));
+  showVerify("#etsyVerify",(j.verify||j.error||"?")+(j.archived?"\narchived ✓ — Claude reads the result from the archive":"\narchived locally only"));$("#etsyInfo").textContent="done "+new Date().toLocaleTimeString()}
+ catch(e){progStop("#etsyProg");showVerify("#etsyVerify","failed: "+e)}
+ loadRuns();$("#btnEtsyLoad").click()};
+
+/* ---------- Amazon listing (v29) ---------- */
+let amzFile="",amzBooks=[];
+async function loadAmzFiles(){try{const j=await get("/amazon/list");const s=$("#amzFile");const n=(j.files||[]).length;
+ s.innerHTML=(j.files||[]).map(f=>`<option>${esc(f)}</option>`).join("")||"<option>— no Amazon file tonight —</option>";
+ const t=$("#f4tag");t.className="tag "+(n?"amz":"mute");t.textContent=n?"Amazon file ✓":"Amazon — none tonight";
+ $("#amzListInfo").textContent=j.keys?"":"⚠ Amazon keys not saved — Settings"}catch(e){}}
+function amzButtons(){const todo=amzBooks.filter(b=>!b.listed);const bad=$("#amzBooks").dataset.bad==="1";
+ $("#btnAmzPreview").disabled=!helperOK||bad||!amzBooks.length;$("#btnAmzOne").disabled=$("#btnAmzAll").disabled=!helperOK||bad||!todo.length;
+ $("#btnAmzCheck").disabled=$("#btnAmzResend").disabled=!helperOK||bad||!amzBooks.length;
+ $("#btnAmzAll").textContent=todo.length?"▶ List "+(todo.length===1?"it":"all "+todo.length)+" on Amazon":"▶ List the rest on Amazon"}
+$("#btnAmzLoad").onclick=async()=>{const f=$("#amzFile").value;if(!f.startsWith("PapaDuck_Amazon_"))return;
+ const j=await api("/amazon/get",{file:f});if(j.error){$("#amzBooks").textContent=j.error;return}
+ amzFile=f;amzBooks=j.books||[];const P=j.problems||[];$("#amzBooks").dataset.bad=P.length?"1":"";
+ $("#amzBooks").innerHTML=(P.length?`<div class="verify bad">NOT READY — nothing will be sent until Claude fixes these:\n${esc(P.join("\n"))}</div>`:"")+
+  amzBooks.map(b=>`<div class="etsyrow">${b.cover?`<img src="${esc(b.cover)}" alt="">`:""}<div class="t"><b>${esc(b.sku)}</b> ${esc(b.title)}<div class="small">ASIN ${esc(b.asin)} · ${esc(b.cond)} · qty ${esc(b.quantity)}${b.fit?" · fit "+esc(b.fit):""}</div></div><span class="pr amz">$${Number(b.price).toFixed(2)}</span>${b.listed?'<span class="tag ok">on Amazon</span>':'<span class="tag amz">to send</span>'}</div>`).join("");
+ $("#amzInfo2").textContent=amzBooks.length+" book(s) · "+amzBooks.filter(b=>b.listed).length+" already on Amazon";amzButtons()};
+async function amzSend(ids,preview,resend){if(!preview&&!confirm((resend?"Re-send to Amazon (updates the same listings):":"List on Amazon now (live, real listings):")+"\n\n"+ids.join(", ")))return;
+ $("#btnAmzPreview").disabled=$("#btnAmzOne").disabled=$("#btnAmzAll").disabled=true;$("#amzInfo2").textContent=(preview?"Amazon is checking":"listing")+" — watch the bars below…";progStart("#amzProg");
+ try{const j=await api("/amazon/list-books",{file:amzFile,ids,preview,resend:!!resend});await progStop("#amzProg");say("#amzOut",j.out||JSON.stringify(j));
+  showVerify("#amzVerify2",(j.verify||j.error||"?")+(j.archived?"\narchived ✓ — Claude reads the result from the archive":"\narchived locally only"));$("#amzInfo2").textContent="done "+new Date().toLocaleTimeString()}
+ catch(e){progStop("#amzProg");showVerify("#amzVerify2","failed: "+e)}
+ loadRuns();$("#btnAmzLoad").click()}
+$("#btnAmzPreview").onclick=()=>amzSend(amzBooks.map(b=>b.sku),true);
+$("#btnAmzOne").onclick=()=>{const b=amzBooks.find(x=>!x.listed);if(b)amzSend([b.sku],false)};
+$("#btnAmzAll").onclick=()=>{const t=amzBooks.filter(x=>!x.listed).map(x=>x.sku);if(t.length)amzSend(t,false)};
+/* v32: why is it not live? (Amazon's own issue list) + re-send the whole file as an update */
+$("#btnAmzResend").onclick=()=>amzSend(amzBooks.map(b=>b.sku),false,true);
+$("#btnAmzCheck").onclick=async()=>{$("#btnAmzCheck").disabled=true;$("#amzInfo2").textContent="asking Amazon…";
+ try{const j=await api("/amazon/check-live",{ids:amzBooks.map(b=>b.sku)});say("#amzOut",j.out||JSON.stringify(j));
+  showVerify("#amzVerify2",(j.verify||j.error||"?")+(j.archived?"\narchived ✓ — Claude reads the result from the archive":""));$("#amzInfo2").textContent="checked "+new Date().toLocaleTimeString()}
+ catch(e){showVerify("#amzVerify2","failed: "+e)}$("#btnAmzCheck").disabled=false};
+
+/* ---------- Runs archive ---------- */
+async function loadRuns(){try{const j=await get("/runs");const R=j.runs||[];$("#runsInfo").textContent=R.length+" most recent (last 3 days shown; all days kept on disk)";
+ $("#runsTable").innerHTML='<table><tr><th>When</th><th>Action</th><th>PDs</th><th>Result</th><th>Verification</th><th>Output</th></tr>'+R.map(r=>`<tr><td>${esc(r.when).replace("T"," ")}</td><td>${esc(r.action)}</td><td>${esc(r.pds)}</td><td><span class="tag ${vclass(r.result)}">${esc(r.result)}</span></td><td><pre style="max-height:120px;margin:0">${esc(r.verify||r.notes||"")}</pre></td><td><details><summary>show</summary><pre style="max-height:200px;margin:0">${esc(r.output)}</pre></details></td></tr>`).join("")+"</table>"}catch(e){$("#runsInfo").textContent="helper not running"}}
+$("#btnRuns").onclick=loadRuns;
+
+/* ---------- Install ---------- */
+async function loadDl(){try{const j=await get("/downloads");const F=j.files||[];$("#dlInfo").textContent=F.length?F.length+" file(s) from the last 2 days in "+j.folder+" — only the newest copy of each is ticked":"No new Papa Duck files from the last 2 days in "+j.folder+" — download Claude's file first, then Refresh.";
+ $("#dlTable").innerHTML=F.length?'<table>'+F.map(f=>`<tr><td>${f.note?"":`<input type="checkbox" data-f="${esc(f.name)}" ${f.newest?"checked":""}>`}</td><td>${esc(f.name)}</td><td class="small">${esc(f.when)}${f.note?' · <span class="tag warn">'+esc(f.note)+'</span>':(f.newest?"":" · older copy")}</td></tr>`).join("")+"</table>":"";$("#btnInstall").disabled=!F.some(f=>f.newest)}catch(e){$("#dlInfo").textContent="helper not running"}}
+$("#btnDl").onclick=loadDl;
+$("#btnInstall").onclick=async()=>{const files=$$("#dlTable input:checked").map(c=>c.dataset.f);if(!files.length)return;const j=await api("/install",{files});
+ say("#installOut",(j.results||[]).map(r=>r[0]+": "+r[1]).join("\n")||JSON.stringify(j));if(j.restart)say("#installOut","Helper updated — restarting itself. Reload this page in ~5 seconds.");loadDl();loadRowsList();loadEtsyList()};
+
+/* ---------- v26: Amazon ---------- */
+$("#btnAmzSave").onclick=async()=>{const b={client_id:$("#amzCid").value.trim(),client_secret:$("#amzSec").value.trim(),refresh_token:$("#amzTok").value.trim(),seller_id:$("#amzSid").value.trim(),keepa_key:$("#amzKeepa").value.trim()};
+ $("#amzInfo").textContent="saving and logging in to Amazon…";const j=await api("/settings/amazon",b);
+ if(j.ok){["#amzSec","#amzTok","#amzKeepa"].forEach(x=>$(x).value="");$("#amzInfo").textContent=(j.login?"✔ Saved — ":"⚠ Saved, but: ")+j.message;ping()}else $("#amzInfo").textContent=j.error||"failed"};
+$("#btnAmzTest").onclick=async()=>{const isbn=$("#amzIsbn").value.trim();if(!isbn)return;showVerify("#amzVerify","asking Amazon about "+isbn+"…");
+ const j=await api("/amazon/check",{isbn,grade:$("#amzGrade").value});const r=j.result||{};
+ showVerify("#amzVerify",j.error?("failed: "+j.error):[(r.status==="ok"?"✔ YOU CAN LIST IT":r.status==="restricted"?"🚫 RESTRICTED":r.status==="not_on_amazon"?"— NOT ON AMAZON":"? "+r.status)+"  ("+(r.cond||"")+")",
+  r.asin?("ASIN "+r.asin+" · "+(r.amazon_title||"")):"", r.fit?("Amazon fit: "+r.fit+" — "+(r.fit_why||"")):"",
+  (r.reasons||[]).map(x=>"reason: "+x.message+(x.link?"  "+x.link:"")).join("\n"), r.keepa?("Keepa: "+r.keepa+(r.used_avg180?" · used avg 180d $"+r.used_avg180:"")+(r.bought_month?" · bought last month "+r.bought_month:"")):"", r.note||""].filter(Boolean).join("\n"))};
+$("#btnAmzSweep").onclick=async()=>{showVerify("#amzVerify","checking Drafts against Amazon (Keepa adds about a minute per book)…");const j=await api("/amazon/sweep",{limit:20});showVerify("#amzVerify",j.verify||j.error)};
+
+/* ---------- Settings ---------- */
+$("#btnTok").onclick=async()=>{const t=$("#atTok").value.trim();if(!t){return}const j=await api("/settings/airtable",{token:t});
+ $("#tokInfo").textContent=j.ok?(j.airtable_reachable?"Saved and Airtable reachable ✓ — first archive row written.":"Saved, but Airtable did not accept it — check the token's scopes/base access."):(j.error||"failed");if(j.ok){$("#atTok").value="";ping()}};
+</script></body></html>
