@@ -1,0 +1,421 @@
+<title>Papa Duck Send Station</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Atkinson+Hyperlegible+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one column of night cards; each book is a row with a strip of photo boxes that fill green as they land. */
+:root {
+  --bg: #f3f5f2; --panel: #ffffff; --ink: #1d2420; --muted: #5d6a63; --line: #d5ddd8;
+  --accent: #1f6f5c; --accent-ink: #ffffff;
+  --gray: #dfe5e1; --yellow: #f2c94c; --green: #2f9e5b; --red: #d64545;
+  --gray-ink: #4c5752; --yellow-ink: #3d2f00; --green-ink: #ffffff; --red-ink: #ffffff;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "Atkinson Hyperlegible Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141a17; --panel: #1c2420; --ink: #e8efea; --muted: #9fb0a7; --line: #2f3a35;
+  --accent: #4fbf9c; --accent-ink: #0d1411;
+  --gray: #2c3632; --yellow: #e0b53a; --green: #3fbf72; --red: #e46262;
+  --gray-ink: #b9c6bf; --yellow-ink: #1f1700; --green-ink: #06140c; --red-ink: #1a0505; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141a17; --panel: #1c2420; --ink: #e8efea; --muted: #9fb0a7; --line: #2f3a35;
+  --accent: #4fbf9c; --accent-ink: #0d1411;
+  --gray: #2c3632; --yellow: #e0b53a; --green: #3fbf72; --red: #e46262;
+  --gray-ink: #b9c6bf; --yellow-ink: #1f1700; --green-ink: #06140c; --red-ink: #1a0505; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 17px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px }
+.wrap { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px }
+h1 { font-size: 1.6rem; margin: 0; text-wrap: balance }
+.conn { font-size: .95rem; color: var(--muted) }
+.conn b { color: var(--ink) }
+.banner { background: var(--panel); border: 2px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
+.banner.bad { border-color: var(--red) }
+.banner[hidden] { display: none }
+.job { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px }
+.jobhead { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center }
+.jobname { font-weight: 700; font-size: 1.15rem; min-width: 0; overflow-wrap: anywhere; flex: 1 1 280px }
+.chip { font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted) }
+.pill { font-weight: 700; padding: 4px 12px; border-radius: 999px; font-size: .95rem }
+.pill.ready { background: var(--gray); color: var(--gray-ink) }
+.pill.running { background: var(--yellow); color: var(--yellow-ink) }
+.pill.closed { background: var(--green); color: var(--green-ink) }
+.pill.not_closed { background: var(--red); color: var(--red-ink) }
+.btns { display: flex; gap: 10px; flex-wrap: wrap }
+button { font: inherit; font-weight: 700; border-radius: 8px; padding: 10px 18px; border: 2px solid var(--accent); background: var(--accent); color: var(--accent-ink); cursor: pointer }
+button.ghost { background: transparent; color: var(--accent) }
+button:disabled { opacity: .45; cursor: default }
+button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px }
+.summary { font-weight: 700 }
+.meta { color: var(--muted); font-size: .95rem; display: flex; flex-wrap: wrap; gap: 4px 18px; font-variant-numeric: tabular-nums }
+.books { display: flex; flex-direction: column; gap: 10px }
+.book { display: grid; grid-template-columns: 108px minmax(0, 1fr); gap: 4px 12px; align-items: start; padding-top: 10px; border-top: 1px solid var(--line) }
+.pd { font-family: var(--f-mono); font-weight: 600; font-size: 1rem; padding: 6px 8px; border-radius: 6px; text-align: center; background: var(--gray); color: var(--gray-ink) }
+.pd.working { background: var(--yellow); color: var(--yellow-ink) }
+.pd.done { background: var(--green); color: var(--green-ink) }
+.pd.failed, .pd.short { background: var(--red); color: var(--red-ink) }
+.right { min-width: 0; display: flex; flex-direction: column; gap: 6px }
+.titleline { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; justify-content: space-between }
+.title { font-size: .95rem; color: var(--muted); overflow-wrap: anywhere; min-width: 0 }
+.price { font-weight: 700; font-variant-numeric: tabular-nums }
+.priceedit { display: inline-flex; gap: 6px; align-items: center; font-weight: 700 }
+.priceedit input { font: inherit; width: 6.5em; padding: 6px 8px; border: 2px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); font-variant-numeric: tabular-nums }
+.priceedit input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px }
+button.small { padding: 6px 12px; font-size: .9rem }
+.banner:not(.bad) { border-color: var(--green) }
+.strip { display: flex; flex-wrap: wrap; gap: 4px }
+.ph { font-family: var(--f-mono); font-size: .78rem; padding: 5px 7px; border-radius: 5px; background: var(--gray); color: var(--gray-ink); transition: background .3s }
+.ph.yellow { background: var(--yellow); color: var(--yellow-ink) }
+.ph.green { background: var(--green); color: var(--green-ink) }
+.ph.red { background: var(--red); color: var(--red-ink) }
+.note { font-size: .9rem; color: var(--muted); overflow-wrap: anywhere }
+.dataline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: .95rem }
+.empty { color: var(--muted) }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap }
+.tabs button { background: transparent; color: var(--accent) }
+.tabs button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink) }
+details.bookswrap > summary { cursor: pointer; color: var(--accent); font-weight: 700; padding: 4px 0 }
+details.bookswrap > summary:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: .9rem; color: var(--muted); align-items: center }
+.fba { border-left: 6px solid var(--accent) }
+.fbalist { display: flex; flex-direction: column; gap: 8px }
+.fbarow { display: grid; grid-template-columns: 108px minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; padding-top: 8px; border-top: 1px solid var(--line) }
+.fbarow .fn { font-family: var(--f-mono); font-size: .9rem; color: var(--muted) }
+.sub { font-weight: 700; margin-top: 4px }
+.err { color: var(--red); font-size: .9rem; overflow-wrap: anywhere }
+#print { display: none }
+@media (max-width: 520px) { .fbarow { grid-template-columns: 1fr } }
+@media print {
+  @page { size: 2.25in 1.25in; margin: 0 }
+  html, body { background: #fff !important; padding: 0 !important; margin: 0 !important }
+  body > *:not(#print) { display: none !important }
+  #print { display: block !important }
+  .stk { width: 2.25in; height: 1.25in; overflow: hidden; position: relative; page-break-after: always; break-after: page; color: #000; font-family: Arial, sans-serif }
+  .stk:last-child { page-break-after: auto; break-after: auto }
+}
+.stk svg { position: absolute; left: .1in; top: .07in; width: 2.05in; height: .5in }
+.stk .f { position: absolute; left: 0; right: 0; top: .59in; text-align: center; font-weight: 700; font-size: 9pt; line-height: .19in }
+.stk .t, .stk .c { position: absolute; left: .08in; right: .08in; text-align: center; font-size: 6.5pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: .16in }
+.stk .t { top: .80in } .stk .c { top: .97in }
+@media (max-width: 520px) { .book { grid-template-columns: 1fr } .pd { justify-self: start } }
+@media (prefers-reduced-motion: reduce) { .ph { transition: none } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Papa Duck Send Station</h1>
+    <div class="conn" id="conn">Connecting to Supabase…</div>
+  </header>
+  <div class="legend" aria-label="What the colors mean">
+    <span class="ph">PD-0000_1.jpg</span> waiting
+    <span class="ph yellow">PD-0000_2.jpg</span> sending
+    <span class="ph green">PD-0000_3.jpg</span> landed
+    <span class="ph red">PD-0000_4.jpg</span> failed
+  </div>
+  <div class="tabs" role="group" aria-label="Which sends to show">
+    <button id="tab-open" aria-pressed="true">Open</button>
+    <button id="tab-closed" aria-pressed="false">Closed</button>
+  </div>
+  <div class="banner" id="banner" hidden></div>
+  <div id="jobs"><p class="empty">Loading tonight's Etsy and AbeBooks sends…</p></div>
+  <div id="fbabox"></div>
+</div>
+<div id="print" aria-hidden="true"></div>
+
+<script>
+const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
+let mcp = null, jobs = [], timer = null, busy = false;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function parse(res) {
+  let p = res && res.payload;
+  let txt = typeof p === "string" ? p : (p && typeof p.result === "string" ? p.result : JSON.stringify(p ?? ""));
+  // the answer sits between the 2nd pair of untrusted-data tags; the first mention is inside a sentence
+  const m = txt.match(/<untrusted-data-[^>]+>\s*(\[[\s\S]*\])\s*<\/untrusted-data/);
+  const rows = JSON.parse(m ? m[1] : txt);
+  return rows;
+}
+async function q(sql) { return parse(await mcp.callTool(SERVER, TOOL, { project_id: PROJECT, query: sql }, { cache: false })); }
+
+function showError(e) {
+  const b = $("banner"); b.hidden = false; b.className = "banner bad";
+  const code = e && e.code;
+  const msg = {
+    server_not_connected: "The Supabase connector isn't connected for you. Add it in claude.ai Settings, Connectors, then reload this page.",
+    needs_reauth: "Supabase needs you to sign in again. Reconnect it in claude.ai Settings, Connectors.",
+    approval_required: "This page needs your OK to talk to Supabase.",
+    not_in_manifest: "Supabase is turned off for this page. Turn it back on in this page's Permissions menu.",
+    server_unavailable: "Supabase didn't answer just now. The page will try again in a moment.",
+  }[code] || ("Couldn't reach Supabase: " + (e && e.message || e));
+  b.innerHTML = "<span>" + esc(msg) + "</span>" + (code === "approval_required" ? '<button id="allow">Allow</button>' : "");
+  const a = $("allow"); if (a) a.onclick = () => { b.hidden = true; refresh(true); };
+}
+
+const CH = { ebay: ["eBay", 1], abe: ["AbeBooks", 2], etsy: ["Etsy", 3], amazon: ["Amazon", 4] };
+function day(j) { return String(j.created || "").slice(0, 10); }
+// A finished send moves to the Closed tab the moment it closes. For 30 minutes the Open tab keeps a one-line note of it.
+const KEEP_MS = 30 * 60 * 1000;
+let tab = "open";
+try { tab = localStorage.getItem("ss-tab") === "closed" ? "closed" : "open"; } catch (_) {}
+function isClosedTab(j) { return j.status === "closed"; }
+function justClosed(j) {
+  if (j.status !== "closed" || j.test) return false;
+  const t = Date.parse(j.finished || "");
+  return !!t && Date.now() - t <= KEEP_MS;
+}
+function recentNotes() {
+  const r = jobs.filter(justClosed).sort((a, b) => (CH[a.channel] || [0, 9])[1] - (CH[b.channel] || [0, 9])[1]);
+  if (!r.length) return "";
+  return `<div class="banner">${r.map((j) => { const [n, s] = CH[j.channel] || [j.channel, 0];
+    return `<span>✅ ${s ? "Step " + s + " · " : ""}${esc(n)}: <b>${esc(j.summary || "CLOSED")}</b></span>`; }).join("")}
+    <button class="ghost small" id="see-closed">See them on the Closed tab</button></div>`;
+}
+function setTab(t) {
+  tab = t; try { localStorage.setItem("ss-tab", t); } catch (_) {}
+  $("tab-open").setAttribute("aria-pressed", String(t === "open"));
+  $("tab-closed").setAttribute("aria-pressed", String(t === "closed"));
+  render();
+}
+function render() {
+  const box = $("jobs");
+  if (box.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;   // don't wipe a price he is typing
+  const nClosed = jobs.filter(isClosedTab).length;
+  $("tab-closed").textContent = "Closed (" + nClosed + ")";
+  $("tab-open").textContent = "Open (" + (jobs.length - nClosed) + ")";
+  const shown = jobs.filter((j) => (tab === "closed") === isClosedTab(j));
+  const notes = tab === "open" ? recentNotes() : "";
+  const wireNotes = () => { const s = $("see-closed"); if (s) s.onclick = () => setTab("closed"); };
+  if (!shown.length) {
+    box.innerHTML = notes + (tab === "closed" ? '<p class="empty">No closed sends yet.</p>'
+      : '<p class="empty">Nothing open right now. At blast off Claude puts the night\'s eBay, AbeBooks, Etsy and Amazon sends here, ready to go.</p>');
+    wireNotes(); renderFba();
+    return;
+  }
+  const sorted = shown.slice().sort((a, b) => day(b).localeCompare(day(a)) || (a.test - b.test) || ((CH[a.channel] || [0, 9])[1] - (CH[b.channel] || [0, 9])[1]) || b.id - a.id);
+  box.innerHTML = notes + sorted.map((j) => {
+    const items = j.items || [];
+    const [chName, step] = CH[j.channel] || [j.channel, 0];
+    const done = items.filter((i) => i.state === "done").length;
+    const photosAll = items.reduce((a, i) => a + (i.n || (i.photos || []).length || 0), 0);
+    const photosOk = items.reduce((a, i) => a + (i.photos || []).filter((x) => x === "green").length, 0);
+    const label = { ready: "Ready", running: j.run_mode === "preview" ? "Checking" : "Sending", closed: "CLOSED", not_closed: "NOT CLOSED" }[j.status] || j.status;
+    const canSend = j.status !== "running" && j.status !== "closed";
+    const waiting = items.filter((i) => ["waiting", "failed", "short"].includes(i.state)).length;
+    const data = j.channel === "abe" ? `<div class="dataline"><span class="ph ${j.data_state === "sent" ? "green" : j.data_state === "sending" ? "yellow" : j.data_state === "failed" ? "red" : ""}">${esc(j.data_name || "data file")}</span> book data file ${j.data_state === "sent" ? "sent" : j.data_state === "failed" ? "FAILED" : j.data_state === "sending" ? "sending" : "goes first"}</div>` : "";
+    const btns = canSend && waiting ? `<div class="btns">${j.channel === "amazon" ? `<button data-prev="${j.id}" class="ghost">Preview (nothing lists)</button>` : ""}<button data-job="${j.id}" data-one="1" class="ghost">Send ONE</button><button data-job="${j.id}" data-one="0">Send ${waiting === items.length ? "all" : "the rest"} (${waiting})</button></div>` : "";
+    const help = canSend && waiting && j.channel === "ebay" ? `<div class="note">Want a different price? Change it in the box and press Save. It updates AbeBooks, Etsy and Amazon too, and sets Auto-Accept and Min for you.</div>` : "";
+    return `<section class="job" aria-label="${esc(j.name)}">
+      <div class="jobhead">
+        <span class="chip">${j.test ? "Test · " : step ? "Step " + step + " · " : ""}${esc(chName)}</span>
+        <span class="jobname">${esc(j.name)}</span>
+        <span class="pill ${esc(j.status)}">${esc(label)}</span>
+      </div>
+      <div class="meta"><span>${done} of ${items.length} books done</span>${photosAll ? `<span>${photosOk} of ${photosAll} ${j.channel === "amazon" ? "checks" : "photos"} green</span>` : ""}${j.started ? `<span>started ${new Date(j.started).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>` : ""}</div>
+      ${j.summary ? `<div class="summary">${esc(j.summary)}</div>` : ""}
+      ${btns}${help}
+      ${data}
+      ${tab === "closed" ? `<details class="bookswrap"><summary>Show the ${items.length} books</summary>` : ""}<div class="books">${items.map((i) => {
+        const n = i.n || (i.photos || []).length;
+        const names = (i.names && i.names.length) ? i.names : Array.from({ length: n }, (_, k) => `${i.pd}_${k + 1}.jpg`);
+        const ph = names.map((nm, k) => `<span class="ph ${esc((i.photos || [])[k] || "")}">${esc(nm)}</span>`).join("");
+        const editable = j.channel === "ebay" && !j.test && ["waiting", "failed"].includes(i.state);
+        const price = i.price ? (editable ? `<span class="priceedit"><label for="p-${esc(i.pd)}">$</label><input id="p-${esc(i.pd)}" type="number" min="1" step="0.01" value="${Number(i.price).toFixed(2)}"><button class="ghost small" data-save="${esc(i.pd)}">Save</button></span>` : `<span class="price">$${Number(i.price).toFixed(2)}</span>`) : "";
+        return `<div class="book"><div class="pd ${esc(i.state)}">${esc(i.pd)}</div><div class="right">
+          <div class="titleline"><span class="title">${esc(i.title)}</span>${price}</div><div class="strip">${ph}</div>${i.note ? `<div class="note">${esc(i.note)}</div>` : ""}</div></div>`;
+      }).join("")}</div>${tab === "closed" ? "</details>" : ""}
+    </section>`;
+  }).join("");
+  box.querySelectorAll("button[data-job]").forEach((b) => b.onclick = () => start(+b.dataset.job, b.dataset.one === "1", b));
+  box.querySelectorAll("button[data-prev]").forEach((b) => b.onclick = () => preview(+b.dataset.prev, b));
+  box.querySelectorAll("button[data-save]").forEach((b) => b.onclick = () => savePrice(b.dataset.save, b));
+  wireNotes(); renderFba();
+}
+function say(text, bad) { const b = $("banner"); b.hidden = false; b.className = "banner" + (bad ? " bad" : ""); b.textContent = text; }
+async function savePrice(pd, btn) {
+  const v = Number($("p-" + pd).value);
+  if (!(v >= 1)) { say("Prices must be at least $1.00.", true); return; }
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    const rows = await q(`select pipeline.dispatch_set_price('${pd.replace(/[^A-Z0-9-]/g, "")}', ${v.toFixed(2)}) as r`);
+    const r = rows[0] && rows[0].r;
+    if (!r || !r.ok) say((r && r.error) || "That price didn't save.", true);
+    else say(`${pd} is now $${Number(r.price).toFixed(2)} (Auto-Accept $${Number(r.auto).toFixed(2)}, Min $${Number(r.min).toFixed(2)}). Updated: ${r.changed.join(", ")}${r.already_sent.length ? ". Already sent, not changed: " + r.already_sent.join(", ") : ""}.`, false);
+  } catch (e) { showError(e); }
+  document.activeElement && document.activeElement.blur && document.activeElement.blur();
+  refresh(true);
+}
+async function preview(id, btn) {
+  btn.disabled = true; btn.textContent = "Asking Amazon…";
+  try {
+    const rows = await q(`select pipeline.dispatch_preview(${Number(id)}) as r`);
+    const r = rows[0] && rows[0].r;
+    if (r && !r.ok) say(r.error, true);
+  } catch (e) { showError(e); }
+  refresh(true);
+}
+
+// ---------- Step 5 · Amazon FBA (2026-10-16: "can you move the amaze fba to the cloude send station?") ----------
+// Send the night's FBA books to Amazon, watch each one get its FNSKU, then print its sticker through the browser's print box.
+let fba = null, downloads = null;
+const C128 = ["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212","112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131","311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321","112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121","313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111","314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114","122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212","124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113","114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"];
+function code128b(text) {   // same encoder as the PC helper v45: '1' = bar, 10-module quiet zone each side
+  const vals = [104, ...Array.from(text, (c) => c.charCodeAt(0) - 32)];
+  if (vals.slice(1).some((v) => v < 0 || v > 95)) throw new Error("FNSKU has a character the barcode can't print: " + text);
+  const chk = (vals[0] + vals.slice(1).reduce((a, v, i) => a + (i + 1) * v, 0)) % 103;
+  let out = "";
+  for (const v of [...vals, chk, 106]) [...C128[v]].forEach((w, k) => { out += (k % 2 ? "0" : "1").repeat(+w); });
+  return "0".repeat(10) + out + "0".repeat(10);
+}
+function barsSvg(fn) {
+  const b = code128b(fn); let r = "", i = 0;
+  while (i < b.length) { if (b[i] === "1") { let k = i; while (k < b.length && b[k] === "1") k++; r += `<rect x="${i}" y="0" width="${k - i}" height="1"/>`; i = k; } else i++; }
+  return `<svg viewBox="0 0 ${b.length} 1" preserveAspectRatio="none" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg" fill="#000">${r}</svg>`;
+}
+const COND = { new_new: "New", used_like_new: "Used - Like New", used_very_good: "Used - Very Good", used_good: "Used - Good", used_acceptable: "Used - Acceptable" };
+function stickerHtml(it) {
+  const title = String(it.title || "").replace(/\s+/g, " ").slice(0, 80);
+  return `<div class="stk">${barsSvg(String(it.fnsku).trim().toUpperCase())}<div class="f">${esc(it.fnsku)}</div><div class="t">${esc(title)}</div><div class="c">${esc(COND[it.cond] || "Used")}</div></div>`;
+}
+function fbaRow(it, btn) {
+  const st = it.status, cls = st === "ready" ? "done" : st === "error" ? "failed" : "working";
+  if (it.print_pending) btn = `<span class="pill running">Printing…</span>`;
+  const word = { queued: "waiting its turn", listing: "listing on Amazon…", waiting_fnsku: "Amazon is making the sticker number…", removing: "taking it back off…", error: "problem", ready: it.printed_at ? "sticker printed" + (it.prints > 1 ? " " + it.prints + " times" : "") : "ready to print" }[st] || st;
+  return `<div class="fbarow"><div class="pd ${cls}">${esc(it.pd)}</div><div class="right"><span class="title">${esc(it.title)}</span>
+    <span class="note">${it.fnsku ? `<span class="fn">${esc(it.fnsku)}</span> · ` : ""}${esc(COND[it.cond] || "")}${it.price ? " · $" + Number(it.price).toFixed(2) : ""} · Box ${esc(it.box)} · ${esc(word)}</span>
+    ${it.error ? `<span class="err">${esc(it.error)}</span>` : ""}${it.print_error ? `<span class="err">Sticker didn't print: ${esc(it.print_error)}</span>` : ""}</div><div>${btn || ""}</div></div>`;
+}
+function renderFba() {
+  const box = $("fbabox");
+  if (tab !== "open" || !fba) { box.innerHTML = ""; return; }
+  const items = fba.items || [], waiting = fba.waiting || [];
+  const go = waiting.filter((w) => !w.held), held = waiting.filter((w) => w.held);
+  const working = items.filter((i) => ["queued", "listing", "waiting_fnsku", "removing", "error"].includes(i.status));
+  const ready = items.filter((i) => i.status === "ready" && i.fnsku && !i.printed_at);
+  const printed = items.filter((i) => i.status === "ready" && i.fnsku && i.printed_at);
+  const pill = working.some((i) => i.status === "error") ? ["not_closed", "PROBLEM"] : working.length || go.length ? ["running", go.length ? "Ready to send" : "Working"] : ready.length ? ["ready", "Print stickers"] : ["closed", "All set"];
+  box.innerHTML = `<section class="job fba" aria-label="Amazon FBA">
+    <div class="jobhead"><span class="chip">Step 5 · Amazon FBA</span><span class="jobname">FBA Box ${esc(fba.open_box)}</span><span class="pill ${pill[0]}">${pill[1]}</span></div>
+    ${go.length ? `<div class="sub">Waiting to go to Amazon FBA (${go.length})</div><div class="fbalist">${go.map((w) => `<div class="fbarow"><div class="pd">${esc(w.pd)}</div><div class="right"><span class="title">${esc(w.title)}</span></div><div class="price">${w.price ? "$" + Number(w.price).toFixed(2) : ""}</div></div>`).join("")}</div>
+      <div class="btns"><button id="fba-send">Send ${go.length} to Amazon FBA</button></div>` : ""}
+    ${held.length ? `<div class="note">Held for the family check — say OK in Drafts first: ${held.map((w) => esc(w.pd)).join(", ")}</div>` : ""}
+    ${working.length ? `<div class="sub">On the way (${working.length})</div><div class="fbalist">${working.map((i) => fbaRow(i, i.status === "error" ? `<button class="ghost small" data-fretry="${i.id}">Try again</button>` : "")).join("")}</div>` : ""}
+    ${ready.length ? `<div class="sub">Ready to print (${ready.length})</div>
+      <div class="btns"><button id="fba-printall">${ready.length > 1 ? "Print all " + ready.length + " stickers" : "Print the sticker"}</button>${downloads ? `<button class="ghost" id="fba-saveall">Save sticker file</button>` : ""}</div>
+      <div class="fbalist">${ready.map((i) => fbaRow(i, `<button class="small" data-fprint="${i.id}">Print</button>`)).join("")}</div>` : ""}
+    ${printed.length ? `<details class="bookswrap"><summary>In the box, sticker printed (${printed.length})</summary><div class="fbalist">${printed.map((i) => fbaRow(i, `<button class="ghost small" data-fprint="${i.id}">Print again</button>`)).join("")}</div></details>` : ""}
+    ${!go.length && !working.length && !items.length ? `<p class="empty">Nothing for FBA right now. Books you switch to FBA in Drafts show up here at blast off.</p>` : ""}
+    <div class="note">${helperOn() ? `Sticker printer: <b>${esc(fba.printer)}</b> on the home computer ✅ — Print sends the sticker straight to it, no print box.` : `The home computer's sticker printer isn't answering right now, so Print saves a sticker file instead. Open it and print on the JADENS, paper 2.25 × 1.25 in, margins None.`}</div>
+  </section>`;
+  const s = $("fba-send"); if (s) s.onclick = () => fbaSend(s);
+  const pa = $("fba-printall"); if (pa) pa.onclick = () => fbaPrint(ready);
+  const sa = $("fba-saveall"); if (sa) sa.onclick = () => fbaSave(ready);
+  box.querySelectorAll("button[data-fprint]").forEach((b) => b.onclick = () => fbaPrint(items.filter((i) => i.id === +b.dataset.fprint)));
+  box.querySelectorAll("button[data-fretry]").forEach((b) => b.onclick = () => fbaRetry(+b.dataset.fretry, b));
+}
+async function fbaSend(btn) {
+  btn.disabled = true; btn.textContent = "Sending to Amazon…";
+  try {
+    const r = (await q("select pipeline.fba_from_blastoff() as r"))[0].r;
+    const bad = r.fba_problems || [];
+    say(`✅ Step 5 · Amazon FBA: ${r.fba} sent to Box ${r.box}${r.fba_pds ? " (" + r.fba_pds + ")" : ""}. Each sticker shows up below in a minute or two.` + (bad.length ? " Not sent: " + bad.join(" · ") : ""), !!bad.length);
+  } catch (e) { showError(e); }
+  refresh(true);
+}
+async function fbaRetry(id, btn) {
+  btn.disabled = true;
+  try { await q(`select pipeline.fba_retry(${Number(id)})`); } catch (e) { say(String(e && e.message || e), true); }
+  refresh(true);
+}
+const helperOn = () => !!(fba && fba.printer && fba.printer_age != null && fba.printer_age < 180);
+async function fbaPrint(list) {
+  list = list.filter((i) => i.fnsku);
+  if (!list.length) return;
+  if (helperOn()) {   // the proven way: the home PC helper prints it silently at exactly 2.25 x 1.25 in
+    try {
+      await q(`select pipeline.fba_print_request(array[${list.map((i) => Number(i.id)).join(",")}]::bigint[])`);
+      say(`🖨️ Sent to ${fba.printer}: ${list.map((i) => i.pd).join(", ")}. It prints by itself in about 5–20 seconds.`, false);
+    } catch (e) { showError(e); }
+    refresh(true); return;
+  }
+  try { $("print").innerHTML = list.map(stickerHtml).join(""); } catch (e) { say(String(e.message || e), true); return; }
+  let noPrint = false; try { noPrint = localStorage.getItem("ss-noprint") === "1"; } catch (_) {}
+  if (noPrint && downloads) { fbaSave(list); return; }
+  let opened = false;
+  const mark = () => { opened = true; };
+  window.addEventListener("beforeprint", mark, { once: true });
+  try { window.print(); } catch (_) {}
+  setTimeout(async () => {
+    window.removeEventListener("beforeprint", mark);
+    if (!opened) {
+      try { localStorage.setItem("ss-noprint", "1"); } catch (_) {}
+      if (downloads) { fbaSave(list); return; }
+      say("This browser won't open the print box from inside claude.ai. Tell Claude and we'll switch to a sticker file.", true);
+      return;
+    }
+    try { await q(`select pipeline.fba_mark_printed(array[${list.map((i) => Number(i.id)).join(",")}]::bigint[])`); } catch (e) { showError(e); }
+    say(`🖨️ ${list.length} sticker${list.length > 1 ? "s" : ""} sent to the printer: ${list.map((i) => i.pd).join(", ")}. If one didn't come out right, press Print again.`, false);
+    refresh(true);
+  }, 1200);
+}
+async function fbaSave(list) {
+  list = list.filter((i) => i.fnsku);
+  if (!list.length || !downloads) return;
+    const doc = `<!doctype html><meta charset="utf-8"><title>FBA stickers</title><style>
+@page { margin: 0 } html, body { margin: 0; padding: 0; background: #fff }
+/* every size is a share of the page, so the sticker fills the label whatever paper size the print box picks */
+.stk { width: 100vw; height: 100vh; overflow: hidden; position: relative; page-break-after: always; break-after: page; color: #000; font-family: Arial, sans-serif }
+.stk:last-child { page-break-after: auto; break-after: auto }
+.stk svg { position: absolute; left: 4.5vw; top: 5.6vh; width: 91vw; height: 42vh }
+.stk .f { position: absolute; left: 0; right: 0; top: 48vh; text-align: center; font-weight: 700; font-size: min(16vh, 8.9vw); line-height: 16vh }
+.stk .t, .stk .c { position: absolute; left: 3.5vw; right: 3.5vw; text-align: center; font-size: min(11vh, 6.1vw); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 13vh }
+.stk .t { top: 65vh } .stk .c { top: 79vh }
+</style>${list.map(stickerHtml).join("")}<script>window.onload = () => setTimeout(() => window.print(), 300)<\/script>`;
+  try {
+    await downloads.save({ filename: `PapaDuck_FBA_stickers_${list.map((i) => i.pd.replace("PD-", "")).join("-").slice(0, 60)}.html`, data: doc });
+    await q(`select pipeline.fba_mark_printed(array[${list.map((i) => Number(i.id)).join(",")}]::bigint[])`);
+    say("Sticker file saved to your Downloads. Open it — the print box comes up by itself. Pick the JADENS printer, paper 2.25 × 1.25 in, margins None, scale 100%.", false);
+  } catch (e) { if (e && e.code !== "declined") say("Couldn't save the sticker file: " + (e.message || e.code), true); }
+  refresh(true);
+}
+
+async function refresh(force) {
+  if (!mcp || (busy && !force)) return;
+  busy = true;
+  try {
+    const rows = await q("select pipeline.dispatch_status(40) as s, pipeline.fba_station() as f");
+    jobs = (rows[0] && rows[0].s) || [];
+    fba = (rows[0] && rows[0].f) || null;
+    $("banner").hidden = true;
+    $("conn").innerHTML = "Live from the cloud · updated <b>" + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) + "</b>";
+    render();
+  } catch (e) { showError(e); }
+  finally { busy = false; schedule(); }
+}
+function schedule() {
+  clearTimeout(timer);
+  const live = jobs.some((j) => j.status === "running") || ((fba && fba.items) || []).some((i) => i.print_pending || ["queued", "listing", "waiting_fnsku", "removing"].includes(i.status));
+  timer = setTimeout(() => refresh(), document.hidden ? 30000 : (live ? 2500 : 15000));
+}
+async function start(id, one, btn) {
+  btn.disabled = true; btn.textContent = "Starting…";
+  try {
+    const rows = await q(`select pipeline.dispatch_start(${Number(id)}, ${one ? "true" : "false"}) as r`);
+    const r = rows[0] && rows[0].r;
+    if (r && !r.ok) say(r.error, true);
+  } catch (e) { showError(e); }
+  refresh(true);
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(true); });
+$("tab-open").onclick = () => setTab("open");
+$("tab-closed").onclick = () => setTab("closed");
+$("tab-open").setAttribute("aria-pressed", String(tab === "open")); $("tab-closed").setAttribute("aria-pressed", String(tab === "closed"));
+
+(async () => {
+  mcp = window.claude && await window.claude.use("mcp");
+  if (!mcp) { $("conn").textContent = "Open this page inside claude.ai to connect."; $("jobs").innerHTML = '<p class="empty">This page talks to Supabase through your claude.ai connector, so it only works when opened in claude.ai.</p>'; return; }
+  window.claude.use("downloads").then((d) => { downloads = d; renderFba(); }, () => {});
+  refresh(true);
+})();
+</script>
