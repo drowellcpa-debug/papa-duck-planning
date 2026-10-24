@@ -1,0 +1,1765 @@
+<title>Papa Duck Drafts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+:root{
+  --ground:#F1F4F0; --surface:#FFFFFF; --sunk:#E7ECE6; --line:#CFD8CF; --ink:#16201A; --muted:#58645C;
+  --accent:#1E5B43; --accent-ink:#FFFFFF; --accent-soft:#DCEBE2;
+  --flag:#8A5200; --flag-bg:#FBEFD8; --danger:#A12A1E; --danger-bg:#FBE4E0; --ok:#1C7443; --ok-bg:#DDF1E4;
+  --display:"Bitter", Georgia, "Times New Roman", serif;
+  --body:"Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --ground:#0F1411; --surface:#171F1A; --sunk:#1E2822; --line:#2E3A33; --ink:#E4EBE6; --muted:#9BA9A1;
+    --accent:#6CC196; --accent-ink:#0C1A13; --accent-soft:#1D3528;
+    --flag:#F0B866; --flag-bg:#382810; --danger:#FF8C7C; --danger-bg:#3C1B16; --ok:#7AD29E; --ok-bg:#16301F;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0F1411; --surface:#171F1A; --sunk:#1E2822; --line:#2E3A33; --ink:#E4EBE6; --muted:#9BA9A1;
+  --accent:#6CC196; --accent-ink:#0C1A13; --accent-soft:#1D3528;
+  --flag:#F0B866; --flag-bg:#382810; --danger:#FF8C7C; --danger-bg:#3C1B16; --ok:#7AD29E; --ok-bg:#16301F;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);margin:0}
+.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 120px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--ground);padding-block:14px 10px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand h1{font-size:1.45rem;letter-spacing:-.01em}
+.brand .sub{color:var(--muted);font-size:.85rem}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.tab{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.88rem;font-weight:600;display:flex;gap:6px;align-items:center}
+.tab .n{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
+.tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tab[aria-pressed="true"] .n{color:var(--accent-ink);opacity:.85}
+.searchrow{display:flex;gap:8px;margin-top:10px}
+.search{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:10px 12px;font-size:1rem}
+.iconbtn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:0 14px;font-weight:600;font-size:.9rem}
+
+/* notices */
+.notice{border-radius:var(--r);padding:12px 14px;margin-top:14px;font-size:.92rem;line-height:1.45}
+.notice.info{background:var(--accent-soft)}
+.notice.warn{background:var(--flag-bg);color:var(--flag)}
+.notice.bad{background:var(--danger-bg);color:var(--danger)}
+.notice b{font-weight:700}
+.notice .act{margin-top:8px}
+
+/* list */
+.scanhead{font-family:var(--display);font-size:1rem;margin:22px 0 8px;color:var(--muted);display:flex;justify-content:space-between;align-items:baseline}
+.scanhead .mono{font-size:.8rem}
+.rows{display:grid;gap:8px}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;text-align:left;width:100%}
+.row:hover{border-color:var(--accent)}
+.pcol{display:flex;gap:8px;align-items:center}
+.cov{width:44px;height:58px;border-radius:6px;background:var(--sunk);overflow:hidden;display:block;flex:0 0 44px}
+.cov img{width:100%;height:100%;object-fit:cover;display:block}
+.pbadge{min-width:48px;padding:0 6px;font-family:var(--mono);font-weight:600;font-size:1rem;background:var(--sunk);border-radius:8px;height:44px;display:grid;place-items:center}
+.row .t{font-weight:600;line-height:1.3}
+.row .m{color:var(--muted);font-size:.84rem;margin-top:2px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.chip{font-size:.75rem;font-weight:700;letter-spacing:.02em;border-radius:999px;padding:3px 9px;white-space:nowrap;background:var(--sunk);color:var(--muted)}
+.chip.q{background:var(--flag-bg);color:var(--flag)}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}
+.chip.bad{background:var(--danger-bg);color:var(--danger)}
+.chip.grade{background:var(--accent-soft);color:var(--accent)}
+.chip.price{background:var(--ok-bg);color:var(--ok);font-family:var(--mono);font-size:.9rem;padding:3px 10px}
+.chip.etsy{background:#F1641E;color:#fff}
+.chip.amzok{background:#FFF3D6;color:#7A4B00;border:1px solid #E8A33D}.chip.amzgood{background:#E8F5E9;color:#1B5E20;border:1px solid #43A047}
+.chip.amzno{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger)}.chip.amznone{background:#f1f1f1;color:#666;border:1px solid #ccc}
+.amzbox{border:1px solid #E8A33D;border-radius:12px;padding:12px 14px;margin:12px 0;background:#FFFBF2}.amzbox h4{margin:0 0 6px}
+.amzbox .amzseg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px}.amzbox .amzseg button{border:1px solid #E8A33D;background:#fff;color:#7A4B00;border-radius:999px;padding:6px 12px;font-weight:600;cursor:pointer}
+.amzbox .amzseg button.on{background:#E8A33D;color:#fff}
+.amzbox table{border-collapse:collapse;width:100%;font-size:.92rem}.amzbox td{padding:3px 6px;border-bottom:1px dotted #e6d6b8}.amzbox td:first-child{color:#7A4B00;width:42%}
+.chip.etsyrec{background:#FDEBDD;color:#A8430F;border:1px dashed #E07A3F}
+.chip.etsyok{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok)}
+.ebadge{font-size:.8rem;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.ebadge.yes{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok)}
+.ebadge.no{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger)}
+.etsybox .et{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.etsybox .elock{display:inline-block;border:1px dashed var(--danger);color:var(--danger);background:var(--danger-bg);border-radius:999px;padding:7px 13px;font-weight:700;font-size:.9rem;cursor:not-allowed;user-select:none;pointer-events:none}
+.etsybox{margin-top:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:12px;display:grid;gap:8px}
+.etsybox.on{border-color:#F1641E;background:#FFF4EC}
+.etsybox .eh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.etsybox .et{font-weight:700}
+.etsybox .ew{font-size:.86rem;color:var(--muted)}
+.etsybox .seg button[aria-pressed="true"].eon{background:#F1641E;border-color:#F1641E;color:#fff}
+.chip.price.wait{background:var(--sunk);color:var(--muted);font-family:var(--body);font-size:.75rem}
+.scanhead .runsum{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;justify-content:flex-end;font-family:var(--body);font-size:.84rem}
+.scanhead .runsum .profit{font-family:var(--mono);font-weight:700;font-size:1.05rem;color:var(--ok);background:var(--ok-bg);border-radius:8px;padding:2px 9px}
+.scanhead .runsum .dim{color:var(--muted)}
+.scanhead > span:first-child{white-space:nowrap;margin-right:10px}
+.empty{color:var(--muted);text-align:center;padding:40px 12px}
+
+/* detail */
+.back{border:0;background:none;color:var(--accent);font-weight:700;padding:14px 0 4px;font-size:.95rem}
+.dhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:6px}
+.dhead h2{font-size:1.5rem;line-height:1.2}
+.dhead .where{font-family:var(--mono);color:var(--muted);font-size:.85rem;margin-top:4px}
+.bigpd{font-family:var(--mono);font-weight:600;font-size:1.05rem;background:var(--sunk);border-radius:8px;padding:6px 10px;white-space:nowrap}
+.bigpd.qtybadge{background:var(--accent-soft);color:var(--accent)}
+.photo{margin-top:14px;background:var(--sunk);border-radius:var(--r);height:min(62vh,640px);width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--muted);font-size:.9rem;text-align:center;padding:8px}
+.photo img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block}
+.strip{display:flex;gap:8px;overflow-x:auto;padding-block:10px 4px}
+.thumb{flex:0 0 64px;height:84px;border-radius:8px;border:2px solid var(--line);background:var(--sunk);overflow:hidden;display:grid;place-items:center;font-family:var(--mono);font-size:.75rem;color:var(--muted);padding:0;position:relative}
+.thumb img{width:100%;height:100%;object-fit:contain}
+.thumb[aria-current="true"]{border-color:var(--accent)}
+.thumb .grp{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);color:#fff;font-size:.6rem;padding:1px 2px}
+.photo{position:relative}
+.arrow{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:64px;border:0;border-radius:10px;background:rgba(0,0,0,.45);color:#fff;font-size:2.2rem;line-height:1;display:grid;place-items:center;cursor:pointer}
+.arrow.l{left:8px}.arrow.r{right:8px}
+.arrow:hover{background:rgba(0,0,0,.65)}
+.fullbtn{position:absolute;right:8px;bottom:8px;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font-weight:700;font-size:.85rem;padding:7px 10px}
+#bigimg{cursor:zoom-in}
+.viewer{position:fixed;inset:0;z-index:20;background:#0b0d0c;display:flex;align-items:center;justify-content:center}
+.viewer img{max-width:100vw;max-height:100vh;object-fit:contain}
+.viewer img.zoom{max-width:none;max-height:none;cursor:zoom-out}
+.viewer.zoomed{overflow:auto;display:block}
+.viewer .arrow{position:fixed;width:56px;height:80px;font-size:2.8rem}
+.viewer .close{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:12px;border:0;border-radius:999px;background:rgba(255,255,255,.18);color:#fff;font-weight:700;padding:10px 16px;font-size:1rem}
+.viewer .count{position:fixed;left:12px;top:calc(16px + env(safe-area-inset-top,0px));color:#fff;font-family:var(--mono);font-size:.9rem}
+.hint{color:var(--muted);font-size:.85rem;margin:-4px 0 4px}
+.ihgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.ih{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:6px;display:grid;gap:6px}
+.ih.on{border-color:var(--accent);background:var(--accent-soft)}
+.ihbtn{border:0;background:none;text-align:left;font-weight:600;padding:4px 6px;border-radius:8px}
+.ih input{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:var(--surface)}
+.ihx{display:flex;align-items:center;gap:6px;font-size:.85rem;color:var(--muted)}
+.ihx input.ihpct{width:70px;font-family:var(--mono)}
+.seg.small button{padding:5px 10px;font-size:.82rem}
+.tellbox textarea{min-height:90px}
+.notes{display:grid;gap:6px}
+.note{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:8px 10px;display:grid;gap:6px}
+.note .nt{font-size:.92rem}
+.note.off{opacity:.6}
+.note input.noteedit{width:100%;border:1px solid var(--accent);border-radius:8px;padding:8px}
+.noteadd{display:flex;gap:8px;margin-top:8px}
+.noteadd input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--surface)}
+.pdmatch{font-size:.85rem;margin-top:4px;min-height:1.1em}
+.removed{margin-top:10px}
+.rmwrap{display:grid;gap:4px;justify-items:center}
+.thumb.off{opacity:.45;cursor:default}
+.photobar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:.85rem;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:9px 14px;font-weight:600;font-size:.92rem}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:disabled{opacity:.45;cursor:not-allowed}
+.btn.danger{color:var(--danger);border-color:var(--danger)}
+.btn.small{padding:6px 10px;font-size:.84rem}
+.sec{margin-top:22px}
+.sec h3{font-size:1.05rem;margin-bottom:10px}
+.label{display:block;font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.field input,.field textarea{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 10px}
+.field textarea{min-height:120px;resize:vertical;line-height:1.45}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 13px;font-weight:600;font-size:.9rem}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.q{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:grid;gap:8px}
+.q.need{border-color:var(--flag)}
+.q .qt{font-weight:600}
+.qlist{display:grid;gap:10px}
+.price{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:baseline}
+.price .big{font-family:var(--mono);font-size:1.6rem;font-weight:700}
+.price .sm{font-family:var(--mono);color:var(--muted)}
+.range{font-size:.9rem;margin-top:6px}
+.mkt{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:.88rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.mkt th,.mkt td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+.mkt th:first-child,.mkt td:first-child{text-align:left;font-weight:700}
+.mkt td.nt{text-align:left;white-space:normal;color:var(--muted);font-size:.8rem}
+.mkt thead th{font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--sunk)}
+.mkt tr:last-child td{border-bottom:0}
+.mktwrap{overflow-x:auto}
+.mono{font-family:var(--mono)}
+.b1{white-space:pre-wrap;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px;font-size:.9rem}
+.ttl{font-family:var(--mono);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:.88rem;overflow-wrap:anywhere}
+.b2frame{width:100%;height:520px;border:1px solid var(--line);border-radius:var(--r);background:#fff}
+.sub{margin-top:12px}
+.sub summary{cursor:pointer;font-weight:600}
+.pending{border:1px dashed var(--line);border-radius:var(--r);padding:12px;color:var(--muted);font-size:.9rem}
+.wt{display:flex;align-items:center;gap:8px}
+.wt input{width:90px;text-align:center;border:1px solid var(--line);border-radius:8px;padding:9px;background:var(--surface);font-family:var(--mono);font-size:1.05rem}
+.wt button{width:42px;height:42px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:1.1rem}
+.pdin{display:flex;align-items:stretch;max-width:260px}
+.pdin span{font-family:var(--mono);font-weight:600;background:var(--sunk);border:1px solid var(--line);border-right:0;border-radius:8px 0 0 8px;padding:9px 10px}
+.pdin input{flex:1;min-width:0;border:1px solid var(--line);border-radius:0 8px 8px 0;padding:9px 10px;font-family:var(--mono);font-size:1.05rem;background:var(--surface)}
+.check{margin-top:22px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.check ul{margin:6px 0 12px;padding-left:18px;color:var(--flag)}
+.check .ready{color:var(--ok);font-weight:700;margin:4px 0 12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.all summary{cursor:pointer;font-family:var(--display);font-weight:700;font-size:1.05rem;padding:4px 0}
+.det{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 18px;margin-top:10px}
+.det div{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:.9rem}
+.det b{color:var(--muted);font-weight:600}
+.det span{text-align:right;overflow-wrap:anywhere}
+.plain{margin:4px 0 0;padding-left:20px;font-size:.9rem}
+.plain.small{font-size:.8rem}
+.seg .notlist{border-style:dashed;color:var(--muted)}
+.confirm{margin-top:10px;background:var(--danger-bg);color:var(--danger);border-radius:var(--r);padding:12px;display:grid;gap:8px}
+
+/* buyer view (2026-10-16, his ask: "the actual customer description I want to show on the right side of each book") */
+.buyer{display:none}
+@media (min-width:1200px){
+  body.side .wrap{margin-left:24px;margin-right:0}
+  body.side .buyer{display:flex;flex-direction:column;gap:10px;position:fixed;z-index:4;top:12px;bottom:12px;left:808px;right:140px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+  body.side #b2det{display:none}
+}
+.buyer h3{font-size:1.05rem}
+.buyer .bsub{color:var(--muted);font-size:.85rem}
+.buyer .bprice{font-family:var(--mono);font-weight:700;font-size:1.3rem;color:var(--ok)}
+.buyer iframe{flex:1 0 420px;width:100%;border:1px solid var(--line);border-radius:var(--r);background:#fff}
+/* bottom bar */
+.bar[hidden]{display:none!important}
+body.nobar .wrap{padding-bottom:40px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));z-index:6}
+.bar .in{max-width:760px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bar .txt{font-size:.9rem}
+.bar .txt b{font-family:var(--mono)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--ground);padding:10px 16px;border-radius:999px;font-weight:600;font-size:.9rem;z-index:9;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion: no-preference){ .row,.btn,.tab{transition:border-color .12s,background .12s} }
+/* blast-off tally, pinned to the right on every screen until blast off clears it */
+.tally{position:fixed;right:12px;top:50%;transform:translateY(-50%);z-index:7;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:96px;box-shadow:0 4px 14px rgba(0,0,0,.12);display:grid;gap:6px}
+.tally .th{font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tally .tr{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-weight:600;font-size:.88rem}
+.tally .tr b{font-family:var(--mono);font-size:1.2rem;color:var(--accent)}
+.tally .tr.etsy b{color:#E0611C}
+.tally .tr.amz b{color:#B46A00}
+.tally #fblast{margin-top:4px;white-space:nowrap}
+.amzadd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.amzadd .small{font-size:.82rem;color:var(--muted)}
+.amzadd .lbl{font-weight:700;font-size:.9rem}
+.amzadd button[aria-pressed="true"].aon{background:#E8A33D;border-color:#E8A33D;color:#fff}
+.amzadd .alock{display:inline-block;border:1px dashed var(--danger);color:var(--danger);background:var(--danger-bg);border-radius:999px;padding:7px 13px;font-weight:700;font-size:.9rem}
+.amzadd .await{display:inline-block;border:1px dashed var(--line);color:var(--muted);border-radius:999px;padding:7px 13px;font-weight:600;font-size:.9rem}
+/* family-friendly check (2026-10-07) */
+.audbox{margin-top:12px;border-radius:var(--r);padding:12px 14px;display:grid;gap:8px}
+.audbox.flag{background:var(--flag-bg);color:var(--flag);border:2px solid var(--flag)}
+.audbox.okd{background:var(--sunk);color:var(--muted)}
+.audbox.pass{background:var(--ok-bg);color:var(--ok);padding:8px 12px;font-size:.88rem}
+.audbox.wait{background:var(--sunk);color:var(--muted);padding:8px 12px;font-size:.88rem}
+.chip.aud{background:var(--flag-bg);color:var(--flag);border:1px solid var(--flag)}
+/* Amazon FBA (2026-10-07) */
+.chip.fba{background:#232F3E;color:#FF9900}
+.chip.fbagood{background:#232F3E;color:#7CFC9A}
+.fbafit{margin-top:8px;border-radius:8px;padding:8px 10px;font-size:.9rem}
+.fbafit.good{background:var(--ok-bg);color:var(--ok)}.fbafit.maybe{background:var(--flag-bg);color:var(--flag)}.fbafit.home{background:var(--danger-bg);color:var(--danger)}
+.fbafit .sm{font-size:.82rem;opacity:.9;margin-top:3px}
+.fbabox{margin-top:12px;border:2px solid #FF9900;border-radius:var(--r);background:var(--surface);padding:12px;display:grid;gap:8px}
+.fbabox .fh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.fbabox .ft{font-weight:700}
+.fbabox .fw{font-size:.86rem;color:var(--muted)}
+.fbabox .alock{display:inline-block;border:1px dashed var(--danger);color:var(--danger);background:var(--danger-bg);border-radius:999px;padding:7px 13px;font-weight:700;font-size:.9rem}
+.btn.fbabtn{background:#FF9900;border-color:#E68A00;color:#111}
+.fbaconfirm{border:1px solid #FF9900;border-radius:8px;padding:10px}
+.fbaconfirm ul{margin:6px 0;padding-left:18px;color:var(--flag)}
+.just{margin-top:14px;border:2px solid #FF9900;border-radius:12px;background:var(--surface);padding:12px}
+.just h3{font-size:1.05rem;margin-bottom:6px}
+.fprinter{font-size:.84rem;color:var(--muted);margin-bottom:10px}
+.fprinter.bad{color:var(--danger);font-weight:700}
+.fcards{display:grid;gap:10px}
+.fcard{display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:start;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--surface)}
+.fcard.small{grid-template-columns:64px 1fr;gap:12px}
+.fcov{width:120px;height:160px;border-radius:8px;background:var(--sunk);overflow:hidden;display:block}
+.fcard.small .fcov{width:64px;height:86px}
+.fcov img{width:100%;height:100%;object-fit:cover;display:block}
+.ftitle{font-weight:700;line-height:1.3}
+.fmeta{color:var(--muted);font-size:.84rem;margin-top:2px}
+.ffn{font-family:var(--mono);font-size:1.5rem;font-weight:700;letter-spacing:.06em;margin-top:6px}
+.fcard.small .ffn{font-size:1.05rem;margin-top:2px}
+.fst{margin-top:4px;font-weight:600;font-size:.9rem}
+.fst.ok{color:var(--ok)}.fst.bad{color:var(--danger)}.fst.wait{color:var(--flag)}
+.fcard .actions{margin-top:8px}
+.boxhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin:22px 0 8px;font-family:var(--display)}
+.boxhead .mono{font-family:var(--mono);font-size:.85rem;color:var(--muted)}
+@media (max-width:520px){.fcard{grid-template-columns:84px 1fr}.fcov{width:84px;height:112px}}
+@media (max-width: 1000px){
+  .tally{top:auto;transform:none;bottom:calc(76px + env(safe-area-inset-bottom,0px));right:8px;padding:6px 9px;min-width:0;gap:2px}
+  .tally .th{display:none}
+  .tally .tr{font-size:.75rem;gap:8px}
+  .tally .tr b{font-size:.95rem}
+  body.nobar .tally{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+}
+.amzre{margin-left:6px;padding:4px 10px;border-radius:8px;border:1px solid #c47d00;background:#fff7e6;cursor:pointer;font:inherit}.amzall{margin:8px 0}.amzall button{padding:8px 14px;border-radius:10px;border:1px solid #c47d00;background:#fff7e6;cursor:pointer;font:inherit;font-weight:600}
+.chip.audwhy{max-width:360px;white-space:normal;text-align:left;line-height:1.25;border-radius:10px}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Papa Duck Drafts</h1>
+      <span class="sub" id="status">Connecting…</span>
+    </div>
+    <div class="tabs" role="group" aria-label="Which drafts">
+      <button class="tab" id="tab-check" aria-pressed="true" data-tab="check">To check <span class="n" id="n-check">0</span></button>
+      <button class="tab" id="tab-station" aria-pressed="false" data-tab="station">Book Station <span class="n" id="n-station">0</span></button>
+      <button class="tab" id="tab-sent" aria-pressed="false" data-tab="sent">Sent <span class="n" id="n-sent">0</span></button>
+      <button class="tab" id="tab-fba" aria-pressed="false" data-tab="fba">📦 FBA <span class="n" id="n-fba">0</span></button>
+      <button class="tab" id="tab-dont" aria-pressed="false" data-tab="dont">Not listing <span class="n" id="n-dont">0</span></button>
+      <button class="tab" id="tab-problem" aria-pressed="false" data-tab="problem">Problems <span class="n" id="n-problem">0</span></button>
+      <button class="tab" id="tab-archive" aria-pressed="false" data-tab="archive">Archive <span class="n" id="n-archive">0</span></button>
+    </div>
+    <div class="searchrow">
+      <input class="search" id="search" type="search" placeholder="Label number, P number, title or ISBN" autocomplete="off" aria-label="Search drafts">
+      <button class="iconbtn" id="refresh" type="button">Refresh</button>
+    </div>
+  </header>
+  <div id="notices"></div>
+  <main id="main"></main>
+</div>
+
+<div class="bar" id="bar">
+  <div class="in">
+    <div class="txt" id="bartxt"><b>0</b> sent, waiting for blast off</div>
+    <button class="btn primary" id="blast" type="button">Blast off</button>
+  </div>
+</div>
+<aside class="buyer" id="buyer" aria-label="What the buyer sees"></aside>
+<div class="toast" id="toast" hidden></div>
+<aside class="tally" id="tally" aria-label="Waiting for blast off">
+  <div class="th">Blast off</div>
+  <div class="tr"><span>eBay</span><b id="t-ebay">0</b></div>
+  <div class="tr"><span>Abe</span><b id="t-abe">0</b></div>
+  <div class="tr etsy"><span>Etsy</span><b id="t-etsy">0</b></div>
+  <div class="tr amz"><span>Amazon</span><b id="t-amz">0</b></div>
+  <div class="tr amz"><span>FBA</span><b id="t-fba">0</b></div>
+  <button class="btn fbabtn small" id="fblast" type="button" hidden>🚀 Blast off FBA only</button>
+</aside>
+
+<script>
+(function(){
+"use strict";
+const PROJECT = "gdwxwiwckxthwcsrgywh";
+const SUPA = "Supabase", DRIVE = "Google Drive";
+const GRADES = ["Like New","Very Good","Good","Acceptable"];
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+let mcp = null;
+let drafts = [];
+let tab = "check";
+let view = { mode: "list", id: null };
+let edits = {};          // per-draft unsaved edits
+let photoCache = {};     // drive_id -> data URL | "error"
+let selPhoto = 0;
+let blastConfirm = false, fblastConfirm = false, notConfirm = null, allOpen = false;
+let example = true;
+
+// ---------- sample shown until your real drafts load ----------
+const SAMPLE = [{
+  id: -1, scan: "Example scan", p: "P1", p_num: 1, status: "drafted", is_set: false, photos: [],
+  ident: { title: "Saxon Math 5/4 Student Edition (example)", author: "Stephen Hake", publisher: "Saxon Publishers", publication_year: "2004",
+           isbn: "9781591413189", format: "Hardcover", edition_printing: "Third Edition", grade: "Good",
+           condition_notes: ["Corners bumped, cover edges scuffed", "Light pencil in first 10 pages", "Binding tight"] },
+  flags: [], questions: [{ q: "Is the answer key included?", options: ["Yes","No"] },
+                         { q: "Anything the photos can't show?", options: ["None","Smoke / musty smell","Writing inside","Loose pages","Other"] }],
+  answers: {}, pd: null, weight_lb: 3, error: null, price_stale: false,
+  pricing: { list: 24.99, auto: 20, min: 16, avg: 24.71, low: 19.5, high: 29.99, n: 6, problems: [], checks_failed: [],
+    ebay_title: "Saxon Math 5/4 Student Edition 3rd Ed Stephen Hake Hardcover Homeschool Math",
+    b1: "Good as graded in hand. Corners bumped and cover edges scuffed. Light pencil in the first 10 pages; the rest is clean. Binding tight. A sound, usable copy.",
+    b2: "<div style=\"font-family:Georgia,serif;padding:8px\"><h2 style=\"color:#1E5B43\">📘 Saxon Math 5/4 (example)</h2><p>This is where the full buyer description appears.</p></div>",
+    note: "Example only.", used: [{ price: 24.99, title: "Saxon Math 5/4 Student Edition 3rd Ed (example)", cond: "Good", url: "" }], dropped: [], outliers: [] }
+}];
+
+// ---------- connector plumbing ----------
+function sqlRows(result){
+  // The Supabase tool can hand back a string, an object like {result:"..."}, or content blocks.
+  let t = result && result.payload;
+  if (t && typeof t === "object") {
+    if (Array.isArray(t)) return t;
+    t = (typeof t.result === "string" && t.result) || (typeof t.text === "string" && t.text) ||
+        (Array.isArray(t.content) && t.content.filter((b) => b && b.type === "text").map((b) => b.text).join("\n")) || JSON.stringify(t);
+  }
+  if (!t) t = ((result && result.content) || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+  const m = /<untrusted-data-[^>]+>\s*([\s\S]*?)\s*<\/untrusted-data/.exec(t);
+  let body = m ? m[1] : t;
+  body = body.slice(body.indexOf("["));
+  try { return JSON.parse(body); } catch (e) {
+    // text that was escaped one level too many (\" instead of ")
+    const fixed = body.slice(0, body.lastIndexOf("]") + 1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+    return JSON.parse(fixed);
+  }
+}
+function dbMessage(e){
+  const msg = String((e && e.message) || e || "");
+  const m = /ERROR:\s+\w+:\s+([\s\S]*?)(\nCONTEXT:|\n|$)/.exec(msg);
+  return m ? m[1].trim() : msg;
+}
+function explain(e, server){
+  const code = e && e.code;
+  if (code === "server_not_connected" || code === "selection_required")
+    return { kind: "bad", text: "<b>" + server + " isn't connected for this page.</b> Add or pick " + server + " in claude.ai Settings → Connectors, then press Refresh." };
+  if (code === "needs_reauth")
+    return { kind: "bad", text: "<b>" + server + " needs to be reconnected.</b> Reconnect it in claude.ai Settings → Connectors, then press Refresh." };
+  if (code === "not_in_manifest")
+    return { kind: "bad", text: "<b>" + server + " is turned off for this page.</b> Allow it when the page asks, or turn it back on in this page's connector settings." };
+  if (code === "blocked_by_policy" || code === "approval_required")
+    return { kind: "bad", text: "<b>" + server + " is blocked here by your organization's settings.</b>" };
+  if (code === "server_unavailable" || code === "upstream_error" || code === "rate_limited")
+    return { kind: "warn", text: "<b>" + server + " didn't answer just now.</b> Wait a moment and press Refresh.", retry: true };
+  if (code === "tool_error") return { kind: "bad", text: esc(dbMessage(e)) };
+  if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed")
+    return { kind: "bad", text: "<b>This view can't reach your connectors.</b> Open the page in the Claude app or at claude.ai while signed in." };
+  return { kind: "warn", text: esc(dbMessage(e)) };
+}
+async function sql(query){
+  const r = await mcp.callTool(SUPA, "execute_sql", { project_id: PROJECT, query }, { cache: false });
+  return sqlRows(r);
+}
+function jsonLit(obj){
+  const s = JSON.stringify(obj);
+  let tag;
+  do { tag = "pd" + Math.random().toString(36).slice(2, 10); } while (s.indexOf(tag) !== -1);
+  return "$" + tag + "$" + s + "$" + tag + "$::jsonb";
+}
+
+// ---------- data ----------
+async function load(quiet){
+  if (!mcp) return;
+  if (!quiet) setStatus("Loading…");
+  try {
+    const rows = await sql("select pipeline.ui_list() as data, pipeline.fba_list() as fba");
+    drafts = (rows[0] && rows[0].data) || [];
+    reapplyArchived();
+    if (rows[0] && rows[0].fba) fba = rows[0].fba;
+    example = false;
+    setNotice(null);
+    setStatus("Updated " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
+    render();
+  } catch (e) {
+    const x = explain(e, SUPA);
+    setNotice(x.kind, x.text);
+    setStatus("Not connected");
+  }
+}
+async function save(id, patch){
+  const rows = await sql("select pipeline.ui_save(" + Number(id) + ", " + jsonLit(patch) + ") as r");
+  return rows[0] && rows[0].r;
+}
+
+// ---------- helpers ----------
+function bucket(d){
+  if (d.status === "fba") return "fba";            // Amazon FBA only - its own tab, never in blast off
+  if (d.archived_at || (d.status === "sent" && d.built_at)) return "archive";   // cleared at blast off - fresh start each day
+  if (d.status === "sent") return "sent";
+  if (d.status === "dont_list") return "dont";
+  if (d.status === "failed" || d.status === "processing") return "problem";
+  return d.source === "station" ? "station" : "check";
+}
+function merged(d){
+  const e = edits[d.id] || {};
+  return {
+    ident: Object.assign({}, d.ident || {}, e.ident || {}),
+    answers: Object.assign({}, d.answers || {}, e.answers || {}),
+    pd: e.pd !== undefined ? e.pd : (d.pd || ""),
+    weight_lb: e.weight_lb !== undefined ? e.weight_lb : (d.weight_lb == null ? "" : d.weight_lb),
+    channel: e.channel || d.channel || "both",
+    location: e.location || d.location || "Garage",
+    photos: e.photo_order ? e.photo_order.map((id) => (d.photos || []).find((p) => p.drive_id === id)).filter(Boolean) : (d.photos || []).filter((p) => !p.removed),
+    removed: (d.photos || []).filter((p) => e.photo_order ? e.photo_order.indexOf(p.drive_id) === -1 : p.removed)
+  };
+}
+const STANDING_Q = "Anything the photos can't show?";
+const isStd = (q) => q && q.q === STANDING_Q;   // covered by the in-hand checklist now
+function pdMatchText(d){
+  const a = normPd(merged(d).pd), b = normPd((edits[d.id] || {}).pd2 || "");
+  if (!b) return "";
+  return a === b ? '<span style="color:var(--ok);font-weight:700">✓ Numbers match</span>' : '<span style="color:var(--danger);font-weight:700">✗ Doesn’t match — check the label</span>';
+}
+// ---------- family-friendly check (2026-10-07, his ask: "nudity or things that would not fly with my audience") ----------
+function audOf(d){ return (d.ident || {}).audience || null; }
+function audNeedsOk(d){ const a = audOf(d); return !!(a && a.ok === false && ((d.answers || {}).audience_ok || "") !== "yes"); }
+/* v46 (2026-10-24, his ask: "also to the right of the listing before I click the book"): the flag chip says WHAT the issue is */
+function audChip(d){
+  const n = String((audOf(d) || {}).note || "").replace(/\s+/g, " ").trim();
+  const short = n.length > 70 ? n.slice(0, 68).replace(/\s+\S*$/, "") + "…" : n;
+  return '<span class="chip aud audwhy" title="' + esc(n) + '">⚠️ ' + esc(short || "Family check") + "</span>";
+}
+function audHtml(d, locked){
+  const a = audOf(d);
+  if (!a) return '<div class="audbox wait">⏳ Family-friendly check is running — about a minute.</div>';
+  if (a.ok) return '<div class="audbox pass">✓ Family-friendly check: no concerns.</div>';
+  const okd = ((d.answers || {}).audience_ok || "") === "yes";
+  return '<div class="audbox ' + (okd ? "okd" : "flag") + '"><div><b>⚠️ Family-friendly check' + (a.level === "caution" ? " (caution)" : "") + ':</b> ' + esc(a.note || "") + "</div>" +
+    (okd ? '<div>You said <b>OK to list</b>.' + (locked ? "" : ' <button class="btn small" type="button" id="audundo">Undo</button>') + "</div>"
+         : (locked ? "" : '<div class="actions"><button class="btn primary" type="button" id="audok">OK to list</button><button class="btn danger notlist" type="button" data-not="dont_list">Don\'t list</button></div>')) + "</div>";
+}
+async function setAudOk(d, v){
+  if (example){ toast("This is the example card. Nothing is saved."); return; }
+  try { await save(d.id, { action: "save", audience_ok: v }); await load(true); toast(v ? "OK to list — noted." : "Back to flagged.");
+    if (view.mode === "detail" && current()) renderDetail(current()); }
+  catch (err){ const x = explain(err, SUPA); setNotice(x.kind, x.text); window.scrollTo(0, 0); }
+}
+function missingFor(d){
+  const m = merged(d), out = [];
+  if (!audOf(d)) out.push("Family-friendly check (runs on its own, about a minute)");
+  else if (audNeedsOk(d)) out.push("Your OK on the ⚠️ family-friendly flag (OK to list, or Don't list)");
+  const pd = normPd(m.pd);
+  if (!/^PD-\d{4}[A-Z]?$/.test(pd)) out.push("PD number");
+  else if (d.status === "drafted" && normPd((edits[d.id] || {}).pd2 || "") !== pd) out.push((edits[d.id] || {}).pd2 ? "The two PD numbers don't match — check the label" : "Type the PD number a second time to confirm");
+  if (!(Number(m.weight_lb) > 0)) out.push("Weight");
+  const ov = (edits[d.id] || {}).price_override !== undefined ? (edits[d.id] || {}).price_override : d.price_override;
+  if (!(Number(ov) > 0) && !(d.pricing && d.pricing.list)) out.push(d.pricing && d.pricing.error ? "Your price (no matching copies found)" : "Price (still being worked out)");
+  (d.questions || []).forEach((q, i) => { if (!isStd(q) && !String(m.answers[i] || "").trim()) out.push("Answer: " + q.q); });
+  return out;
+}
+function normPd(v){
+  let s = String(v || "").toUpperCase().replace(/\s+/g, "");
+  if (/^\d{3,4}[A-Z]?$/.test(s)) { const L = (s.match(/[A-Z]$/) || [""])[0]; s = "PD-" + s.replace(/[A-Z]$/, "").padStart(4, "0") + L; }
+  if (/^PD\d/.test(s)) s = "PD-" + s.slice(2);
+  return s;
+}
+function matches(d, q){
+  if (!q) return true;
+  const id = d.ident || {};
+  const hay = [d.p, d.pd, d.scan, id.title, id.author, id.isbn, id.subtitle_or_series].join(" ").toLowerCase();
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every((w) =>
+    hay.indexOf(w) !== -1 || w === "p" + d.p_num || w === String(d.p_num) || (d.pd && normPd(w) === d.pd));
+}
+function setStatus(t){ $("status").textContent = t; }
+function setNotice(kind, html){
+  $("notices").innerHTML = kind ? '<div class="notice ' + kind + '">' + html + "</div>" : "";
+}
+let toastT = null;
+function toast(t){
+  const el = $("toast"); el.textContent = t; el.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 3200);
+}
+function list(){ return example ? SAMPLE : drafts; }
+function current(){ return list().find((d) => d.id === view.id); }
+
+// ---------- render ----------
+function render(){
+  const all = list();
+  const counts = { check: 0, station: 0, sent: 0, fba: 0, dont: 0, problem: 0, archive: 0 };
+  all.forEach((d) => counts[bucket(d)]++);
+  Object.keys(counts).forEach((k) => { $("n-" + k).textContent = counts[k]; });
+  document.querySelectorAll(".tab").forEach((b) => b.setAttribute("aria-pressed", b.dataset.tab === tab ? "true" : "false"));
+  const waiting = all.filter((d) => d.status === "sent" && !d.built_at).length;
+  $("bartxt").innerHTML = blastConfirm
+    ? "Send <b>" + waiting + "</b> book" + (waiting === 1 ? "" : "s") + " to blast off?"
+    : "<b>" + waiting + "</b> sent, waiting for blast off";
+  $("blast").textContent = blastConfirm ? "Yes, blast off" : "Blast off";
+  $("blast").disabled = example || (!blastConfirm && waiting === 0);
+  // 2026-10-09 his ask: "I want a separate blast for amazon FBA I will get these out before my others"
+  const fw = fbaWaiting();
+  $("fblast").hidden = example || (fw.go.length + fw.held.length === 0 && !fblastConfirm);
+  $("fblast").textContent = fblastConfirm ? "Yes, send " + fw.go.length + " to Amazon" : "🚀 Blast off FBA only";
+  if (view.mode === "detail" && current()) renderDetail(current()); else renderList();
+  $("bar").hidden = !(view.mode === "list" && (tab === "check" || tab === "station"));   // blast off only on the To check list, never while reviewing a book
+  document.body.classList.toggle("nobar", $("bar").hidden);
+  updateTally();
+}
+// books sent and waiting for blast off, by where they're going. Blast off sets built_at, so the counts clear on their own.
+function updateTally(){
+  const waiting = list().filter((d) => d.status === "sent" && !d.built_at && !d.archived_at);
+  const n = { ebay: 0, abe: 0, etsy: 0, amz: 0, fba: 0 };
+  waiting.forEach((d) => {
+    const c = d.channel || "both";
+    if (c === "both" || c === "ebay") n.ebay++;
+    if (c === "both" || c === "abe") n.abe++;
+    if (d.etsy) n.etsy++;
+    if (c === "fba") n.fba++;
+    else if (c === "amazon" || amzWill(d)) n.amz++;
+  });
+  $("t-ebay").textContent = n.ebay; $("t-abe").textContent = n.abe; $("t-etsy").textContent = n.etsy; $("t-amz").textContent = n.amz; $("t-fba").textContent = n.fba;
+}
+
+function renderList(){
+  view = { mode: "list", id: null };
+  buyerShow(null);
+  if (tab === "fba") { renderFbaTab(); return; }
+  const q = $("search").value.trim();
+  const items = list().filter((d) => bucket(d) === tab && matches(d, q));
+  if (example) setNotice("info", "<b>This is an example card.</b> Your real drafts appear here as soon as the page connects to Supabase.");
+  if (!items.length) {
+    const msg = { check: "Nothing to check right now. Fill a P folder in PapaDuck Inbox and its draft shows up here a few minutes later.",
+                  station: "Nothing from the Book Station yet. Upload a book there and press 📤 Send to Drafts — it shows up here.",
+                  sent: "No books sent yet.", dont: "Nothing set aside for Goodwill, trash or Don't list.", problem: "No problems.", archive: "Nothing archived yet. Blast off moves listed, Not listing and Problem books here." }[tab];
+    $("main").innerHTML = justHtml() + '<p class="empty">' + (q ? "No draft matches “" + esc(q) + "”." : msg) + "</p>";
+    wireFbaCards();
+    return;
+  }
+  const groups = [];
+  items.forEach((d) => { let g = groups.find((x) => x.scan === d.scan); if (!g) groups.push(g = { scan: d.scan, rows: [] }); g.rows.push(d); });
+  $("main").innerHTML = groups.map((g) =>
+    '<div class="scanhead"><span>' + esc(g.scan) + "</span>" + runSummary(g.rows) + "</div>" +
+    '<div class="rows">' + g.rows.map(rowHtml).join("") + "</div>").join("");
+  if (tab === "check" || tab === "station") { $("main").insertAdjacentHTML("afterbegin", justHtml()); wireFbaCards(); }
+  const nr = items.filter((d) => d.amazon && d.amazon.status === "restricted" && !d.built_at).length;
+  if (nr) {
+    $("main").insertAdjacentHTML("afterbegin", '<div class="amzall"><button type="button" id="amzall">🔄 Got Amazon approvals? Recheck all ' + nr + ' restricted books</button></div>');
+    $("amzall").onclick = () => recheckAmazon(null);
+  }
+  document.querySelectorAll(".row").forEach((el) => el.addEventListener("click", () => openDraft(Number(el.dataset.id))));
+  loadCovers(items);
+}
+let coverRun = 0;
+async function loadCovers(items){
+  const run = ++coverRun;
+  for (const d of items) {
+    if (run !== coverRun || view.mode !== "list") return;
+    const cov = (d.photos || []).filter((p) => !p.removed)[0];
+    if (!cov || photoCache[cov.drive_id]) continue;
+    await loadPhoto(cov, true);
+    const c = photoCache[cov.drive_id];
+    document.querySelectorAll('[data-cov="' + cov.drive_id + '"]').forEach((el) => { if (c && c !== "error") el.innerHTML = '<img alt="" src="' + c + '">'; });
+  }
+}
+// ---------- price + profit shown on the list (his ask 2026-09-27) ----------
+function priceOf(d){
+  const e = edits[d.id] || {};
+  const ov = e.price_override !== undefined ? e.price_override : d.price_override;
+  if (Number(ov) > 0) return Number(ov);
+  const l = d.pricing && Number(d.pricing.list);
+  return l > 0 ? l : null;
+}
+function qtyOf(d){ const e = edits[d.id] || {}; const q = parseInt(e.qty !== undefined ? e.qty : ((d.answers || {}).station || {}).qty, 10); return q > 0 ? q : 1; }
+function costOf(d){
+  const c = parseFloat(String(((d.answers || {}).station || {}).cost || "").replace(/[^0-9.]/g, ""));
+  return isFinite(c) && c >= 0 && String(((d.answers || {}).station || {}).cost || "").trim() !== "" ? c : null;
+}
+function usd(v){ return "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function runSummary(rows){
+  let list = 0, profit = 0, priced = 0, waiting = 0, nocost = 0;
+  rows.forEach((d) => {
+    if (d.status === "dont_list" || d.status === "failed") return;
+    const p = priceOf(d), q = qtyOf(d);
+    if (p == null){ waiting++; return; }
+    priced++;
+    list += p * q;
+    const c = costOf(d);
+    if (c == null) nocost++;
+    profit += (p - (c || 0)) * q;
+  });
+  if (!priced && !waiting) return '<span class="mono">' + rows.length + " book" + (rows.length === 1 ? "" : "s") + "</span>";
+  let h = '<span class="runsum"><span class="dim mono">' + rows.length + " book" + (rows.length === 1 ? "" : "s") + "</span>";
+  if (priced) h += '<span class="dim">list <b class="mono">' + usd(list) + "</b></span>" +
+    '<span title="List price minus what you paid, for every priced book in this run">profit <span class="profit">' + usd(profit) + "</span></span>";
+  if (waiting) h += '<span class="dim">' + waiting + " still pricing</span>";
+  if (nocost) h += '<span class="dim">' + nocost + " with no cost yet</span>";
+  return h + "</span>";
+}
+
+// ---------- Etsy (opt-in, 20+ years only) — his rule 2026-09-29 ----------
+const ETSY_CUTOFF = new Date().getFullYear() - 20;
+// the same three checks the database makes before it will save Etsy ON — so the page can never offer an ON it would refuse
+function etsyBlock(d){
+  const yr = d.etsy_year, chan = merged(d).channel;
+  if (chan === "amazon") return "Amazon-only book";
+  if (chan === "fba") return "Amazon FBA book";
+  if (!yr) return "No confirmed year";
+  if (yr > ETSY_CUTOFF) return yr + " is too new (needs " + ETSY_CUTOFF + " or older)";
+  return "";
+}
+function etsyChip(d){
+  if (d.etsy) return '<span class="chip etsy" title="Goes to Etsy at blast off">Etsy ON</span>';
+  if (etsyBlock(d)) return "";
+  const r = d.etsy_rec || {};
+  if (r.rec) return '<span class="chip etsyrec" title="' + esc(r.why || "") + '">★ Etsy OK · recommended</span>';
+  return '<span class="chip etsyok" title="' + d.etsy_year + ' — old enough for Etsy. Open the book to switch Etsy ON.">✓ Etsy OK · ' + d.etsy_year + '</span>';
+}
+/* v33 (2026-10-01): Amazon - can he list it in this condition, and is it worth it. Filled by Dispatch v26 on his PC. */
+function amzChip(d){
+  const a = d.amazon; if (!a) return "";
+  if (a.status === "restricted") return '<span class="chip amzno" title="' + esc(((a.reasons||[])[0]||{}).message || "") + '">🚫 Amazon restricted</span>';
+  if (a.status === "not_on_amazon") return '<span class="chip amznone" title="No Amazon page (no ASIN)">Not on Amazon</span>';
+  if (a.status !== "ok") return "";
+  const good = /^Good/.test(a.fit || ""), sold = a.sold_180 != null ? " · ~" + a.sold_180 + " sold/180d" : (a.rank ? " · rank " + Number(a.rank).toLocaleString() : "");
+  const on = amzWill(d);
+  return '<span class="chip ' + (good ? "amzgood" : "amzok") + '" title="' + esc(a.fit_why || "") + '">' + (on ? "🛒 Amazon ON · " : "✓ Amazon OK · ") + esc((a.fit || "").split(" ")[0]) + esc(sold) + "</span>";
+}
+// ---------- FBA fit (his ask 2026-10-08: "I know some amazon is not a good fit especially if it is not a quick mover") ----------
+// Speed from Amazon sales history (Keepa: ~sold in 90 / 180 days) or the sales rank; money = what FBA leaves him after
+// Amazon's 15% + $1.80, an ESTIMATED FBA pick-and-ship fee by weight, shipping the book to Amazon, and what he paid.
+function fbaFeeEst(lb){ lb = Math.max(1, Math.ceil(Number(lb) || 1)); return lb <= 1 ? 4.00 : lb === 2 ? 5.00 : lb === 3 ? 5.75 : 5.75 + 0.40 * (lb - 3); }
+function fbaFit(d){
+  const a = d.amazon || {}; if (a.status !== "ok") return null;
+  const mine = priceOf(d); if (mine == null) return null;
+  const mk = (d.pricing || {}).market || {}, z = mk.amazon || {}, eb = mk.ebay || {};
+  // what it really sells for on Amazon: the used Buy Box (or lowest used) plus the $3.99 shipping those sellers charge -
+  // an FBA copy ships free, so it can sit about that much higher. Never above his own price.
+  const amzGoing = Number(z.used_bb || z.used_low || a.low_price || 0);
+  const price = amzGoing > 0 ? Math.min(mine, +(amzGoing + 3.99).toFixed(2)) : mine;
+  const lb = Number(merged(d).weight_lb) || 1, cost = costOf(d) || 0;
+  const fee = fbaFeeEst(lb), inbound = +(0.50 * Math.max(1, Math.ceil(lb))).toFixed(2);
+  const net = +(price - price * 0.15 - 1.80 - fee - inbound - cost).toFixed(2);
+  const s90 = a.sold_90 != null ? Number(a.sold_90) : z.sales90 != null ? Number(z.sales90) : (a.sold_180 != null ? Number(a.sold_180) / 2 : null);
+  const rank = Number(a.rank || z.rank || a.rank_avg180 || 0) || null;
+  let speed, sp;
+  if (s90 != null) { speed = s90 >= 6 ? "fast" : s90 >= 2 ? "ok" : "slow"; sp = "~" + Math.round(s90) + " sold on Amazon in 90 days"; }
+  else if (rank) { speed = rank <= 300000 ? "fast" : rank <= 1000000 ? "ok" : "slow"; sp = "Amazon rank " + rank.toLocaleString(); }
+  else { speed = "unknown"; sp = "no Amazon sales history yet"; }
+  const ebSold = Number(eb.sold || 0), ebayStrong = ebSold >= 3, ebayAlive = ebSold >= 1;
+  const ebTxt = ebSold ? ebSold + " recently sold on eBay" : "none sold on eBay lately";
+  let level, why;
+  if (speed === "slow") { level = "home"; why = "Slow on Amazon (" + sp + ") — it would sit in Amazon's warehouse paying fees. Keep it home: eBay + AbeBooks + Amazon the normal way."; }
+  else if (net < 3) { level = "home"; why = "Too little left after FBA fees (about " + usd(net) + " at " + usd(price) + "). Keep it home and list it the normal way."; }
+  else if (ebayStrong && !(speed === "fast" && net >= 8)) { level = "home"; why = "It sells on eBay (" + ebTxt + ") — FBA would take it off eBay. Keep it home."; }
+  else if (speed === "fast" && net >= 5 && !a.amazon_sells) { level = "good"; why = "Good FBA fit — moves fast on Amazon (" + sp + "), " + ebTxt + ", and leaves you about " + usd(net) + "."; }
+  else { level = "maybe"; why = "Maybe — " + sp + "; " + ebTxt + (a.amazon_sells ? "; Amazon sells it too" : "") + "; FBA leaves you about " + usd(net) + ". Your call."; }
+  return { level, why, net, fee, inbound, cost, price, mine, amzGoing, sp };
+}
+function fbaFitHtml(d){
+  const f = fbaFit(d); if (!f) return "";
+  const icon = f.level === "good" ? "🟢" : f.level === "maybe" ? "🟡" : "🔴";
+  return '<div class="fbafit ' + f.level + '"><b>' + icon + " FBA fit:</b> " + esc(f.why) +
+    '<div class="sm">At ' + usd(f.price) + (f.price < f.mine ? " (Amazon's going price — used copies sell around " + usd(f.amzGoing) + " + shipping; your price is " + usd(f.mine) + ")" : "") + ": Amazon 15% + $1.80, FBA fee ~" + usd(f.fee) + " (estimate, by weight), shipping to Amazon ~" + usd(f.inbound) +
+    (f.cost ? ", your cost " + usd(f.cost) : "") + " → about <b>" + usd(f.net) + "</b> left.</div></div>";
+}
+/* v35 (2026-10-22, his ask: "if I get amazon approval I can ask you to re look and add to amazon in one click inside the draft"):
+   🔄 Recheck asks Amazon again from the cloud (pipeline.amazon_recheck -> edge function amazon-recheck). No PC needed. */
+let recheckBusy = false;
+async function recheckAmazon(id){
+  if (example){ toast("This is the example card. Nothing is saved."); return; }
+  if (recheckBusy) return; recheckBusy = true;
+  try {
+    const rows = await sql("select pipeline.amazon_recheck(" + (id == null ? "null" : Number(id)) + ") as r");
+    const r = (rows[0] && rows[0].r) || {}; const n = Number(r.rechecking || 0);
+    if (!n) { toast("Nothing to recheck."); return; }
+    toast("Asking Amazon again about " + n + (n === 1 ? " book" : " books") + " — answers show in about " + (n > 8 ? "2 minutes" : "a minute") + ".");
+    await load(true);
+    [25, 50, 80, 120, 180].forEach((s) => setTimeout(() => { load(true).catch(() => {}); }, s * 1000));
+  } catch (err){ const x = explain(err, SUPA); setNotice(x.kind, x.text); window.scrollTo(0, 0); }
+  finally { recheckBusy = false; }
+}
+/* v46 (2026-10-24, his ask: "if the status for amazon is good or better ... auto list on for only non fba. I still want to decide on fba"):
+   automatic ON = Amazon says OK to list AND the fit is Good. Never automatic for a book going to FBA - FBA stays his call. */
+function amzWill(d){ const a = d.amazon || {}; if (a.status !== "ok") return false; if (d.amazon_on === false) return false; if (d.amazon_on === true) return true;
+  if (merged(d).channel === "fba" || d.status === "fba") return false; return /^(Good|OK)/.test(a.fit || ""); }   // 2026-10-24: OK fit too ("yes still list")
+async function setAmazon(d, v){
+  if (example){ toast("This is the example card. Nothing is saved."); return; }
+  try {
+    await save(d.id, { action: "save", amazon_on: v });
+    await load(true);
+    toast(v === true ? "Amazon ON — it goes in tonight's Amazon file." : v === false ? "Amazon off for this book." : "Amazon set to automatic (Good fit only).");
+    if (view.mode === "detail" && current()) renderDetail(current());
+  } catch (err){ const x = explain(err, SUPA); setNotice(x.kind, x.text); window.scrollTo(0, 0); }
+}
+/* v34 (2026-10-02, his ask: "I need to be able to say amazon as well as the others"): Amazon as an ADD-ON beside eBay/AbeBooks, right in "Where does it go?" */
+function amzAddHtml(d, locked){
+  const a = d.amazon, on = amzWill(d), auto = d.amazon_on == null;
+  let h = '<div class="amzadd"><span class="lbl">🛒 Also list on Amazon:</span>';
+  const re = ' <button type="button" class="amzre" data-amzre="1">🔄 Recheck</button>';
+  if (!a) return h + '<span class="await">Checking Amazon now (about a minute)</span></div>';
+  if (a.status === "restricted") return h + '<span class="alock">🔒 Restricted in this condition</span>' + re + '</div>';
+  if (a.status === "not_on_amazon") return h + '<span class="alock">🔒 Not on Amazon (no page)</span>' + re + '</div>';
+  if (a.status !== "ok") return h + '<span class="alock">🔒 Amazon check failed</span>' + re + '</div>';
+  const dis = locked && d.built_at ? " disabled" : "";
+  return h + '<span class="seg"><button type="button" class="aon" data-amz="on" aria-pressed="' + on + '"' + dis + '>Amazon ON</button>' +
+    '<button type="button" data-amz="off" aria-pressed="' + !on + '"' + dis + '>Off</button></span>' +
+    (auto ? '<span class="small">' + (on ? "auto-ON (" + esc((a.fit || "").split(" ")[0]) + " fit)" : "auto-off (" + esc((a.fit || "").split(" ")[0] || "not Good or OK") + " fit)") + "</span>" : "") + "</div>";
+}
+function amzBoxHtml(d){
+  const a = d.amazon;
+  if (!a) return '<div class="amzbox"><h4>🛒 Amazon</h4><span class="small">Checking Amazon now — the answer shows here in about a minute.</span></div>';
+  const row = (k, v) => v == null || v === "" ? "" : "<tr><td>" + esc(k) + "</td><td><b>" + v + "</b></td></tr>";
+  const money = v => v == null ? null : "$" + Number(v).toFixed(2);
+  let h = '<div class="amzbox"><h4>🛒 Amazon — ' + (a.status === "ok" ? "✓ you can list it (" + esc(a.grade || "") + ")" : a.status === "restricted" ? "🚫 restricted in " + esc(a.grade || "this condition") : a.status === "not_on_amazon" ? "not on Amazon" : "check failed") + "</h4>";
+  if (a.status === "restricted") h += (a.reasons || []).map(r => '<div class="small">' + esc(r.message) + (r.link ? ' — <a href="' + esc(r.link) + '" target="_blank" rel="noopener">request approval</a>' : "") + "</div>").join("");
+  if (a.status === "not_on_amazon" || a.status === "error") h += '<div class="small">' + esc(a.note || "") + "</div>";
+  if (a.status !== "ok") h += '<div class="amzseg"><button type="button" class="amzre" data-amzre="1">🔄 I got approval — recheck Amazon now</button></div>';
+  if (a.status === "ok") {
+    const mode = d.amazon_on === true ? "on" : d.amazon_on === false ? "off" : "auto";
+    if (merged(d).channel === "fba") h += '<div class="small"><b>Going to Amazon FBA</b> at blast off (fulfilled by Amazon).</div>';
+    else h += '<div class="small"><b>Send to Amazon at blast off?</b> ' + (amzWill(d) ? "Yes" : "No") + (mode === "auto" ? " (automatic: when the fit is Good or OK, never FBA)" : "") + "</div>" +
+      (mode !== "auto" ? '<div class="amzseg"><button data-amz="auto">Back to automatic (Good or OK fit)</button></div>' : "");
+    h += "<table>" + row("Amazon fit", esc(a.fit || "")) +
+      row("Sold in last 30 / 90 / 180 days", a.sold_180 != null ? "~" + (a.sold_30 ?? "?") + " / ~" + (a.sold_90 ?? "?") + " / ~" + a.sold_180 : (a.keepa === "waiting" ? "Keepa busy — fills in shortly" : null)) +
+      row("Bought last month (Amazon)", a.bought_month ? a.bought_month + "+" : null) +
+      row("Sales rank now", a.rank ? Number(a.rank).toLocaleString() : null) + row("Average rank (180 days)", a.rank_avg180 ? Number(a.rank_avg180).toLocaleString() : null) +
+      row("Lowest price now (" + (a.cond === "new_new" ? "new" : "used") + ")", money(a.low_price)) + row("Average used price (180 days)", money(a.used_avg180)) +
+      row("Other sellers", a.offers != null ? a.offers : null) + row("Your estimated take at lowest price", a.est_net != null ? money(a.est_net) + ' <span class="small">(after 15% + $1.80; shipping credit covers postage)</span>' : null) +
+      row("Amazon sells it too", a.amazon_sells ? "yes — harder to win the sale" : null) +
+      row("ASIN", a.asin ? '<a href="https://www.amazon.com/dp/' + esc(a.asin) + '" target="_blank" rel="noopener">' + esc(a.asin) + "</a>" : null) + "</table>";
+  }
+  if (a.status === "ok") h += fbaFitHtml(d);
+  return h + '<div class="small" style="margin-top:4px">checked ' + esc(a.checked || "") + "</div></div>";
+}
+function rowHtml(d){
+  const id = d.ident || {};
+  const miss = d.status === "drafted" ? missingFor(d) : [];
+  const nq = (d.questions || []).filter((q, i) => !isStd(q) && !String(merged(d).answers[i] || "").trim()).length;
+  let chips = "";
+  if (d.status === "failed") chips += '<span class="chip bad">Upload problem</span>';
+  else if (d.status === "processing") chips += '<span class="chip">Working…</span>';
+  else if (d.status === "dont_list") chips += '<span class="chip bad">' + esc(NOT_LISTING[d.channel] || "Don't list") + "</span>";
+  else if (d.status === "fba") { const it = fbaOf(d); chips += '<span class="chip fba">📦 FBA' + (it ? " · box " + it.box : "") + "</span>" + (d.pd ? '<span class="chip ok">' + esc(d.pd) + "</span>" : ""); }
+  else if (d.status === "sent") chips += (audNeedsOk(d) ? audChip(d) : "") + (priceOf(d) != null ? '<span class="chip price">' + usd(priceOf(d)) + "</span>" : "") + etsyChip(d) + amzChip(d) + '<span class="chip ok">' + esc(d.pd || "Sent") + "</span>" + (d.channel !== "both" ? '<span class="chip">' + esc(chanName(d.channel)) + "</span>" : "") + (d.source === "station" ? '<span class="chip">Book Station</span>' : "");
+  else {
+    if (id.grade) chips += '<span class="chip grade">' + esc(id.grade) + "</span>";
+    const pr = priceOf(d);
+    chips += pr != null ? '<span class="chip price">' + usd(pr) + (qtyOf(d) > 1 ? " ×" + qtyOf(d) : "") + "</span>" : '<span class="chip price wait">pricing…</span>';
+    chips += etsyChip(d) + amzChip(d);
+    { const ff = fbaFit(d); if (ff && ff.level === "good") chips += '<span class="chip fbagood" title="' + esc(ff.why) + '">📦 FBA good fit</span>'; }
+    if (audNeedsOk(d)) chips += audChip(d);
+    if (merged(d).channel !== "both") chips += '<span class="chip">' + esc(chanName(merged(d).channel)) + "</span>";
+    chips += nq ? '<span class="chip q">' + nq + " question" + (nq === 1 ? "" : "s") + "</span>" : (miss.length ? "" : '<span class="chip ok">Ready</span>');
+  }
+  if (d.location && d.location !== "Garage") chips += '<span class="chip">📍 ' + esc(d.location) + "</span>";
+  const meta = [id.author, id.publication_year, (d.photos || []).filter((p) => !p.removed).length + " photos", d.is_set ? "Set" : ""].filter(Boolean).join(" · ");
+  const cov = (d.photos || []).filter((p) => !p.removed)[0];
+  const cimg = cov && photoCache[cov.drive_id];
+  return '<button class="row" type="button" data-id="' + d.id + '"><span class="pcol"><span class="pbadge">' + esc(d.p) + "</span>" +
+    '<span class="cov"' + (cov ? ' data-cov="' + esc(cov.drive_id) + '"' : "") + ">" + (cimg && cimg !== "error" ? '<img alt="" src="' + cimg + '">' : "") + "</span></span>" +
+    '<span><div class="t">' + esc(id.title || (d.status === "failed" ? "Couldn't finish this one" : "Reading the book…")) + '</div><div class="m">' + esc(meta) + "</div></span>" +
+    '<span class="chips">' + chips + "</span></button>";
+}
+
+// Archived books come in the list as a slim summary (no description, no photos). Fetch the full text + photos when opened.
+const archFull = {};
+function reapplyArchived(){
+  drafts.forEach((d) => { const f = archFull[d.id]; if (!f || !d.archived_at) return;
+    d.pricing = Object.assign({}, d.pricing || {}, { b1: f.b1, b2: f.b2 }); if (f.photos) d.photos = f.photos; d._full = true; });
+}
+async function fillArchived(d){
+  if (!d || !d.archived_at || d._full || !mcp || example) return;
+  d._full = true;
+  try {
+    const rows = await sql("select pricing->>'b1' as b1, pricing->>'b2' as b2, photos from pipeline.drafts where id = " + Number(d.id));
+    const r = rows[0]; if (!r) return;
+    d.pricing = Object.assign({}, d.pricing || {}, { b1: r.b1 || "", b2: r.b2 || "" });
+    if (Array.isArray(r.photos)) d.photos = r.photos;
+    archFull[d.id] = { b1: r.b1 || "", b2: r.b2 || "", photos: Array.isArray(r.photos) ? r.photos : null };
+    if (view.mode === "detail" && view.id === d.id){
+      renderDetail(d);
+      const ph = merged(d).photos;
+      if (ph.length) loadPhoto(ph[0]).then(async () => { for (const p of ph.slice(1)) { if (view.id !== d.id) return; await loadPhoto(p, true); } if (view.mode === "detail" && view.id === d.id) renderDetail(d); });
+    }
+  } catch (e) { d._full = false; }
+}
+function openDraft(id){
+  view = { mode: "detail", id };
+  fillArchived(list().find((x) => x.id === id));
+  selPhoto = 0; notConfirm = null; tellOpen = false; noteEditing = null;
+  render();
+  window.scrollTo(0, 0);
+  const d = current();
+  if (d && priceOf(d) == null) repriceMissing(true);
+  if (d && d.photos && d.photos.length) {
+    const ph = merged(d).photos;
+    loadPhoto(ph[0]).then(async () => {           // then fill in the rest of the strip on its own
+      for (const p of ph.slice(1).concat(merged(d).removed)) { if (view.id !== id) return; await loadPhoto(p, true); }
+      const a = document.activeElement;
+      if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) return;   // don't yank the box he's typing in
+      if (view.mode === "detail" && view.id === id && current()) renderDetail(current());
+    });
+  }
+}
+
+const CHANNELS = [["both","eBay + AbeBooks"],["ebay","eBay only"],["abe","AbeBooks only"],["amazon","Amazon only"],["fba","📦 Amazon FBA"]];
+const NOT_LISTING = { goodwill: "Goodwill", trash: "Throw away", dont_list: "Don't list" };
+const DETAIL_FIELDS = [
+  ["title","Title"],["subtitle_or_series","Subtitle / series"],["author","Author"],["publisher","Publisher"],["publication_year","Year"],
+  ["isbn","ISBN"],["format","Format"],["edition_printing","Edition / printing"],["page_count_if_visible","Pages"],
+  ["genre_or_subject","Subject"],["audience","Audience"],["copies_of_same_book","Copies of this book"],["ex_library","Ex-library"],
+  ["dust_jacket","Dust jacket"],["special_features","Special features"],["grade","Grade"],["weight_lb","Weight estimate (lb)"],
+  ["photos_too_washed_out","Photos too washed out"],["do_not_list","Do not list"],["do_not_list_reason","Why not"],["uncertainties","Claude wasn't sure about"]
+];
+
+// ---------- buyer view on the right (wide screens) ----------
+let buyerKey = "";
+function buyerShow(d){
+  const pr = (d && d.pricing) || {};
+  document.body.classList.toggle("side", !!d);
+  if (!d){ buyerKey = ""; $("buyer").innerHTML = ""; return; }
+  const p = priceOf(d), key = d.id + "|" + (pr.ebay_title || "") + "|" + (pr.b1 || "") + "|" + (pr.b2 || "") + "|" + p + "|" + !!d.price_stale;
+  if (key === buyerKey) return;            // same text: leave the frame alone so it doesn't flicker or lose its scroll
+  buyerKey = key;
+  let h = '<h3>What the buyer sees</h3>';
+  if (d.price_stale) h += '<div class="bsub">Claude is updating this — about a minute.</div>';
+  if (!pr.b2 && !pr.b1) { $("buyer").innerHTML = h + '<div class="pending">The description is written after the book is priced — usually about a minute.</div>'; return; }
+  if (pr.ebay_title) h += '<div><span class="label">eBay title</span><div class="ttl">' + esc(pr.ebay_title) + "</div></div>";
+  if (p != null) h += '<div class="bprice">' + usd(p) + "</div>";
+  if (pr.b1) h += '<div><span class="label">Condition (Block 1)</span><div class="b1">' + esc(pr.b1) + "</div></div>";
+  if (pr.b2) h += '<span class="label">Full description (Block 2)</span><iframe sandbox title="Buyer description" srcdoc="' + esc(pr.b2) + '"></iframe>';
+  $("buyer").innerHTML = h;
+}
+function renderDetail(d){
+  setNotice(example ? "info" : null, example ? "<b>Example card.</b> Nothing here is saved." : "");
+  const m = merged(d), id = m.ident, locked = d.status === "sent" || d.status === "dont_list" || d.status === "fba";
+  const photos = m.photos;
+  let h = '<button class="back" id="back" type="button">← All drafts</button>';
+  h += '<div class="dhead"><div><h2>' + esc(id.title || "Untitled") + '</h2><div class="where">' + esc(d.scan) + " · " + esc(d.p) + (d.is_set ? " · set" : "") + "</div></div>" +
+       '<div style="display:grid;gap:6px;justify-items:end">' + (d.pd ? '<span class="bigpd">' + esc(d.pd) + "</span>" : "") +
+       '<span class="bigpd qtybadge" title="Copies of this book">Qty ' + qtyOf(d) + "</span></div></div>";
+  if (id.do_not_list) h += '<div class="notice bad">🚨 <b>Do not list.</b> ' + esc(id.do_not_list_reason || "The Good and the Beautiful or self-printed.") + "</div>";
+  // 2026-10-17 Papa Duck: "move the final ok to list to the bottom ... so that I click on it before I type in the number for the second time"
+  const audLow = d.status === "drafted" && !!audOf(d) && !audOf(d).ok;
+  // v46 (2026-10-24, his ask: "can what the issue be put right at the top when I click in the book"): the reason shows here, not only at the bottom
+  if (audLow) h += '<div class="audbox ' + (audNeedsOk(d) ? "flag" : "okd") + '"><div><b>⚠️ Family-friendly check' + (audOf(d).level === "caution" ? " (caution)" : "") + ':</b> ' + esc(audOf(d).note || "a possible concern was found.") + "</div><div>" + (audNeedsOk(d) ? "Your <b>OK to list</b> is at the bottom, just above where you type the PD number again." : "You said OK to list (details at the bottom).") + "</div></div>";
+  else if (d.status === "drafted" || d.status === "sent" || audNeedsOk(d)) h += audHtml(d, !!d.built_at || d.status === "fba" || d.status === "dont_list");
+  (d.flags || []).filter((f) => !/^DO NOT LIST/i.test(f)).forEach((f) => { h += '<div class="notice warn">' + esc(f) + "</div>"; });
+  if (d.status === "failed") h += '<div class="notice bad"><b>This one didn\'t finish.</b> ' + esc(d.error || "") + " The cloud tries again automatically (up to 3 times).</div>";
+  if (d.status === "sent") h += '<div class="notice info"><b>Sent as ' + esc(d.pd) + " · " + esc(chanName(d.channel)) + ".</b> " + (d.built_at ? "Already picked up at blast off." : "It waits here for blast off. You can still reopen it.") + "</div>";
+  if (d.status === "fba") { const it = fbaOf(d); h += '<div class="just" style="margin-top:14px"><h3>📦 Amazon FBA only' + (it ? " · box " + it.box : "") + "</h3>" + (it ? '<div class="fcards">' + fbaCard(it, false) + "</div>" : "") + "</div>"; }
+  if (d.status === "dont_list") h += '<div class="notice warn"><b>Not listing: ' + esc(NOT_LISTING[d.channel] || "Don't list") + ".</b></div>";
+
+  // photos
+  const sp = photos[selPhoto];
+  const big = sp ? photoCache[sp.drive_id] : null;
+  const nav = photos.length > 1
+    ? '<button class="arrow l" id="prevph" type="button" aria-label="Previous photo">‹</button><button class="arrow r" id="nextph" type="button" aria-label="Next photo">›</button>' : "";
+  h += '<div class="photo" id="bigphoto">' + (big && big !== "error" ? '<img id="bigimg" alt="Photo ' + (selPhoto + 1) + ' — tap for full size" title="Tap for full size" src="' + big + '">' :
+        (big === "error" ? "This photo couldn't load from Google Drive." : (sp ? "Loading photo " + (selPhoto + 1) + "…" : "No photos"))) +
+        nav + (big && big !== "error" ? '<button class="fullbtn" id="fullph" type="button">⤢ Full size</button>' : "") + "</div>";
+  if (photos.length){
+    h += '<div class="strip">' + photos.map((p, i) => {
+      const c = photoCache[p.drive_id];
+      return '<button class="thumb" type="button" data-i="' + i + '" aria-current="' + (i === selPhoto) + '" aria-label="Photo ' + (i + 1) + '">' +
+        (c && c !== "error" ? '<img alt="" src="' + c + '">' : (i + 1)) + (p.group && p.group !== "book" ? '<span class="grp">' + esc(p.group.replace("set ", "")) + "</span>" : "") + "</button>";
+    }).join("") + "</div>";
+    h += '<div class="photobar"><span>Photo ' + (selPhoto + 1) + " of " + photos.length + (selPhoto === 0 ? " · cover" : "") + "</span>" +
+         (!locked ? (selPhoto > 0 ? '<button class="btn small" id="mvleft" type="button">◀ Move left</button>' : "") +
+                    (selPhoto < photos.length - 1 ? '<button class="btn small" id="mvright" type="button">Move right ▶</button>' : "") +
+                    (selPhoto > 0 ? '<button class="btn small" id="makecover" type="button">Make this the cover</button>' : "") +
+                    (photos.length > 1 ? '<button class="btn small danger" id="rmphoto" type="button">Remove this photo</button>' : "") : "") + "</div>";
+    if (m.removed.length) h += '<div class="removed"><span class="label">Photos taken out of the listing (' + m.removed.length + ') — the book itself is still here</span><div class="strip">' +
+      m.removed.map((p) => { const c = photoCache[p.drive_id];
+        return '<div class="rmwrap"><div class="thumb off">' + (c && c !== "error" ? '<img alt="" src="' + c + '">' : "·") + "</div>" +
+          (locked ? "" : '<button class="btn small" type="button" data-putback="' + esc(p.drive_id) + '">Put back</button>') + "</div>"; }).join("") + "</div></div>";
+  }
+
+  // where it goes
+  if (!locked || d.status === "sent"){
+    h += '<section class="sec"><h3>Where does it go?</h3><div class="seg" role="group" aria-label="Channel">' +
+         CHANNELS.map((c) => { const fb = c[0] === "fba" && m.channel !== "fba" ? fbaBlock(d) : "";
+           const ff = c[0] === "fba" && !fb ? fbaFit(d) : null;
+           return '<button type="button" data-chan="' + c[0] + '" aria-pressed="' + (m.channel === c[0]) + '"' + (locked || fb ? " disabled" : "") + (fb ? ' title="' + esc("FBA locked: " + fb) + '"' : ff ? ' title="' + esc(ff.why) + '"' : "") + ">" + c[1] +
+             (fb ? " 🔒" : ff ? (ff.level === "good" ? " 🟢" : ff.level === "maybe" ? " 🟡" : " 🔴") : "") + "</button>"; }).join("") + "</div>";
+    if (m.channel === "fba") h += '<div class="fbabox"><div class="fw" style="color:var(--ink)"><b>📦 Amazon FBA only.</b> At blast off it is listed on Amazon (fulfilled by Amazon) and its sticker waits in <b>Dispatch → Ready to print</b>. It does not go to eBay, AbeBooks or Etsy.</div>' + fbaFitHtml(d) + '</div>';
+    else if (m.channel !== "amazon") h += amzAddHtml(d, locked);
+    if (!locked) h += '<div class="seg" style="margin-top:8px" role="group" aria-label="Not listing"><button type="button" class="notlist" data-not="dont_list">Don\'t list this book</button><button type="button" class="notlist" data-not="goodwill">Goodwill</button><button type="button" class="notlist" data-not="trash">Throw away</button></div>';
+    if (m.channel !== "amazon" && m.channel !== "fba") h += etsyBoxHtml(d);
+    h += amzBoxHtml(d);
+    if (notConfirm && !locked) h += confirmHtml();
+    h += "</section>";
+    h += '<section class="sec"><h3>Where is it kept?</h3><div class="seg" role="group" aria-label="Location">' +
+         ["Garage", "Storage", "Office"].map((l) => '<button type="button" data-loc="' + l + '" aria-pressed="' + (m.location === l) + '"' + (d.built_at ? " disabled" : "") + ">" + l + "</button>").join("") + "</div></section>";
+  }
+
+  // editable details
+  const f = (k, label, v) => '<div class="field"><label class="label" for="f-' + k + '">' + label + '</label><input id="f-' + k + '" data-k="' + k + '" value="' + esc(v || "") + '"' + (locked ? " disabled" : "") + "></div>";
+  h += '<section class="sec"><h3>Details</h3><div class="grid2">' +
+       f("title", "Title", id.title) + f("author", "Author", id.author) + f("publisher", "Publisher", id.publisher) +
+       f("publication_year", "Year", id.publication_year) + f("isbn", "ISBN", id.isbn) + f("edition_printing", "Edition / printing", id.edition_printing) +
+       f("format", "Format", id.format) + f("ex_library", "Ex-library", id.ex_library) + "</div>";
+  if (d.is_set && Array.isArray(id.set_books) && id.set_books.length)
+    h += '<div class="field" style="margin-top:12px"><span class="label">Books in the set</span><div>' +
+         id.set_books.map((b, i) => (i + 1) + ". " + esc(b.title) + (b.author ? " — " + esc(b.author) : "") + (b.isbn ? " · ISBN " + esc(b.isbn) : "")).join("<br>") + "</div></div>";
+  h += "</section>";
+
+  // condition
+  h += '<section class="sec"><h3>Condition</h3><div class="seg" role="group" aria-label="Grade">' +
+       GRADES.map((g) => '<button type="button" data-grade="' + g + '" aria-pressed="' + (id.grade === g) + '"' + (locked ? " disabled" : "") + ">" + g + "</button>").join("") + "</div>" +
+       notesHtml(d, locked) + "</section>";
+
+  // price placeholder
+  h += '<section class="sec"><h3>Price &amp; description</h3>' + priceHtml(d, locked) + "</section>";
+
+  // in-hand checklist (same choices as the Book Station)
+  h += '<section class="sec"><h3>What you see in hand</h3><div class="hint">Tick anything the photos can’t show. Your numbers beat any guess from the pictures. The price and description update on their own.</div>' + inhandHtml(d, locked) + "</section>";
+
+  // questions
+  if ((d.questions || []).some((q) => !isStd(q))){
+    h += '<section class="sec"><h3>Questions</h3><div class="qlist">' + d.questions.map((q, i) => {
+      if (isStd(q)) return "";
+      const a = String(m.answers[i] || "");
+      if (q.options.indexOf("Other") === -1) q = Object.assign({}, q, { options: q.options.concat("Other") });   // always a way out
+      const isOther = a && q.options.indexOf(a) === -1;
+      return '<div class="q' + (a.trim() ? "" : " need") + '"><div class="qt">' + esc(q.q) + '</div><div class="seg">' +
+        q.options.map((o) => {
+          const on = a === o || (o === "Other" && isOther);
+          return '<button type="button" data-q="' + i + '" data-v="' + esc(o) + '" aria-pressed="' + on + '"' + (locked ? " disabled" : "") + ">" + esc(o) + "</button>";
+        }).join("") + "</div>" +
+        ((isOther || a === "Other") ? '<input class="search" data-other="' + i + '" placeholder="Tell me what it is" value="' + esc(a === "Other" ? "" : a) + '"' + (locked ? " disabled" : "") + ">" : "") +
+        "</div>";
+    }).join("") + "</div></section>";
+  }
+
+  // weight + PD
+  h += '<section class="sec grid2"><div><span class="label">Shipping weight (lb)</span><div class="wt">' +
+       '<button type="button" id="wminus" aria-label="Less"' + (locked ? " disabled" : "") + ">−</button>" +
+       '<input id="f-weight" inputmode="decimal" value="' + esc(m.weight_lb) + '"' + (locked ? " disabled" : "") + ">" +
+       '<button type="button" id="wplus" aria-label="More"' + (locked ? " disabled" : "") + ">+</button></div>" +
+       '<div style="color:var(--muted);font-size:.82rem;margin-top:4px">Estimated from the photos. Weigh heavy or borderline books.</div>' +
+       '<span class="label" style="margin-top:14px">Quantity (copies)</span><div class="wt">' +
+       '<button type="button" id="qminus" aria-label="One fewer copy"' + (d.built_at ? " disabled" : "") + ">−</button>" +
+       '<input id="f-qty" inputmode="numeric" value="' + qtyOf(d) + '"' + (d.built_at ? " disabled" : "") + ">" +
+       '<button type="button" id="qplus" aria-label="One more copy"' + (d.built_at ? " disabled" : "") + ">+</button></div>" +
+       '<div id="qtynote" style="color:var(--muted);font-size:.82rem;margin-top:4px">' + qtyNote(d) + "</div></div>" +
+       '<div><label class="label" for="f-pd">PD number</label><div class="pdin"><span>PD-</span><input id="f-pd" inputmode="numeric" autocomplete="off" placeholder="2940" value="' +
+       esc(String(m.pd || "").replace(/^PD-?/i, "")) + '"' + (locked ? " disabled" : "") + "></div>" +
+       (locked ? "" : (audLow ? '<div style="margin-top:10px">' + audHtml(d, false) + "</div>" : "") + '<label class="label" for="f-pd2" style="margin-top:10px">Type it again to confirm</label><div class="pdin"><span>PD-</span><input id="f-pd2" inputmode="numeric" autocomplete="off" placeholder="same number" value="' +
+         esc(String((edits[d.id] || {}).pd2 || "").replace(/^PD-?/i, "")) + '"></div><div id="pdmatch" class="pdmatch">' + pdMatchText(d) + "</div>") +
+       "</div></section>";
+
+  // everything
+  h += '<section class="sec"><details class="all"' + (allOpen ? " open" : "") + ' id="alldet"><summary>Everything about this book</summary>' + allDetailsHtml(d) + "</details></section>";
+
+  // send
+  h += '<div class="check" id="checkarea">' + checkHtml(d) + "</div>";
+
+  $("main").innerHTML = h;
+  buyerShow(d);
+  wireDetail(d);
+  updateTally();
+}
+
+function money(v){ return "$" + Number(v).toFixed(2); }
+function marketHtml(pr){
+  const m = pr.market; if (!m) return "";
+  const $m = (v) => (v == null || v === "" || !(Number(v) > 0)) ? "—" : money(v);
+  const row = (name, n, lo, av, hi, note) => "<tr><td>" + name + "</td><td>" + (n == null ? "—" : n) + "</td><td>" + $m(lo) + "</td><td>" + $m(av) + "</td><td>" + $m(hi) + '</td><td class="nt">' + note + "</td></tr>";
+  const e = m.ebay || {}, a = m.abe || {}, z = m.amazon || {};
+  let h = '<div class="mktwrap"><table class="mkt"><thead><tr><th>Where</th><th>Copies</th><th>Low</th><th>Average</th><th>High</th><th>Notes</th></tr></thead><tbody>';
+  h += row("eBay", e.n, e.low, e.avg, e.high, (e.sold ? "<b>" + e.sold + " sold</b>" + (e.sold_avg ? " · selling at " + money(e.sold_avg) : "") : "no sales showing") + " · matching copies of " + (e.found || 0) + " found");
+  if (a && a.error) h += row("AbeBooks", null, null, null, null, esc(a.error));
+  else h += row("AbeBooks", a && a.n != null ? a.n : null, a && a.low, a && a.avg, a && a.high, a && a.n ? "used copies, before shipping" : "no used copies found");
+  if (!z || z.error) h += row("Amazon", null, null, null, null, esc((z && z.error) || "no ISBN"));
+  else {
+    const bits = [];
+    bits.push(z.used_bb ? "<b>Used buy box " + money(z.used_bb) + "</b>" + (z.used_bb_fba ? " (FBA seller)" : " (seller ships it)") : "no used buy box");
+    if (z.grade_low) bits.push("lowest " + esc(z.grade || "") + " " + money(z.grade_low) + " incl. shipping");
+    if (z.rank) bits.push("rank #" + Number(z.rank).toLocaleString("en-US"));
+    if (z.sales90 != null) bits.push("about " + z.sales90 + " sale" + (z.sales90 === 1 ? "" : "s") + " in 90 days");
+    h += row("Amazon", null, z.used_low, null, null, bits.join(" · "));
+  }
+  return h + "</tbody></table></div>";
+}
+function priceHtml(d, locked){
+  const pr = d.pricing || {}, e = edits[d.id] || {};
+  const ov = e.price_override !== undefined ? e.price_override : (d.price_override == null ? "" : String(d.price_override));
+  let h = "";
+  if (!pr.list && !pr.error) {
+    h += '<div class="pending">' + (d.status === "processing" ? "The price is worked out after the book is read." : "Working out the price from eBay… usually about a minute. This page checks again on its own.") + "</div>";
+  } else {
+    if (d.price_stale) h += '<div class="notice info">Claude is updating the price and description — about a minute. This page refreshes on its own.</div>';
+    if (pr.list) {
+      h += '<div class="price"><span><span class="label">List</span><div class="big">' + money(pr.list) + '</div></span>' +
+           '<span><span class="label">Auto-accept</span><div class="sm">' + money(pr.auto) + '</div></span>' +
+           '<span><span class="label">Min offer</span><div class="sm">' + money(pr.min) + "</div></span></div>";
+      h += pr.market ? marketHtml(pr) : '<div class="range">Matching eBay copies: <b>' + pr.n + "</b> · low " + money(pr.low) + " · <b>average " + money(pr.avg) + "</b> · high " + money(pr.high) + "</div>";
+      if (pr.fair_why) h += '<div class="range" style="color:var(--muted)">Claude: ' + esc(pr.fair_why) + "</div>";
+      if (pr.no_comps) h += '<div class="notice warn"><b>No matching copy on eBay</b> — this price is Claude’s call from the closest listings. Glance at it, or type your own price below.</div>';
+      else if (pr.n < 4 || pr.high > pr.low * 3) h += '<div class="notice warn">Heads up: ' + (pr.n < 4 ? "only " + pr.n + " matching cop" + (pr.n === 1 ? "y" : "ies") + " on eBay" : "matching copies on eBay run from " + money(pr.low) + " to " + money(pr.high)) + ", so glance at the grid above before you send. Type your own price below if you know better.</div>";
+      (pr.problems || []).forEach((x) => { h += '<div class="notice bad">' + esc(x) + "</div>"; });
+    }
+    if (pr.error) h += '<div class="notice warn">' + esc(pr.error) + "</div>";
+    if ((pr.checks_failed || []).length) h += d.price_stale ? "" : '<div class="notice warn">Claude couldn\'t get the description past its own checks after 3 tries. Tell Claude what to fix below, or change the grade to have it try again.</div>';
+  }
+  h += '<div class="field sub"><label class="label" for="f-price">Your price (leave blank to use the price above)</label><div class="pdin"><span>$</span><input id="f-price" inputmode="decimal" autocomplete="off" placeholder="' + (pr.list ? Number(pr.list).toFixed(2) : "0.00") + '" value="' + esc(ov) + '"' + (locked ? " disabled" : "") + "></div></div>";
+  if (pr.ebay_title) h += '<div class="sub"><span class="label">eBay title (' + pr.ebay_title.length + ' of 80)</span><div class="ttl">' + esc(pr.ebay_title) + "</div></div>";
+  if (pr.b1) h += '<div class="sub"><span class="label">Condition description (Block 1)</span><div class="b1">' + esc(pr.b1) + "</div></div>";
+  if (pr.b2) h += '<details class="sub" id="b2det"><summary>See the listing the way buyers see it</summary><iframe class="b2frame" sandbox title="Listing preview" srcdoc="' + esc(pr.b2) + '"></iframe></details>';
+  if (pr.list || pr.dropped) {
+    const used = pr.used || [], drop = pr.dropped || [], outl = pr.outliers || [];
+    h += '<details class="sub"><summary>Why this price (' + used.length + " used, " + (drop.length + outl.length) + " left out)</summary>";
+    if (pr.note) h += '<p style="font-size:.85rem;color:var(--muted)">' + esc(pr.note) + "</p>";
+    const li = (c, extra) => '<li><span class="mono">' + money(c.price) + "</span> " + (c.url ? '<a href="' + esc(c.url) + '" target="_blank" rel="noopener">' + esc(c.title) + "</a>" : esc(c.title)) + (extra ? ' <i style="color:var(--muted)">— ' + esc(extra) + "</i>" : "") + "</li>";
+    if (used.length) h += '<div class="label">Used for the average</div><ul class="plain">' + used.map((c) => li(c, c.cond)).join("") + "</ul>";
+    if (outl.length) h += '<div class="label">Left out as way out of line</div><ul class="plain">' + outl.map((c) => li(c)).join("") + "</ul>";
+    if (drop.length) h += '<div class="label">Not a match</div><ul class="plain small">' + drop.map((c) => li(c, c.why)).join("") + "</ul>";
+    h += "</details>";
+  }
+  const tell = (edits[d.id] && edits[d.id].answers && edits[d.id].answers.tell !== undefined) ? edits[d.id].answers.tell : ((d.answers || {}).tell || "");
+  if (!locked) {
+    h += tellOpen || tell
+      ? '<div class="field sub tellbox"><label class="label" for="f-tell">Tell Claude what to add or change</label>' +
+        '<textarea id="f-tell" placeholder="e.g. Add that the answer key is tucked inside. Mention the corner bump on the back cover. Say it\'s the 3rd edition.">' + esc(tell) + "</textarea>" +
+        '<div class="hint" style="margin-top:6px">Saved on its own a few seconds after you stop typing — Claude rewrites the condition and description with it, about a minute.</div></div>'
+      : '<div class="actions sub"><button class="btn small" id="tellbtn" type="button">✍️ Tell Claude something to add</button></div>';
+  }
+  // no "Redo the price" button — every change he makes re-prices and rewrites on its own
+  return h;
+}
+const INHAND_COND = [
+  ["highlight", "🖍️ Highlighting", "pct"], ["pencil", "✏️ Pencil marks", "pct"], ["ink", "🖊️ Ink / pen", "pct"],
+  ["spine", "💔 Damaged spine", "note", "cracked hinge, cocked, tape…"], ["stain", "💧 Stained pages", "note", "which pages, where, what kind"],
+  ["foxing", "🟤 Foxing / toning", "note", "edges only, or through the text?"], ["water", "💦 Water damage", "note", "rippling, tide line, where?"],
+  ["odour", "👃 Smell", "pick", ["Musty", "Smoke", "Mildew", "Other"]], ["loose", "📄 Loose / detached pages", "note", "how many, which ones"],
+  ["missing", "❓ Something missing", "note", "map, CD, answer key, cards…"]];
+const INHAND_VALUE = [
+  ["first", "1️⃣ First edition", "note", "number line, e.g. 1 2 3 4 5"], ["signed", "✍️ Signed by author", "note", "flat-signed, or inscribed to a name?"],
+  ["old", "🏛️ Printed before…", "note", "year on the title page"], ["dj", "🧥 Dust jacket", "pick", ["Bad", "Fair", "Good", "Pristine"]],
+  ["insc", "🖋️ Owner’s inscription", "pick", ["Leave it", "Black it out"]], ["bce", "📕 Book club edition", "note", "blind stamp / no price on jacket"],
+  ["remainder", "🖊️ Remainder mark", "note", "where"], ["exlib", "🏷️ Ex-library", "note", "stamps, pocket, labels"],
+  ["other", "💬 Something else", "note", "anything Claude should know"]];
+function inhandOf(d){ const e = edits[d.id] || {}; return Object.assign({}, (d.answers || {}).inhand || {}, (e.answers || {}).inhand || {}); }
+function inhandHtml(d, locked){
+  const ih = inhandOf(d), dis = locked ? " disabled" : "";
+  const cell = ([k, label, kind, extra]) => {
+    const v = ih[k] || {}, on = !!v.on;
+    let x = "";
+    if (on) {
+      if (kind === "pct") x = '<div class="ihx"><input class="ihpct" data-ih="' + k + '" data-f="pct" inputmode="numeric" placeholder="%" value="' + esc(v.pct || "") + '"' + dis + '><span>% of pages</span></div>';
+      else if (kind === "note") x = '<input class="ihnote" data-ih="' + k + '" data-f="note" placeholder="' + esc(extra) + '" value="' + esc(v.note || "") + '"' + dis + ">";
+      else if (kind === "pick") x = '<div class="seg small">' + extra.map((o) => '<button type="button" data-ihpick="' + k + '" data-v="' + esc(o) + '" aria-pressed="' + (v.pick === o) + '"' + dis + ">" + esc(o) + "</button>").join("") + "</div>";
+    }
+    return '<div class="ih' + (on ? " on" : "") + '"><button type="button" class="ihbtn" data-ihtog="' + k + '" aria-pressed="' + on + '"' + dis + ">" + esc(label) + "</button>" + x + "</div>";
+  };
+  let h = '<div class="label" style="margin-top:10px">Condition</div><div class="ihgrid">' + INHAND_COND.map(cell).join("") + "</div>";
+  h += '<div class="label" style="margin-top:14px">Value</div><div class="ihgrid">' + INHAND_VALUE.map(cell).join("") + "</div>";
+  if (ih.insc && ih.insc.on && !ih.insc.pick) h += '<div class="notice warn">Pick one for the inscription: Leave it or Black it out.</div>';
+  if (ih.insc && ih.insc.on && ih.insc.pick === "Black it out") h += '<div class="notice info">The name won’t appear anywhere in the listing. Remove or retake any photo that shows it.</div>';
+  if (ih.dj && ih.dj.on && !ih.dj.pick) h += '<div class="notice warn">Rate the jacket: Bad, Fair, Good or Pristine. It moves the price more than almost anything else.</div>';
+  return h;
+}
+function inhandSummary(ih){
+  const all = INHAND_COND.concat(INHAND_VALUE);
+  return all.filter(([k]) => ih[k] && ih[k].on).map(([k, label]) => { const v = ih[k];
+    return label.replace(/^\S+\s/, "") + (v.pct ? " " + v.pct + "%" : "") + (v.pick ? ": " + v.pick : "") + (v.note ? " — " + v.note : ""); });
+}
+// Each thing Claude noticed: Disclose it, leave it out (not a flaw), or change the wording.
+let noteEditing = null;
+function notesHtml(d, locked){
+  const id = merged(d).ident, notes = Array.isArray(id.condition_notes) ? id.condition_notes : [], skipped = Array.isArray(id.condition_skipped) ? id.condition_skipped : [];
+  const dis = locked ? " disabled" : "";
+  let h = '<div class="label" style="margin-top:14px">What Claude noticed — check each one</div><div class="notes">';
+  if (!notes.length) h += '<div class="hint">Nothing noted.</div>';
+  notes.forEach((n, i) => {
+    h += '<div class="note">' + (noteEditing === i
+      ? '<input class="noteedit" id="noteedit" value="' + esc(n) + '"><div class="seg small"><button type="button" id="notesave" data-i="' + i + '">Save wording</button></div>'
+      : '<div class="nt">✓ ' + esc(n) + '</div><div class="seg small">' +
+        '<button type="button" data-nskip="' + i + '"' + dis + '>Not a flaw — leave out</button>' +
+        '<button type="button" data-nedit="' + i + '"' + dis + '>Change wording</button></div>') + "</div>";
+  });
+  h += "</div>";
+  if (skipped.length) h += '<div class="label" style="margin-top:10px">Left out</div><div class="notes">' + skipped.map((n, i) =>
+    '<div class="note off"><div class="nt">' + esc(n) + '</div><div class="seg small"><button type="button" data-nback="' + i + '"' + dis + ">Put back</button></div></div>").join("") + "</div>";
+  if (!locked) h += '<div class="noteadd"><input id="noteadd" placeholder="Add a flaw Claude missed, e.g. small tear on page 12"><button class="btn small" type="button" id="noteaddbtn">Add</button></div>';
+  return h;
+}
+function etsyBoxHtml(d){
+  const r = d.etsy_rec || {}, yr = d.etsy_year, on = !!d.etsy, canEdit = !d.built_at && d.status !== "dont_list";
+  const block = etsyBlock(d), old = !block;
+  let why;
+  if (!yr) why = "No confirmed year on this book — Etsy only takes books 20+ years old (" + ETSY_CUTOFF + " or older). Add the year in Details to allow it.";
+  else if (block) why = block + " — Etsy only takes books 20+ years old.";
+  else why = (r.rec ? "★ Claude recommends Etsy: " : "Claude: ") + (r.why || "old enough for Etsy (" + yr + ").");
+  const badge = old ? '<span class="ebadge yes">✓ Etsy OK' + (yr ? " · " + yr : "") + "</span>" : '<span class="ebadge no">🚫 Not eligible</span>';
+  const onBtn = old || on
+    ? '<button type="button" class="eon" data-etsy="1" aria-pressed="' + on + '"' + (canEdit ? "" : " disabled") + ">Etsy ON</button>"
+    : '<span class="elock" title="' + esc(block) + '">🔒 Etsy locked — not eligible</span>';   // hard lock: not a button at all, nothing to click
+  return '<div class="etsybox' + (on ? " on" : "") + '"><div class="eh"><span class="et">🧡 Also list on Etsy? ' + badge + "</span>" +
+    '<div class="seg" role="group" aria-label="Etsy">' + onBtn +
+    (old || on ? '<button type="button" data-etsy="0" aria-pressed="' + !on + '"' + (canEdit ? "" : " disabled") + ">Off</button>" : "") + "</div></div>" +
+    '<div class="ew">' + esc(why) + " Etsy is only for books you switch on here; eBay and AbeBooks still get everything.</div></div>";
+}
+async function setEtsy(d, on){
+  if (example){ toast("This is the example card. Nothing is saved."); return; }
+  if (on && etsyBlock(d)){ toast("Not eligible for Etsy: " + etsyBlock(d) + "."); return; }   // second lock; the database refuses it too
+  try {
+    await save(d.id, { action: "save", etsy: on });
+    await load(true);
+    toast(on ? "Etsy ON — it goes in tonight's Etsy file." : "Etsy off.");
+    if (view.mode === "detail" && current()) renderDetail(current());
+  } catch (err){ const x = explain(err, SUPA); setNotice(x.kind, x.text); window.scrollTo(0, 0); }
+}
+function chanName(c){ const x = CHANNELS.find((k) => k[0] === c); return x ? x[1] : (NOT_LISTING[c] || c || ""); }
+function allDetailsHtml(d){
+  const m = merged(d), id = m.ident;
+  const val = (v) => Array.isArray(v) ? v.join("; ") : (typeof v === "boolean" ? (v ? "Yes" : "No") : (v == null ? "" : String(v)));
+  let rows = DETAIL_FIELDS.map(([k, label]) => [label, val(id[k])]).filter((r) => r[1] !== "" && r[1] !== "No" || r[0] === "Ex-library");
+  rows = rows.concat([
+    ["Quantity", String(qtyOf(d))], ["Where it goes", chanName(m.channel)], ["Kept in", m.location], ["PD number", normPd(m.pd) || "not set"], ["Weight on card", m.weight_lb ? m.weight_lb + " lb" : "not set"],
+    ["Scan / folder", d.scan + " · " + d.p], ["Photos", photos(d).length + (d.is_set ? " (set)" : "")], ["Status", d.status], ["Tries", String(d.attempts || 1)]
+  ]);
+  let h = '<div class="det">' + rows.map((r) => '<div><b>' + esc(r[0]) + "</b><span>" + esc(r[1]) + "</span></div>").join("") + "</div>";
+  const notes = Array.isArray(id.condition_notes) ? id.condition_notes : [];
+  if (notes.length) h += '<div class="label" style="margin-top:12px">Condition notes</div><ul class="plain">' + notes.map((n) => "<li>" + esc(n) + "</li>").join("") + "</ul>";
+  if (Array.isArray(id.set_books) && id.set_books.length) h += '<div class="label" style="margin-top:12px">Set books</div><ol class="plain">' +
+     id.set_books.map((b) => "<li>" + esc([b.title, b.author, b.isbn && "ISBN " + b.isbn, b.volume].filter(Boolean).join(" · ")) + "</li>").join("") + "</ol>";
+  const tl = (d.answers || {}).tell; if (tl) h += '<div class="label" style="margin-top:12px">What you told Claude</div><p style="font-size:.9rem;margin:4px 0">' + esc(tl) + "</p>";
+  const ihs = inhandSummary(inhandOf(d));
+  if (ihs.length) h += '<div class="label" style="margin-top:12px">What you saw in hand</div><ul class="plain">' + ihs.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>";
+  const answered = (d.questions || []).map((q, i) => [q.q, m.answers[i]]).filter((x) => x[1]);
+  if (answered.length) h += '<div class="label" style="margin-top:12px">Your answers</div><ul class="plain">' + answered.map((x) => "<li>" + esc(x[0]) + " → <b>" + esc(x[1]) + "</b></li>").join("") + "</ul>";
+  h += '<div class="label" style="margin-top:12px">Photo files, in listing order</div><ol class="plain mono small">' +
+       photos(d).map((p) => "<li>" + esc(p.name || "") + (p.group && p.group !== "book" ? " · " + esc(p.group) : "") + "</li>").join("") + "</ol>";
+  return h;
+}
+function photos(d){ return merged(d).photos; }
+
+function checkHtml(d){
+  const m = merged(d), id = m.ident, miss = missingFor(d);
+  let h = "";
+  if (d.status === "drafted" && !id.do_not_list){
+    h += miss.length ? "<b>Before you can send:</b><ul>" + miss.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" : '<div class="ready">Ready to send · ' + esc(chanName(m.channel)) + (d.etsy ? " + Etsy" : "") + (m.channel !== "amazon" && amzWill(d) ? " + Amazon" : "") + ".</div>";
+    h += '<div class="actions"><button class="btn primary" id="send" type="button"' + (miss.length ? " disabled" : "") + ">Send" + (normPd(m.pd) ? " as " + esc(normPd(m.pd)) : "") + "</button>" +
+         '<button class="btn" id="savelater" type="button">Save for later</button></div>';
+  } else if (d.status === "drafted" && id.do_not_list){
+    h += '<div class="actions"><button class="btn danger notlist" data-not="dont_list" type="button">Mark Don\'t list</button><button class="btn notlist" data-not="goodwill" type="button">Goodwill</button><button class="btn notlist" data-not="trash" type="button">Throw away</button></div>';
+  } else if (d.status === "sent" && !d.built_at){
+    h += '<div class="actions"><button class="btn" id="reopen" type="button">Reopen to change</button></div>';
+  } else if (d.status === "fba"){
+    h += '<div style="color:var(--muted)">This book is Amazon FBA only. To change it, use <b>Undo FBA</b> above (it comes off Amazon and back to To check).</div>';
+  } else if (d.status === "dont_list" && !id.do_not_list && !/TEST DRAFT/.test((d.flags || []).join(" "))){
+    h += '<div class="actions"><button class="btn" id="reopen" type="button">Move back to To check</button></div>';
+  } else {
+    h += '<div style="color:var(--muted)">Nothing to do on this one.</div>';
+  }
+  if (notConfirm && id.do_not_list) h += confirmHtml();
+  return h;
+}
+
+function confirmHtml(){
+  return '<div class="confirm"><b>' + esc(NOT_LISTING[notConfirm]) + '?</b> ' +
+     (notConfirm === "goodwill" ? "It leaves the list and goes in the Goodwill box." : notConfirm === "trash" ? "It leaves the list and goes in the trash." : "It leaves the list and never goes to eBay or AbeBooks.") +
+     '<div class="actions"><button class="btn danger notyes" type="button">Yes, ' + esc(NOT_LISTING[notConfirm].toLowerCase()) + '</button><button class="btn notno" type="button">Keep it</button></div></div>';
+}
+function showPhoto(d, i){
+  const n = merged(d).photos.length; if (!n) return;
+  selPhoto = (i + n) % n;
+  renderDetail(d); loadPhoto(merged(d).photos[selPhoto]);
+  if (viewerOn) paintViewer(d);
+}
+// full-size viewer: arrows, keyboard, swipe, tap to zoom to 100%
+let viewerOn = false, viewerD = null;
+let tellOpen = false;
+function openViewer(d){ viewerOn = true; viewerD = d; paintViewer(d); }
+function closeViewer(){ viewerOn = false; const v = $("viewer"); if (v) v.remove(); }
+function paintViewer(d){
+  let v = $("viewer");
+  if (!v) { v = document.createElement("div"); v.id = "viewer"; v.className = "viewer"; document.body.appendChild(v); }
+  const ph = merged(d).photos, p = ph[selPhoto], src = p ? photoCache[p.drive_id] : null;
+  v.className = "viewer";
+  v.innerHTML = '<span class="count">Photo ' + (selPhoto + 1) + " of " + ph.length + '</span><button class="close" id="vclose" type="button">✕ Close</button>' +
+    (src && src !== "error" ? '<img id="vimg" alt="Photo ' + (selPhoto + 1) + '" src="' + src + '">' : '<span style="color:#fff">Loading…</span>') +
+    (ph.length > 1 ? '<button class="arrow l" id="vprev" type="button" aria-label="Previous photo">‹</button><button class="arrow r" id="vnext" type="button" aria-label="Next photo">›</button>' : "");
+  $("vclose").onclick = closeViewer;
+  if ($("vprev")) $("vprev").onclick = (e) => { e.stopPropagation(); showPhoto(d, selPhoto - 1); };
+  if ($("vnext")) $("vnext").onclick = (e) => { e.stopPropagation(); showPhoto(d, selPhoto + 1); };
+  const img = $("vimg");
+  if (img) img.onclick = () => { const z = img.classList.toggle("zoom"); v.classList.toggle("zoomed", z); };
+  let x0 = null;
+  v.ontouchstart = (e) => { x0 = e.touches[0].clientX; };
+  v.ontouchend = (e) => { if (x0 == null || (img && img.classList.contains("zoom"))) return; const dx = e.changedTouches[0].clientX - x0; x0 = null;
+    if (Math.abs(dx) > 50) showPhoto(d, selPhoto + (dx < 0 ? 1 : -1)); };
+  if (!src && p) loadPhoto(p, true).then(() => { if (viewerOn) paintViewer(d); });
+}
+document.addEventListener("keydown", (e) => {
+  if (view.mode !== "detail") return;
+  const a = document.activeElement; if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) return;
+  const d = current(); if (!d) return;
+  if (e.key === "ArrowLeft") showPhoto(d, selPhoto - 1);
+  else if (e.key === "ArrowRight") showPhoto(d, selPhoto + 1);
+  else if (e.key === "Escape" && viewerOn) closeViewer();
+});
+function edit(d){ return edits[d.id] || (edits[d.id] = {}); }
+// v34 (2026-10-01): Papa Duck - "need to be able to change quantity on papa duck drafts". Saves straight away; no reprice, no rewrite.
+function qtyNote(d){
+  if (d.built_at) return "Already picked up at blast off — change copies on eBay now.";
+  const q = qtyOf(d), n = parseInt(String(merged(d).pd || "").replace(/\D/g, ""), 10);
+  if (q >= 3 && n >= 500) return '<span style="color:var(--flag);font-weight:700">3+ copies usually take a batch number (PD-0020 to PD-0499).</span>';
+  return "Saves as soon as you change it.";
+}
+function wireDetail(d){
+  $("back").onclick = () => { closeViewer(); view = { mode: "list", id: null }; render(); };
+  document.querySelectorAll(".thumb[data-i]").forEach((b) => b.onclick = () => showPhoto(d, Number(b.dataset.i)));
+  if ($("prevph")) $("prevph").onclick = () => showPhoto(d, selPhoto - 1);
+  if ($("nextph")) $("nextph").onclick = () => showPhoto(d, selPhoto + 1);
+  if ($("bigimg")) $("bigimg").onclick = () => openViewer(d);
+  if ($("fullph")) $("fullph").onclick = () => openViewer(d);
+  if ($("loadall")) $("loadall").onclick = async () => { for (const p of merged(d).photos) await loadPhoto(p, true); renderDetail(d); };
+  const ids = () => merged(d).photos.map((p) => p.drive_id);
+  const setOrder = (list, sel, msg) => { edit(d).photo_order = list; selPhoto = sel; renderDetail(d); refreshCheck(d); if (msg) toast(msg); };
+  if ($("makecover")) $("makecover").onclick = () => { const l = ids(); const [x] = l.splice(selPhoto, 1); l.unshift(x); setOrder(l, 0, "Cover changed. Save or send to keep it."); };
+  if ($("mvleft")) $("mvleft").onclick = () => { const l = ids(), i = selPhoto; [l[i - 1], l[i]] = [l[i], l[i - 1]]; setOrder(l, i - 1); };
+  if ($("mvright")) $("mvright").onclick = () => { const l = ids(), i = selPhoto; [l[i + 1], l[i]] = [l[i], l[i + 1]]; setOrder(l, i + 1); };
+  if ($("rmphoto")) $("rmphoto").onclick = () => { const l = ids(); l.splice(selPhoto, 1); setOrder(l, Math.min(selPhoto, l.length - 1), "Photo taken out of the listing (the book stays). Put it back any time below."); };
+  document.querySelectorAll("[data-putback]").forEach((b) => b.onclick = () => { const l = ids(); l.push(b.dataset.putback); setOrder(l, l.length - 1, "Photo put back at the end."); });
+  document.querySelectorAll("[data-chan]").forEach((b) => b.onclick = () => { edit(d).channel = b.dataset.chan; renderDetail(d); autoSave(d); });
+  document.querySelectorAll("[data-etsy]").forEach((b) => b.onclick = () => setEtsy(d, b.dataset.etsy === "1"));
+  document.querySelectorAll("[data-amz]").forEach((b) => b.onclick = () => setAmazon(d, b.dataset.amz === "on" ? true : b.dataset.amz === "off" ? false : null));
+  document.querySelectorAll("[data-amzre]").forEach((b) => b.onclick = () => recheckAmazon(d.id));
+  document.querySelectorAll("[data-loc]").forEach((b) => b.onclick = () => { edit(d).location = b.dataset.loc; renderDetail(d); autoSave(d); });
+  document.querySelectorAll("input[data-k]").forEach((el) => { el.oninput = () => { (edit(d).ident = edit(d).ident || {})[el.dataset.k] = el.value; }; el.onchange = () => autoSave(d); });
+  document.querySelectorAll("[data-grade]").forEach((b) => b.onclick = () => { (edit(d).ident = edit(d).ident || {}).grade = b.dataset.grade; renderDetail(d); autoSave(d); });
+  const noteSet = (notes, skipped) => { const e = edit(d).ident = edit(d).ident || {}; e.condition_notes = notes; e.condition_skipped = skipped; noteEditing = null; renderDetail(d); refreshCheck(d); autoSave(d); };
+  const cur = () => { const id = merged(d).ident; return [(id.condition_notes || []).slice(), (id.condition_skipped || []).slice()]; };
+  document.querySelectorAll("[data-nskip]").forEach((b) => b.onclick = () => { const [n, s] = cur(); s.push(n.splice(Number(b.dataset.nskip), 1)[0]); noteSet(n, s); });
+  document.querySelectorAll("[data-nback]").forEach((b) => b.onclick = () => { const [n, s] = cur(); n.push(s.splice(Number(b.dataset.nback), 1)[0]); noteSet(n, s); });
+  document.querySelectorAll("[data-nedit]").forEach((b) => b.onclick = () => { noteEditing = Number(b.dataset.nedit); renderDetail(d); const x = $("noteedit"); if (x) x.focus(); });
+  if ($("notesave")) $("notesave").onclick = () => { const [n, s] = cur(); const v = $("noteedit").value.trim(); const i = Number($("notesave").dataset.i); if (v) n[i] = v; else s.push(n.splice(i, 1)[0]); noteSet(n, s); };
+  if ($("noteaddbtn")) $("noteaddbtn").onclick = () => { const v = $("noteadd").value.trim(); if (!v) return; const [n, s] = cur(); n.push(v); noteSet(n, s); };
+  document.querySelectorAll("[data-q]").forEach((b) => b.onclick = () => {
+    const i = b.dataset.q; (edit(d).answers = edit(d).answers || {})[i] = b.dataset.v; renderDetail(d);
+    if (b.dataset.v === "Other") { const o = document.querySelector('[data-other="' + i + '"]'); if (o) o.focus(); } else autoSave(d);
+  });
+  document.querySelectorAll("[data-other]").forEach((el) => { el.oninput = () => { (edit(d).answers = edit(d).answers || {})[el.dataset.other] = el.value || "Other"; refreshCheck(d); }; el.onchange = () => autoSave(d); });
+  const qi = $("f-qty");
+  if (qi){
+    const setQ = (v) => { v = Math.max(1, Math.min(999, parseInt(v, 10) || 1)); edit(d).qty = v; qi.value = v; const n = $("qtynote"); if (n) n.innerHTML = qtyNote(d); };
+    qi.oninput = () => { if (qi.value !== "") setQ(qi.value); };
+    qi.onchange = () => { setQ(qi.value); autoSave(d); };
+    $("qminus").onclick = () => { setQ(qtyOf(d) - 1); autoSave(d); };
+    $("qplus").onclick = () => { setQ(qtyOf(d) + 1); autoSave(d); };
+  }
+  const w = $("f-weight");
+  if (w){
+    w.oninput = () => { edit(d).weight_lb = w.value; refreshCheck(d); }; w.onchange = () => autoSave(d);
+    $("wminus").onclick = () => { edit(d).weight_lb = Math.max(1, Math.round((Number(w.value) || 1) - 1)); renderDetail(d); };
+    $("wplus").onclick = () => { edit(d).weight_lb = Math.round((Number(w.value) || 0) + 1); renderDetail(d); };
+  }
+  const pd = $("f-pd");
+  const pdRefresh = () => { const x = $("pdmatch"); if (x) x.innerHTML = pdMatchText(d); refreshCheck(d); refreshFbaBox(d); };
+  if (pd) pd.oninput = () => { edit(d).pd = pd.value ? "PD-" + pd.value.replace(/^PD-?/i, "") : ""; pdRefresh(); };
+  const pd2 = $("f-pd2");
+  if (pd2) { pd2.oninput = () => { edit(d).pd2 = pd2.value; pdRefresh(); }; pd2.onpaste = (e) => e.preventDefault(); }
+  const ihset = (k, f, v) => { const a = edit(d).answers = edit(d).answers || {}; const cur = inhandOf(d);
+    a.inhand = Object.assign({}, cur); a.inhand[k] = Object.assign({}, cur[k] || {}); if (f) a.inhand[k][f] = v; return a.inhand[k]; };
+  document.querySelectorAll("[data-ihtog]").forEach((b) => b.onclick = () => { const k = b.dataset.ihtog; const c = inhandOf(d)[k] || {}; ihset(k, "on", !c.on); renderDetail(d); autoSave(d, 4000); });
+  document.querySelectorAll("[data-ihpick]").forEach((b) => b.onclick = () => { const k = b.dataset.ihpick; const c = inhandOf(d)[k] || {}; ihset(k, "pick", c.pick === b.dataset.v ? "" : b.dataset.v); renderDetail(d); autoSave(d); });
+  document.querySelectorAll("input[data-ih]").forEach((el) => { el.oninput = () => { ihset(el.dataset.ih, el.dataset.f, el.value); }; el.onchange = () => autoSave(d); });
+  if ($("tellbtn")) $("tellbtn").onclick = () => { tellOpen = true; renderDetail(d); const t = $("f-tell"); if (t) t.focus(); };
+  if ($("f-tell")) { $("f-tell").oninput = (e) => { (edit(d).answers = edit(d).answers || {}).tell = e.target.value; autoSave(d, 5000); }; $("f-tell").onchange = () => autoSave(d, 300); }
+  const pe = $("f-price");
+  if (pe) { pe.oninput = () => { edit(d).price_override = pe.value.replace(/[^0-9.]/g, ""); refreshCheck(d); }; pe.onchange = () => autoSave(d, 300); }
+  if ($("reprice")) $("reprice").onclick = () => doSave(d, "reprice");
+  const all = $("alldet"); if (all) all.ontoggle = () => { allOpen = all.open; };
+  wireNotListing(d);
+  wireCheck(d);
+  wireFba(d);
+  wireFbaCards();
+  if ($("audok")) $("audok").onclick = () => setAudOk(d, true);
+  if ($("audundo")) $("audundo").onclick = () => setAudOk(d, false);
+}
+function wireNotListing(d){
+  document.querySelectorAll(".notlist").forEach((b) => b.onclick = () => { notConfirm = b.dataset.not; renderDetail(d); const c = document.querySelector(".confirm"); if (c) c.scrollIntoView({ block: "center" }); });
+}
+function wireCheck(d){
+  if ($("send")) $("send").onclick = () => doSave(d, "send");
+  if ($("savelater")) $("savelater").onclick = () => doSave(d, "save");
+  if ($("reopen")) $("reopen").onclick = () => doSave(d, "reopen");
+  document.querySelectorAll(".notno").forEach((b) => b.onclick = () => { notConfirm = null; renderDetail(d); });
+  document.querySelectorAll(".notyes").forEach((b) => b.onclick = () => { const a = notConfirm; notConfirm = null; doSave(d, a); });
+  document.querySelectorAll("#checkarea .notlist").forEach((b) => b.onclick = () => { notConfirm = b.dataset.not; renderDetail(d); });
+}
+function refreshCheck(d){
+  const box = $("checkarea"); if (!box) return;
+  box.innerHTML = checkHtml(d); wireCheck(d);
+}
+
+// ---------- autosave: his changes rewrite the listing on their own, no buttons ----------
+let autoT = null, autoBusy = false;
+function autoSave(d, delay){
+  if (example || !d || !(d.status === "drafted" || (d.status === "sent" && !d.built_at))) return;   // v34: a Sent book can still change its copy count until blast off
+  clearTimeout(autoT);
+  autoT = setTimeout(() => quietSave(d.id), delay == null ? 1500 : delay);
+}
+async function quietSave(id){
+  const d = drafts.find((x) => x.id === id); if (!d) return;
+  if (autoBusy){ autoSave(d, 1500); return; }
+  const e = edits[id] || {};
+  const patch = { action: "save" };
+  if (e.ident) patch.ident = e.ident;
+  if (e.answers) patch.answers = Object.assign({}, d.answers || {}, e.answers);
+  const si = (d.questions || []).findIndex(isStd);
+  if (si >= 0 && (e.answers || {}).inhand) {
+    const sum = inhandSummary(inhandOf(d));
+    patch.answers = Object.assign({}, patch.answers || d.answers || {});
+    patch.answers[si] = sum.length ? "See in-hand checklist: " + sum.join("; ") : "None";
+  }
+  if (e.weight_lb !== undefined) patch.weight_lb = e.weight_lb;
+  if (e.qty !== undefined) patch.qty = e.qty;
+  if (e.photo_order) patch.photo_order = e.photo_order;
+  if (e.channel) patch.channel = e.channel;
+  if (e.location) patch.location = e.location;
+  if (e.price_override !== undefined) patch.price_override = e.price_override;
+  if (Object.keys(patch).length === 1) return;
+  autoBusy = true;
+  try {
+    await save(id, patch);
+    const keep = { pd: e.pd, pd2: e.pd2 };
+    delete edits[id];
+    if (keep.pd !== undefined || keep.pd2 !== undefined){ edits[id] = {}; if (keep.pd !== undefined) edits[id].pd = keep.pd; if (keep.pd2 !== undefined) edits[id].pd2 = keep.pd2; }
+    const rows = await sql("select pipeline.ui_list() as data");
+    drafts = (rows[0] && rows[0].data) || drafts;
+    if (patch.ident || patch.answers) toast("Saved — Claude is updating the description (about a minute).");
+    else toast("Saved.");
+    const a = document.activeElement;
+    if (!(a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) && view.mode === "detail" && view.id === id && current()) renderDetail(current());
+  } catch (err){ const x = explain(err, SUPA); setNotice(x.kind, x.text); }
+  autoBusy = false;
+}
+async function doSave(d, action){
+  if (example){ toast("This is the example card. Nothing is saved."); return; }
+  const e = edits[d.id] || {};
+  const patch = { action };
+  if (e.ident) patch.ident = e.ident;
+  if (e.answers) patch.answers = Object.assign({}, d.answers || {}, e.answers);
+  const si = (d.questions || []).findIndex(isStd);
+  if (si >= 0) {                                         // the checklist answers the standing question
+    const sum = inhandSummary(inhandOf(d));
+    patch.answers = Object.assign({}, patch.answers || d.answers || {});
+    patch.answers[si] = sum.length ? "See in-hand checklist: " + sum.join("; ") : "None";
+  }
+  if (e.pd !== undefined) patch.pd = e.pd;
+  if (e.weight_lb !== undefined) patch.weight_lb = e.weight_lb;
+  if (e.qty !== undefined) patch.qty = e.qty;
+  if (e.photo_order) patch.photo_order = e.photo_order;
+  if (e.channel) patch.channel = e.channel;
+  if (e.location) patch.location = e.location;
+  if (e.price_override !== undefined) patch.price_override = e.price_override;
+  const btns = document.querySelectorAll(".check button"); btns.forEach((b) => b.disabled = true);
+  try {
+    const r = await save(d.id, patch);
+    delete edits[d.id];
+    await load(true);
+    if (action === "send"){
+      toast("Sent " + (r && r.pd ? r.pd : "") + ".");
+      tab = d.source === "station" ? "station" : "check"; view = { mode: "list", id: null }; render(); window.scrollTo(0, 0);   // back to the list it came from
+    } else if (action === "dont_list" || action === "goodwill" || action === "trash"){
+      toast(action === "goodwill" ? "Goodwill box." : action === "trash" ? "Marked throw away." : "Marked Don't list.");
+      tab = d.source === "station" ? "station" : "check"; view = { mode: "list", id: null }; render(); window.scrollTo(0, 0);
+    }
+    else if (action === "reopen"){ toast("Reopened."); openDraft(d.id); }
+    else if (action === "reprice"){ toast("Redoing the price — about a minute."); openDraft(d.id); }
+    else { toast("Saved."); openDraft(d.id); }
+  } catch (err){
+    const x = explain(err, SUPA);
+    btns.forEach((b) => b.disabled = false);
+    setNotice(x.kind, x.text);
+    window.scrollTo(0, 0);
+  }
+}
+
+// Drive's download tool may answer in several shapes; hunt for the base64 image wherever it is.
+function findImage(x, depth){
+  depth = depth || 0;
+  const out = { b64: "", mt: "" };
+  if (x == null || depth > 6) return out;
+  if (typeof x === "string") {
+    const t = x.trim();
+    if ((t[0] === "{" || t[0] === "[") && t.length < 40000000) { try { return findImage(JSON.parse(t), depth + 1); } catch (_) {} }
+    const d = /^data:([^;]+);base64,(.+)$/s.exec(t);
+    if (d) return { b64: d[2], mt: d[1] };
+    if (t.length > 800 && /^[A-Za-z0-9+/_=\r\n-]+$/.test(t.slice(0, 400))) return { b64: t.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/"), mt: "" };
+    return out;
+  }
+  if (Array.isArray(x)) { for (const v of x) { const f = findImage(v, depth + 1); if (f.b64) return f; } return out; }
+  if (typeof x === "object") {
+    const mt = x.mimeType || x.mime_type || x.media_type || "";
+    for (const k of ["content", "base64Content", "data", "blob", "bytes", "payload", "result", "text", "resource", "source"]) {
+      if (k in x) { const f = findImage(x[k], depth + 1); if (f.b64) return { b64: f.b64, mt: f.mt || mt }; }
+    }
+    for (const k in x) { const f = findImage(x[k], depth + 1); if (f.b64) return { b64: f.b64, mt: f.mt || mt }; }
+  }
+  return out;
+}
+async function loadPhoto(p, quiet){
+  if (!p || !mcp || photoCache[p.drive_id]) return;
+  const pid = String(p.drive_id || "");
+  if (pid.indexOf("none:") === 0) { photoCache[pid] = "error"; return; }
+  if (pid.indexOf("blob:") === 0) {   // Book Station photo — a copy is kept in the database for this page
+    try {
+      const key = pid.slice(5).replace(/[^A-Za-z0-9_.-]/g, "");
+      const r = await mcp.callTool(SUPA, "execute_sql", { project_id: PROJECT, query: "select mime, b64 from pipeline.photo_blobs where key = '" + key + "'" },
+        { cache: { staleTime: 3600000, gcTime: 86400000 } });
+      const row = sqlRows(r)[0];
+      if (!row || !row.b64) throw new Error("no image data");
+      photoCache[pid] = "data:" + (row.mime || "image/jpeg") + ";base64," + row.b64;
+    } catch (e) { photoCache[pid] = "error"; }
+    if (!quiet && view.mode === "detail" && current()) renderDetail(current());
+    return;
+  }
+  try {
+    const r = await mcp.callTool(DRIVE, "download_file_content", { fileId: p.drive_id }, { cache: { staleTime: 300000, gcTime: 86400000 } });
+    const found = findImage(r);
+    const b64 = found.b64, mt = found.mt || "image/jpeg";
+    if (!b64) throw new Error("no image data");
+    photoCache[p.drive_id] = "data:" + mt + ";base64," + b64;
+  } catch (e) {
+    photoCache[p.drive_id] = "error";
+    if (!quiet && e && e.code && e.code !== "tool_error"){ const x = explain(e, DRIVE); setNotice(x.kind, x.text); }
+  }
+  if (!quiet && view.mode === "detail" && current()) renderDetail(current());
+}
+
+// ---------- Amazon FBA (2026-10-07) ----------
+// Papa Duck: "in the draft I need to be able to click when a book is going to FBA which means it will be exclusive to
+// Amazon and not on the others ... automatically go and get the sku label and print it so I can slap it on the book and
+// put in the box" + "keep the cover page next to the sku on the screen so I can make sure it is the right book".
+let fba = { items: [], boxes: [], open_box: 1, printer_seen: null };
+let fbaConfirm = null, fbaUndo = null, newBoxConfirm = false;
+function fbaOf(d){ return (fba.items || []).find((x) => x.draft_id === d.id); }
+function fbaBlock(d){
+  const a = d.amazon || {};
+  if (!a.status) return "Waiting for the Amazon check (Dispatch, every 2 min)";
+  if (a.status === "restricted") return "Restricted on Amazon in this condition";
+  if (a.status === "not_on_amazon") return "Not on Amazon (no page to sell on)";
+  if (a.status !== "ok") return "Amazon check failed";
+  if (qtyOf(d) !== 1) return "One sticker per book — set quantity to 1";
+  return "";
+}
+function fbaOfferHtml(d){
+  const block = fbaBlock(d), m = merged(d);
+  let h = '<div class="fbabox"><div class="fh"><span class="ft">📦 Send to Amazon FBA instead?</span>' +
+    (block ? '<span class="alock">🔒 ' + esc(block) + "</span>" : '<button type="button" class="btn fbabtn" id="fbago">📦 FBA — print sticker</button>') + "</div>" +
+    '<div class="fw">FBA = <b>only on Amazon</b> — not eBay, AbeBooks or Etsy. Amazon gives it a sticker number and your sticker printer prints it right away. It goes in <b>box ' + esc(fba.open_box) + "</b>.</div>";
+  if (fbaConfirm === d.id){
+    const miss = missingFor(d).filter((x) => x !== "Weight"), pr = priceOf(d);
+    h += '<div class="fbaconfirm">' + (miss.length ? "<b>Before FBA:</b><ul>" + miss.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" :
+      "<b>Send " + esc(normPd(m.pd)) + " to Amazon FBA at " + (pr != null ? usd(pr) : "—") + " (" + esc(m.ident.grade || "") + ")?</b> It will not go to eBay, AbeBooks or Etsy.") +
+      '<div class="actions" style="margin-top:8px"><button class="btn primary" id="fbayes" type="button"' + (miss.length ? " disabled" : "") + ">Yes — list on FBA + print sticker</button>" +
+      '<button class="btn" id="fbano" type="button">Cancel</button></div></div>';
+  }
+  return h + "</div>";
+}
+function refreshFbaBox(d){   // the FBA confirm list follows his typing without stealing the cursor
+  const box = document.querySelector(".fbabox"); if (!box || fbaConfirm !== d.id) return;
+  box.outerHTML = fbaOfferHtml(d); wireFba(d);
+}
+function wireFba(d){
+  if ($("fbago")) $("fbago").onclick = () => { fbaConfirm = d.id; renderDetail(d); const c = document.querySelector(".fbaconfirm"); if (c) c.scrollIntoView({ block: "center" }); };
+  if ($("fbano")) $("fbano").onclick = () => { fbaConfirm = null; renderDetail(d); };
+  if ($("fbayes")) $("fbayes").onclick = () => sendFba(d);
+}
+async function sendFba(d){
+  if (example){ toast("This is the example card. Nothing is saved."); return; }
+  const e = edits[d.id] || {};
+  const patch = { action: "save" };
+  if (e.ident) patch.ident = e.ident;
+  if (e.answers) patch.answers = Object.assign({}, d.answers || {}, e.answers);
+  const si = (d.questions || []).findIndex(isStd);
+  if (si >= 0) { const sum = inhandSummary(inhandOf(d)); patch.answers = Object.assign({}, patch.answers || d.answers || {}); patch.answers[si] = sum.length ? "See in-hand checklist: " + sum.join("; ") : "None"; }
+  if (e.pd !== undefined) patch.pd = e.pd;
+  if (e.weight_lb !== undefined) patch.weight_lb = e.weight_lb;
+  if (e.qty !== undefined) patch.qty = e.qty;
+  if (e.photo_order) patch.photo_order = e.photo_order;
+  if (e.location) patch.location = e.location;
+  if (e.price_override !== undefined) patch.price_override = e.price_override;
+  if ($("fbayes")) $("fbayes").disabled = true;
+  try {
+    await save(d.id, patch);
+    const rows = await sql("select pipeline.fba_send(" + Number(d.id) + ") as r");
+    const r = rows[0] && rows[0].r;
+    delete edits[d.id]; fbaConfirm = null;
+    await load(true);
+    toast("📦 " + (r && r.pd ? r.pd : "") + " → FBA box " + (r ? r.box : "") + ". The sticker prints in a moment.");
+    tab = d.source === "station" ? "station" : "check"; view = { mode: "list", id: null }; render(); window.scrollTo(0, 0);
+    fbaFast = Date.now();
+  } catch (err){
+    if ($("fbayes")) $("fbayes").disabled = false;
+    const x = explain(err, SUPA); setNotice(x.kind, x.text); window.scrollTo(0, 0);
+  }
+}
+function seenAgo(){
+  const s = fba.printer_seen; let o = null; try { o = typeof s === "string" ? JSON.parse(s) : s; } catch (_) {}
+  if (!o || !o.at) return { mins: null, printer: "" };
+  return { mins: Math.round((Date.now() - new Date(o.at).getTime()) / 60000), printer: o.printer || "" };
+}
+function printerLine(){
+  const s = seenAgo();
+  if (s.mins == null) return '<div class="fprinter bad">🖨 Your computer has not checked in for stickers yet — install Dispatch v44 and pick the sticker printer in its Settings.</div>';
+  if (!s.printer) return '<div class="fprinter bad">🖨 Dispatch is running, but no sticker printer is chosen — Dispatch → Settings → FBA sticker printer.</div>';
+  if (s.mins > 3) return '<div class="fprinter bad">🖨 Your computer last checked in ' + s.mins + " min ago — stickers print as soon as it is awake with Dispatch running.</div>";
+  return '<div class="fprinter">🖨 Sticker printer: <b>' + esc(s.printer) + "</b> · your computer is on and checking</div>";
+}
+function fbaState(it){
+  const t = (v) => v ? new Date(v).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+  if (it.status === "queued" || it.status === "listing") return ["wait", "⏳ Listing it on Amazon (FBA)…"];
+  if (it.status === "waiting_fnsku") return ["wait", "⏳ Amazon is making the sticker number… (usually a minute or two)"];
+  if (it.status === "removing") return ["wait", "↩️ Taking it off Amazon…"];
+  if (it.status === "error") return ["bad", "❌ " + (it.error || "Problem")];
+  if (it.status === "ready") {
+    const pending = !it.printed_at || (it.print_requested_at && new Date(it.printed_at) < new Date(it.print_requested_at));
+    if (!it.printed_at && !it.print_requested_at) return ["ok", "🏷 Sticker ready — print it in Dispatch → 📦 FBA → Ready to print" + (it.print_error ? " (last try: " + it.print_error + ")" : "")];
+    if (pending) return ["wait", seenAgo().mins != null && seenAgo().mins <= 3 && seenAgo().printer ? "🖨 Printing the sticker…" : "🖨 Sticker waiting for your computer to print it"];
+    if (it.print_error) return ["bad", "❌ Sticker didn't print: " + it.print_error];
+    return ["ok", "✅ Sticker printed " + t(it.printed_at) + " — check the cover matches, stick it on, into box " + it.box];
+  }
+  return ["", it.status];
+}
+const COND_NAME = { used_like_new: "Like New", used_very_good: "Very Good", used_good: "Good", used_acceptable: "Acceptable", new_new: "New" };
+function fbaCard(it, small){
+  const [cls, txt] = fbaState(it), c = it.cover_drive ? photoCache[it.cover_drive] : null;
+  let a = "";
+  if (it.fnsku && it.status === "ready" && it.printed_at) a += '<button class="btn small" type="button" data-freprint="' + it.id + '">🖨 Print again</button>';
+  if (it.status === "error") a += '<button class="btn small" type="button" data-fretry="' + it.id + '">Try again</button>';
+  if (it.status !== "removing") a += fbaUndo === it.id
+    ? '<button class="btn small danger" type="button" data-fundoyes="' + it.id + '">Yes — take it off Amazon</button><button class="btn small" type="button" data-fundono="1">Keep it</button>'
+    : '<button class="btn small" type="button" data-fundo="' + it.id + '">Undo FBA</button>';
+  return '<div class="fcard' + (small ? " small" : "") + '"><span class="fcov"' + (it.cover_drive ? ' data-fcov="' + esc(it.cover_drive) + '"' : "") + ">" +
+    (c && c !== "error" ? '<img alt="Cover" src="' + c + '">' : "") + "</span><div>" +
+    '<div class="ftitle">' + esc(it.title || "") + "</div>" +
+    '<div class="fmeta">' + esc(it.pd) + " · box " + esc(it.box) + " · " + usd(it.price) + " · " + esc(COND_NAME[it.cond] || it.cond) + (it.asin ? " · ASIN " + esc(it.asin) : "") + "</div>" +
+    '<div class="ffn">' + (it.fnsku ? esc(it.fnsku) : '<span style="color:var(--muted)">X00 · · · · · · ·</span>') + "</div>" +
+    '<div class="fst ' + cls + '">' + esc(txt) + "</div>" + (a ? '<div class="actions">' + a + "</div>" : "") + "</div></div>";
+}
+function justHtml(){
+  const cut = Date.now() - 45 * 60000;
+  const items = (fba.items || []).filter((it) => it.status !== "ready" || !it.printed_at || new Date(it.updated_at).getTime() > cut || new Date(it.created_at).getTime() > cut).slice(0, 4);
+  if (!items.length) return "";
+  return '<div class="just"><h3>📦 Going to Amazon FBA</h3>' + printerLine() +
+    '<div class="fcards">' + items.map((it, i) => fbaCard(it, i > 0)).join("") + "</div></div>";
+}
+function renderFbaTab(){
+  const ob = fba.open_box, items = (fba.items || []);
+  const boxes = (fba.boxes || []).filter((b) => b.n === ob || items.some((it) => it.box === b.n));
+  let h = '<div class="just"><h3>📦 Amazon FBA — box ' + esc(ob) + " is open</h3>" + printerLine() +
+    '<div class="fw" style="font-size:.88rem;color:var(--muted)">Pick <b>📦 Amazon FBA</b> under "Where does it go?" and Send. At blast off it is listed on Amazon and its sticker waits in Dispatch → Ready to print. Every FBA book goes in the open box. A box can stay open for weeks — those books are not for sale anywhere until the box reaches Amazon. Shipping the boxes (box labels + UPS) comes next.</div>' +
+    '<div class="actions" style="margin-top:10px">' + (newBoxConfirm
+      ? '<button class="btn primary" type="button" id="newboxyes">Yes — box ' + esc(ob) + ' is full, start box ' + esc(Number(ob) + 1) + '</button><button class="btn" type="button" id="newboxno">Cancel</button>'
+      : '<button class="btn" type="button" id="newbox">Start a new box</button>') + "</div></div>" + fbaWaitHtml();
+  if (!items.length) h += '<p class="empty">Nothing in FBA yet. Open a book, pick 📦 Amazon FBA under "Where does it go?", Send it, then Blast off.</p>';
+  boxes.forEach((b) => {
+    const its = items.filter((it) => it.box === b.n);
+    h += '<div class="boxhead"><span>Box ' + esc(b.n) + (b.shipped_at ? " · shipped" : b.closed_at ? " · full" : " · open") + '</span><span class="mono">' + its.length + " book" + (its.length === 1 ? "" : "s") +
+      " · " + usd(its.reduce((s, it) => s + Number(it.price || 0), 0)) + "</span></div>" + '<div class="fcards">' + its.map((it) => fbaCard(it, true)).join("") + "</div>";
+  });
+  $("main").innerHTML = h;
+  if ($("newbox")) $("newbox").onclick = () => { newBoxConfirm = true; renderFbaTab(); };
+  if ($("newboxno")) $("newboxno").onclick = () => { newBoxConfirm = false; renderFbaTab(); };
+  if ($("newboxyes")) $("newboxyes").onclick = () => fbaCall("select pipeline.fba_new_box() as r", (r) => { newBoxConfirm = false; toast("Box " + r.closed + " is full. Box " + r.open_box + " is open now."); });
+  wireFbaCards();
+}
+async function fbaCall(q, ok){
+  try { const rows = await sql(q); const r = rows[0] && rows[0].r; await fbaRefresh(); if (ok) ok(r || {}); }
+  catch (err){ const x = explain(err, SUPA); setNotice(x.kind, x.text); window.scrollTo(0, 0); }
+}
+function wireFbaCards(){
+  document.querySelectorAll("[data-freprint]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); fbaCall("select pipeline.fba_reprint(" + Number(b.dataset.freprint) + ") as r", () => { fbaFast = Date.now(); toast("Printing it again."); }); });
+  document.querySelectorAll("[data-fretry]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); fbaCall("select pipeline.fba_retry(" + Number(b.dataset.fretry) + ") as r", () => { fbaFast = Date.now(); toast("Trying again."); }); });
+  document.querySelectorAll("[data-fundo]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); fbaUndo = Number(b.dataset.fundo); repaintFba(); });
+  document.querySelectorAll("[data-fundono]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); fbaUndo = null; repaintFba(); });
+  document.querySelectorAll("[data-fundoyes]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); const id = Number(b.dataset.fundoyes); fbaUndo = null;
+    fbaCall("select pipeline.fba_undo(" + id + ") as r", (r) => { fbaFast = Date.now(); toast("Taking " + (r.pd || "it") + " off Amazon — it goes back to To check in a minute. Peel the sticker off."); }); });
+  fbaCovers();
+}
+async function fbaCovers(){
+  for (const it of (fba.items || []).slice(0, 40)) {
+    if (!it.cover_drive || photoCache[it.cover_drive]) continue;
+    await loadPhoto({ drive_id: it.cover_drive }, true);
+    const c = photoCache[it.cover_drive];
+    document.querySelectorAll('[data-fcov="' + it.cover_drive + '"]').forEach((el) => { if (c && c !== "error") el.innerHTML = '<img alt="Cover" src="' + c + '">'; });
+  }
+}
+function repaintFba(){
+  const a = document.activeElement;
+  if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) return;
+  if (view.mode === "list") renderList();
+  else if (view.mode === "detail" && current() && current().status === "fba") renderDetail(current());
+}
+async function fbaRefresh(){
+  const before = (fba.items || []).map((it) => it.id);
+  const rows = await sql("select pipeline.fba_list() as fba");
+  if (rows[0] && rows[0].fba) fba = rows[0].fba;
+  const now = (fba.items || []).map((it) => it.id);
+  if (before.some((id) => now.indexOf(id) === -1)) await load(true);   // an Undo finished: the book is back in To check
+  else repaintFba();
+}
+// while a sticker is on its way, look every 5 seconds; otherwise once a minute
+let fbaFast = 0;
+setInterval(async () => {
+  if (!mcp || example || document.hidden || autoBusy) return;
+  const busy = (fba.items || []).some((it) => ["queued", "listing", "waiting_fnsku", "removing"].includes(it.status) ||
+    (it.status === "ready" && (!it.printed_at || new Date(it.printed_at) < new Date(it.print_requested_at))));
+  if (!busy && Date.now() - fbaFast > 90000 && !(view.mode === "list" && tab === "fba")) return;
+  try { await fbaRefresh(); } catch (_) {}
+}, 5000);
+
+// ---------- FBA blast off (2026-10-09): sends ONLY the FBA books to Amazon; eBay / Abe / Etsy wait for the normal Blast off ----------
+function fbaWaiting(){
+  const w = list().filter((d) => d.status === "sent" && !d.built_at && !d.archived_at && (d.channel || "") === "fba");
+  return { go: w.filter((d) => !audNeedsOk(d)), held: w.filter((d) => audNeedsOk(d)) };
+}
+function fbaWaitHtml(){
+  const fw = fbaWaiting();
+  if (!fw.go.length && !fw.held.length) return "";
+  return '<div class="just"><h3>📦 Sent to FBA, waiting to go</h3>' +
+    (fw.go.length ? '<div class="fw" style="font-size:.9rem">' + fw.go.map((d) => '<span class="mono">' + esc(d.pd || "") + "</span> " + esc(((d.ident || {}).title || "").slice(0, 50))).join("<br>") + "</div>" : "") +
+    (fw.held.length ? '<div style="color:var(--flag);margin-top:6px"><b>⚠️ Needs your OK on the family check first:</b> ' + fw.held.map((d) => esc(d.pd || "")).join(", ") + "</div>" : "") +
+    (fw.go.length ? '<div class="actions" style="margin-top:10px"><button class="btn fbabtn" type="button" id="fblast2">' + (fblastConfirm ? "Yes, send " + fw.go.length + " to Amazon" : "🚀 Blast off FBA only (" + fw.go.length + ")") + "</button></div>" : "") + "</div>";
+}
+async function fbaBlast(){
+  const fw = fbaWaiting();
+  if (!fw.go.length){ fblastConfirm = false; setNotice("warn", "<b>⚠️ Your FBA book" + (fw.held.length === 1 ? " needs" : "s need") + " your OK on the family check first:</b> " + fw.held.map((d) => esc(d.pd || "")).join(", ") + " — open it in Sent and press OK to list or Don't list."); window.scrollTo(0, 0); render(); return; }
+  if (!fblastConfirm){ fblastConfirm = true; render(); setTimeout(() => { if (fblastConfirm){ fblastConfirm = false; render(); } }, 8000); return; }
+  fblastConfirm = false;
+  try {
+    const rows = await sql("select pipeline.fba_from_blastoff() as r");
+    const r = (rows[0] && rows[0].r) || {};
+    await load(true); try { await fbaRefresh(); } catch (_) {}
+    setNotice(r.fba ? "info" : "warn", (r.fba ? "<b>📦 " + r.fba + " book" + (r.fba === 1 ? "" : "s") + " sent to Amazon FBA</b> (box " + esc(r.box) + ") — the stickers show up in <b>Dispatch → 📦 FBA → Ready to print</b> in a few minutes to an hour. Your eBay and Abe books are still waiting for the normal Blast off." +
+        '<div class="act mono">' + esc(r.fba_pds || "") + "</div>" : "<b>No FBA books went out.</b>") +
+      (r.fba_problems && r.fba_problems.length ? '<div class="act" style="color:var(--danger)"><b>Not sent (still in Sent):</b><br>' + r.fba_problems.map(esc).join("<br>") + "</div>" : ""));
+    window.scrollTo(0, 0);
+  } catch (e){ const x = explain(e, SUPA); setNotice(x.kind, x.text); render(); }
+}
+$("fblast").onclick = fbaBlast;
+document.addEventListener("click", (e) => { if (e.target && e.target.id === "fblast2") fbaBlast(); });
+
+// ---------- blast off ----------
+$("blast").onclick = async () => {
+  if (!blastConfirm){ blastConfirm = true; render(); setTimeout(() => { if (blastConfirm){ blastConfirm = false; render(); } }, 8000); return; }
+  blastConfirm = false;
+  try {
+    const rows = await sql("select pipeline.ui_blastoff() as r");
+    const r = rows[0] && rows[0].r;
+    setNotice("info", "<b>Ready for blast off: " + (r ? r.waiting : 0) + " book" + (r && r.waiting === 1 ? "" : "s") + ".</b> Now say “blast off” to Claude in the chat, then list them in Dispatch as usual." + (r && r.archived ? " " + r.archived + " finished book" + (r.archived === 1 ? "" : "s") + " moved to Archive." : "") +
+      (r && r.pds ? '<div class="act mono">' + esc(r.pds) + "</div>" : "") +
+      (r && r.fba ? '<div class="act"><b>📦 ' + r.fba + " book" + (r.fba === 1 ? "" : "s") + " going to Amazon FBA</b> (box " + esc(r.box) + ") — their stickers show up in <b>Dispatch → 📦 FBA → Ready to print</b> in a minute or two: " + '<span class="mono">' + esc(r.fba_pds) + "</span></div>" : "") +
+      (r && r.audience_hold && r.audience_hold.length ? '<div class="act" style="color:var(--flag)"><b>⚠️ Family-friendly flag not cleared yet:</b> ' + r.audience_hold.map(esc).join(", ") + " — open each one and press OK to list or Don't list before the files are built.</div>" : "") +
+      (r && r.fba_problems && r.fba_problems.length ? '<div class="act" style="color:var(--danger)"><b>Not sent to FBA (still in Sent):</b><br>' + r.fba_problems.map(esc).join("<br>") + "</div>" : ""));
+    window.scrollTo(0, 0);
+    render();
+  } catch (e){ const x = explain(e, SUPA); setNotice(x.kind, x.text); render(); }
+};
+
+// ---------- auto refresh (prices arrive in the background) ----------
+setInterval(() => {
+  if (!mcp || example || document.hidden) return;
+  const a = document.activeElement;
+  if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) return;
+  if (Object.values(edits).some((e) => Object.keys(e || {}).some((k) => k !== "pd" && k !== "pd2"))) return;   // unsaved changes (PD typing doesn't block updates)
+  const waiting = drafts.some((d) => (d.price_stale && d.status !== "dont_list" && !d.built_at) || d.status === "processing");
+  if (waiting || view.mode === "list") load(true);
+}, 40000);
+
+// ---------- wiring ----------
+document.querySelectorAll(".tab").forEach((b) => b.onclick = () => { tab = b.dataset.tab; view = { mode: "list", id: null }; render(); if (tab === "station" || tab === "check") repriceMissing(); });
+// Any book with no price gets re-priced the moment he looks at it, and the cloud is kicked right away (2026-09-30)
+let repriceAt = 0;
+async function repriceMissing(force){
+  if (!mcp || example) return;
+  if (!force && Date.now() - repriceAt < 45000) return;
+  const need = drafts.some((d) => (d.status === "drafted" || d.status === "sent") && !d.built_at && !d.archived_at && priceOf(d) == null);
+  if (!need) return;
+  repriceAt = Date.now();
+  try {
+    const rows = await sql("select pipeline.ui_reprice_missing() as r");
+    const r = rows[0] && rows[0].r;
+    if (r && r.pricing) toast("Pricing " + r.pricing + " book" + (r.pricing === 1 ? "" : "s") + " now — about a minute.");
+    setTimeout(() => load(true), 60000); setTimeout(() => load(true), 110000);
+  } catch (e) { /* the once-a-minute cloud run still catches it */ }
+}
+$("search").addEventListener("input", () => {
+  const q = $("search").value.trim();
+  if (view.mode === "detail") view = { mode: "list", id: null };
+  const hit = q && list().filter((d) => matches(d, q));
+  if (hit && hit.length === 1 && /^(p?\d+|pd-?\d+)$/i.test(q) && bucket(hit[0]) !== tab) tab = bucket(hit[0]);
+  render();
+});
+$("refresh").onclick = () => load();
+document.addEventListener("visibilitychange", () => { if (!document.hidden && view.mode === "list") load(true); });
+
+render();
+(async () => {
+  try { mcp = await window.claude.use("mcp"); } catch (_) { mcp = null; }
+  if (!mcp){ setStatus("Not connected"); setNotice("warn", "<b>This view can't reach your connectors.</b> Open the page in the Claude app or at claude.ai while signed in. Until then you're looking at an example card."); return; }
+  load();
+})();
+})();
+</script>
+
