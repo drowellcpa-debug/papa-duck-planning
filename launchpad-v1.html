@@ -1,0 +1,400 @@
+<title>Papa Duck Launch Pad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Atkinson+Hyperlegible+Mono:wght@400;600&display=swap">
+<style>
+/* Papa Duck Launch Pad v1 (2026-10-24): questions first, then Prayerfully Reconsider, then the build, then one blinking step at a time. */
+:root {
+  --bg: #f3f5f2; --panel: #ffffff; --ink: #1d2420; --muted: #5d6a63; --line: #d5ddd8;
+  --brand: #1e5b43; --brand-ink: #ffffff; --head: #1e5b43; --head-ink: #ffffff; --head-muted: #d7e8df;
+  --yellow: #f2c230; --yellow-bg: #fff8e1; --yellow-ink: #5c4300; --green: #2f9e5b; --green-ink: #ffffff; --green-text: #1f7a45;
+  --red: #b03a3a; --red-bg: #fdecec; --gray: #dfe5e1; --gray-ink: #4c5752;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "Atkinson Hyperlegible Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141a17; --panel: #1c2420; --ink: #e8efea; --muted: #a3b3aa; --line: #2f3a35;
+  --brand: #4fbf9c; --brand-ink: #0d1411; --head: #163f2f; --head-ink: #ffffff; --head-muted: #b8d3c6;
+  --yellow: #e0b53a; --yellow-bg: #2b2510; --yellow-ink: #f5dd8a; --green: #3fbf72; --green-ink: #06140c; --green-text: #6fd99a;
+  --red: #e46262; --red-bg: #3a1c1c; --gray: #2c3632; --gray-ink: #b9c6bf; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141a17; --panel: #1c2420; --ink: #e8efea; --muted: #a3b3aa; --line: #2f3a35;
+  --brand: #4fbf9c; --brand-ink: #0d1411; --head: #163f2f; --head-ink: #ffffff; --head-muted: #b8d3c6;
+  --yellow: #e0b53a; --yellow-bg: #2b2510; --yellow-ink: #f5dd8a; --green: #3fbf72; --green-ink: #06140c; --green-text: #6fd99a;
+  --red: #e46262; --red-bg: #3a1c1c; --gray: #2c3632; --gray-ink: #b9c6bf; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 17px; line-height: 1.45 }
+header.top { background: var(--head); color: var(--head-ink); padding: 14px max(16px, 2vw); display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between }
+.brandline { display: flex; align-items: center; gap: 12px; min-width: 0 }
+.brandline h1 { margin: 0; font-size: 1.45rem }
+.sub { margin: 0; font-size: .92rem; color: var(--head-muted) }
+.conn { font-size: .88rem; color: var(--head-muted) }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 18px max(16px, 2vw) 40px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start }
+@media (max-width: 980px) { .wrap { grid-template-columns: 1fr } }
+main { display: flex; flex-direction: column; gap: 16px; min-width: 0 }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0 }
+.card.ask { border: 2px solid var(--yellow) }
+.card h2 { margin: 0; font-size: 1.15rem }
+.kicker { margin: 0; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--yellow-ink) }
+.big { margin: 0; font-size: 1.25rem; font-weight: 700; overflow-wrap: anywhere }
+.muted { color: var(--muted) }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
+button { font: inherit; font-weight: 700; font-size: 1rem; border-radius: 8px; padding: 10px 16px; border: 2px solid var(--brand); background: var(--brand); color: var(--brand-ink); cursor: pointer; min-height: 44px }
+button.ghost { background: transparent; color: var(--brand) }
+button.danger { background: transparent; color: var(--red); border-color: var(--red) }
+button.quiet { background: transparent; color: var(--muted); border-color: var(--muted) }
+button:disabled { opacity: .45; cursor: default }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px }
+input[type=text] { font: inherit; padding: 10px; border: 2px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); min-height: 44px }
+label.price { display: inline-flex; gap: 6px; align-items: center; font-weight: 700 }
+label.price input { width: 7em }
+.bars { display: grid; grid-template-columns: 110px minmax(0, 1fr) 150px; gap: 8px 12px; align-items: center; font-size: .95rem }
+.bar { height: 12px; background: var(--gray); border-radius: 6px; overflow: hidden }
+.bar > i { display: block; height: 100%; background: var(--green); border-radius: 6px; transition: width .4s }
+.bar > i.part { background: var(--yellow) }
+.ok { color: var(--green-text); font-weight: 700 }
+.step { display: grid; grid-template-columns: 18px minmax(130px, 170px) minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px }
+@media (max-width: 620px) { .step { grid-template-columns: 18px 1fr } .step > .acts, .step > .info { grid-column: 1 / -1 } }
+.step .name { font-weight: 700; font-size: 1.05rem }
+.dot { width: 16px; height: 16px; border-radius: 8px; background: var(--gray) }
+.step.closed .dot { background: var(--green) }
+.step.running .dot { background: var(--yellow) }
+.step.problem .dot { background: var(--red) }
+.step.up { border: 2px solid var(--yellow); background: var(--yellow-bg); animation: glow 1.4s ease-in-out infinite }
+.step.up .dot { background: var(--yellow); animation: wink 1s steps(2) infinite }
+@keyframes glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(242,194,48,.85) } 50% { box-shadow: 0 0 0 10px rgba(242,194,48,0) } }
+@keyframes wink { 0%, 100% { opacity: 1 } 50% { opacity: .25 } }
+@media (prefers-reduced-motion: reduce) { .step.up, .step.up .dot, .bar > i { animation: none; transition: none } }
+.files { display: flex; flex-direction: column; gap: 4px; font-size: .92rem }
+.files .f { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center }
+.pill { font-size: .82rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--gray); color: var(--gray-ink) }
+.pill.closed { background: var(--green); color: var(--green-ink) }
+.pill.running { background: var(--yellow); color: #3d2f00 }
+.pill.problem { background: var(--red); color: #fff }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end }
+.rc { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 12px }
+.rc.done { border-color: var(--green) }
+.rc img, .rc .noimg { width: 96px; height: 128px; object-fit: cover; border-radius: 6px; background: var(--gray) }
+.why { margin: 0; font-size: .92rem; background: var(--red-bg); border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere }
+.mono { font-family: var(--f-mono) }
+.notice { border-radius: 10px; padding: 10px 14px; font-weight: 700 }
+.notice.bad { background: var(--red-bg); color: var(--ink); border: 2px solid var(--red) }
+.notice.good { background: var(--panel); border: 2px solid var(--green) }
+aside.duck { position: sticky; top: 12px; max-height: calc(100vh - 24px); display: flex; flex-direction: column }
+.chat { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; min-height: 160px; max-height: 60vh }
+.msg { margin: 0; padding: 9px 12px; border-radius: 12px; max-width: 92%; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .97rem }
+.msg.me { align-self: flex-end; background: var(--brand); color: var(--brand-ink); border-bottom-right-radius: 4px }
+.msg.duck { background: var(--bg); border-bottom-left-radius: 4px }
+textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; padding: 8px; border: 2px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink) }
+.empty { color: var(--muted) }
+</style>
+
+<header class="top">
+  <div class="brandline">
+    <svg width="38" height="38" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="13" r="8" fill="#F2C230"/><path d="M22.5 13 L29 14.8 L22.5 16.6 Z" fill="#E07A2E"/><circle cx="18.5" cy="11.2" r="1.4" fill="#1D2420"/><path d="M6 23.5 C10 29.5 22 29.5 26 23.5 C22 21.5 10 21.5 6 23.5 Z" fill="#F2C230"/></svg>
+    <div><h1>Papa Duck Launch Pad</h1><p class="sub" id="nightline">Connecting…</p></div>
+  </div>
+  <div class="conn" id="conn">Connecting to Supabase…</div>
+</header>
+<div class="wrap">
+  <main id="main"><p class="empty">Loading tonight's blast off…</p></main>
+  <aside class="card duck" aria-label="Ask Grandpa Duck">
+    <h2>Ask Grandpa Duck</h2>
+    <div class="chat" id="chat" aria-live="polite"><p class="msg duck">Hi Papa Duck. Ask me anything about tonight's books, a photo that turned red, or why a book went where it did.</p></div>
+    <form id="askform" class="row" style="flex-wrap:nowrap">
+      <label for="ask" class="muted" style="position:absolute;left:-9999px">Your question</label>
+      <input id="ask" type="text" placeholder="Type a question or a problem" style="flex:1;min-width:0">
+      <button type="submit" id="askbtn">Ask</button>
+    </form>
+    <p class="muted" id="duckhint" style="margin:0;font-size:.85rem"></p>
+  </aside>
+</div>
+
+<script>
+const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
+let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false, note = null, showPd = false;
+const chatTurns = [];
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const money = (v) => "$" + Number(v || 0).toFixed(2);
+const lit = (s) => "'" + String(s).replace(/'/g, "''") + "'";
+
+function parse(res) {
+  let p = res && res.payload;
+  let txt = typeof p === "string" ? p : (p && typeof p.result === "string" ? p.result : JSON.stringify(p ?? ""));
+  const m = txt.match(/<untrusted-data-[^>]+>\s*(\[[\s\S]*\])\s*<\/untrusted-data/);
+  return JSON.parse(m ? m[1] : txt);
+}
+async function q(sql) { return parse(await mcp.callTool(SERVER, TOOL, { project_id: PROJECT, query: sql }, { cache: false })); }
+async function call(sql) { const rows = await q(sql); return rows[0] && rows[0].r; }
+
+function showError(e) {
+  const code = e && e.code;
+  const msg = {
+    server_not_connected: "The Supabase connector isn't connected for you. Add it in claude.ai Settings, Connectors, then reload this page.",
+    needs_reauth: "Supabase needs you to sign in again. Reconnect it in claude.ai Settings, Connectors.",
+    approval_required: "This page needs your OK to talk to Supabase. Reload and press Allow.",
+    not_in_manifest: "Supabase is turned off for this page. Turn it back on in this page's Permissions menu.",
+    server_unavailable: "Supabase didn't answer just now. The page will try again in a moment.",
+  }[code] || ("Couldn't reach Supabase: " + (e && e.message || e));
+  note = { bad: true, text: msg }; render();
+}
+function say(text, bad) { note = { bad: !!bad, text }; render(); }
+
+const CH = [["ebay", "eBay"], ["abe", "AbeBooks"], ["etsy", "Etsy"], ["amazon", "Amazon"]];
+function nightJobs() {
+  const j = (st && st.night && st.night.jobs) || {};
+  const ids = { ebay: [j.ebay], abe: j.abe || [], etsy: [j.etsy], amazon: [j.amazon] };
+  const out = {};
+  for (const [c] of CH) out[c] = (ids[c] || []).filter(Boolean).map((id) => jobs.find((x) => x.id === Number(id))).filter(Boolean);
+  return out;
+}
+function jobState(list) {
+  if (!list.length) return "none";
+  if (list.every((j) => j.status === "closed")) return "closed";
+  if (list.some((j) => j.status === "not_closed")) return "problem";
+  if (list.some((j) => j.status === "running" || j.status === "closed")) return "running";
+  return "ready";
+}
+
+// ---------- render ----------
+function render() {
+  const box = $("main");
+  if (box.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;  // don't wipe what he is typing
+  const n = st && st.night;
+  let h = note ? `<div class="notice ${note.bad ? "bad" : "good"}" role="status">${esc(note.text)}</div>` : "";
+  if (!n) {
+    $("nightline").textContent = "No blast off waiting";
+    box.innerHTML = h + `<section class="card"><h2>Nothing waiting yet</h2><p class="muted" style="margin:0">When tonight's books are ready, press the button. I gather everything in Sent, ask you anything I need, then build the files.</p>
+      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>`;
+    $("startbtn").onclick = startNight; return;
+  }
+  const qs = st.questions || [], rc = st.reconsider || [];
+  const openQ = qs.filter((x) => !x.answered_at), openR = rc.filter((x) => !x.answered_at);
+  $("nightline").textContent = `${n.status.startsWith("dry") ? "TEST RUN · " : ""}Night ${n.night.replace(/-.*/, "")} · ${n.pds.length} books · ${n.pds[0]} to ${n.pds[n.pds.length - 1]} · ${money(st.total)}`;
+
+  // 1) questions, one at a time
+  if (openQ.length) {
+    const x = openQ[0], idx = qs.indexOf(x) + 1;
+    h += `<section class="card ask" aria-label="Question"><p class="kicker">Before I build · Question ${idx} of ${qs.length}</p>
+      <p class="big">${esc(x.prompt)}</p><p style="margin:0">${esc(x.detail || "")}</p><div class="row">${qButtons(x)}</div>
+      ${openQ.length > 1 ? `<p class="muted" style="margin:0;font-size:.9rem">Then ${openQ.length - 1} more question${openQ.length > 2 ? "s" : ""}.</p>` : ""}</section>`;
+  }
+  // 2) Prayerfully Reconsider
+  if (rc.length && (n.status === "questions" || n.status === "dry_questions" || openR.length)) {
+    h += `<section class="card" id="reconsider" aria-label="Prayerfully Reconsider"><h2>🙏 Prayerfully Reconsider · ${rc.length - openR.length} of ${rc.length} answered</h2>
+      <p class="muted" style="margin:0">Every family-flagged book gets one more look, even the ones you OK'd in Drafts. Don't list takes it out of every file. Hold keeps it out tonight and leaves it in Drafts.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px">${rc.map(rcCard).join("")}</div></section>`;
+  }
+  // 3) build
+  const building = ["building", "dry_building"].includes(n.status);
+  if (n.status === "questions" || n.status === "dry_questions" || n.status === "build_failed") {
+    const ready = !openQ.length && !openR.length;
+    h += `<section class="card" aria-label="Build"><h2>Build tonight's files</h2>
+      ${n.status === "build_failed" ? `<div class="notice bad">The build stopped: ${esc(n.meta_note || "")}</div>` : ""}
+      <p style="margin:0" class="muted">${ready ? "Everything is answered. Grandpa Duck writes each book's listing details, then the eBay, AbeBooks, Etsy and Amazon files are built." : `Answer the ${openQ.length + openR.length} open item${openQ.length + openR.length === 1 ? "" : "s"} above first.`}</p>
+      <div class="row"><button id="gobtn" ${ready ? "" : "disabled"}>${n.status === "build_failed" ? "Try the build again" : "Build the files"}</button></div></section>`;
+  }
+  if (building || n.status === "ready_to_send" || n.status === "dry_built") h += buildCard(n, building);
+  // 4) send, one step at a time
+  if (n.status === "ready_to_send") h += sendCard();
+  if (n.status === "dry_built") h += `<section class="card"><h2>Test run finished</h2><p style="margin:0">The test files were built and checked. Nothing was sent.</p></section>`;
+  box.innerHTML = h;
+  wire();
+}
+function qButtons(x) {
+  const o = x.options || {};
+  if (x.kind === "price") return `<button data-qa="${x.id}" data-c="suggest">Use ${money(o.suggest)}</button><button class="ghost" data-qa="${x.id}" data-c="keep">Keep ${money(o.current)}</button>
+    <label class="price">My price $<input type="text" inputmode="decimal" id="qp-${x.id}" placeholder="0.00"></label><button class="ghost" data-qa="${x.id}" data-c="custom">Save my price</button>`;
+  if (x.kind === "amazon") return `<button data-qa="${x.id}" data-c="keep">Same edition, keep it on Amazon</button><button class="danger" data-qa="${x.id}" data-c="off">Different, take it off Amazon</button>`;
+  if (x.kind === "twins") return `<button data-qa="${x.id}" data-c="keep">Keep both prices</button>` + (o.pds || []).map((p, i) => `<label class="price">${esc(p)} $<input type="text" inputmode="decimal" id="qt-${x.id}-${i}" placeholder="${Number((o.prices || [])[i] || 0).toFixed(2)}"></label>`).join("") + `<button class="ghost" data-qa="${x.id}" data-c="custom">Save new prices</button>`;
+  return `<button data-qa="${x.id}" data-c="keep">OK</button>`;
+}
+function rcCard(r) {
+  const a = r.answer;
+  const label = { list: "✓ List it", dont_list: "Not listing", hold: "Holding for later" }[a] || "";
+  return `<div class="rc ${a ? "done" : ""}">${r.cover ? `<img src="${esc(r.cover)}" alt="Cover of ${esc(r.title)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'noimg'}))">` : `<div class="noimg"></div>`}
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0"><span class="muted mono" style="font-size:.85rem">${esc(r.pd)} · ${money(r.price)}</span><b>${esc(r.title)}</b>
+    <p class="why"><b>Why:</b> ${esc(r.reason || "flagged by the family check")}</p>
+    ${a ? `<div class="row"><span class="ok">${esc(label)}</span><button class="quiet" data-rc="${r.id}" data-c="">Change</button></div>` :
+      `<div class="row"><button data-rc="${r.id}" data-c="list">List it</button><button class="danger" data-rc="${r.id}" data-c="dont_list">Don't list</button><button class="quiet" data-rc="${r.id}" data-c="hold">Hold</button></div>`}</div></div>`;
+}
+function buildCard(n, building) {
+  const nj = nightJobs();
+  const m = /wrote (\d+) of (\d+)/.exec(n.meta_note || "");
+  const metaPct = n.status === "ready_to_send" || n.status === "dry_built" ? 100 : m ? Math.round(100 * m[1] / m[2]) : building ? 5 : 0;
+  const row = (name, pct, txt) => `<span>${name}</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${name}"><i class="${pct < 100 ? "part" : ""}" style="width:${pct}%"></i></div><span class="${pct >= 100 ? "ok" : "muted"}">${txt}</span>`;
+  const built = (c) => nj[c].length ? 100 : 0;
+  const cnt = (c) => nj[c].reduce((a, j) => a + (j.items || []).length, 0);
+  return `<section class="card" aria-label="Build progress"><h2>${building ? "Building tonight's files…" : "Files built"}</h2>
+    <div class="bars">${row("Details", metaPct, building ? (m ? `${m[1]} of ${m[2]}` : "starting") : "✓ written")}
+    ${row("eBay", built("ebay"), nj.ebay.length ? `${cnt("ebay")} ready ✓` : "waiting")}
+    ${row("AbeBooks", built("abe"), nj.abe.length ? `${nj.abe.length} files ready ✓` : "waiting")}
+    ${row("Etsy", built("etsy"), nj.etsy.length ? `${cnt("etsy")} ready ✓` : building ? "waiting" : "none tonight")}
+    ${row("Amazon", built("amazon"), nj.amazon.length ? `${cnt("amazon")} ready ✓` : building ? "waiting" : "none tonight")}</div>
+    ${n.meta_status === "written_with_notes" ? `<p class="muted" style="margin:0;font-size:.9rem">Notes: ${esc(n.meta_note)}</p>` : ""}</section>`;
+}
+function sendCard() {
+  const nj = nightJobs();
+  const steps = CH.filter(([c]) => nj[c].length).map(([c, name], i) => ({ c, name, n: i + 1, list: nj[c], s: jobState(nj[c]) }));
+  const up = steps.find((s) => s.s !== "closed");
+  const closed = steps.filter((s) => s.s === "closed").length;
+  if (!up) return `<section class="card" aria-label="Send"><h2>🎉 Tonight is DONE · ${closed} of ${steps.length} steps closed</h2><p style="margin:0">Every book is out. Thank you, Papa Duck.</p>${abeListBox(nj)}</section>`;
+  return `<section class="card" aria-label="Send"><div class="row" style="justify-content:space-between"><h2>Send, one step at a time</h2><b>${closed} of ${steps.length} steps closed</b></div>
+    ${steps.map((s) => stepRow(s, s === up)).join("")}${abeListBox(nj)}</section>`;
+}
+function stepRow(s, isUp) {
+  const items = s.list.flatMap((j) => j.items || []);
+  const done = items.filter((i) => i.state === "done").length;
+  let info = `${done} of ${items.length} books done`;
+  let acts = "";
+  if (s.c === "abe") {
+    const files = s.list.slice().sort((a, b) => a.id - b.id);
+    const nextFile = files.find((j) => j.status !== "closed");
+    info = `<div class="files">${files.map((j, i) => {
+      const its = j.items || [], d = its.filter((x) => x.state === "done").length;
+      const pdr = its.length ? `${its[0].pd} to ${its[its.length - 1].pd}` : "";
+      const word = j.status === "closed" ? `Closed, ${d} of ${its.length}` : j.status === "running" ? `Part sent, ${d} of ${its.length} books` : j.status === "not_closed" ? `Not closed, ${d} of ${its.length}` : "Ready";
+      return `<div class="f"><b>File ${i + 1} of ${files.length}</b><span class="mono">${esc(pdr)}</span><span class="pill ${j.status === "closed" ? "closed" : j.status === "running" ? "running" : j.status === "not_closed" ? "problem" : ""}">${esc(word)}</span></div>`;
+    }).join("")}</div>`;
+    if (isUp && nextFile) {
+      const i = files.indexOf(nextFile) + 1, waiting = (nextFile.items || []).filter((x) => ["waiting", "failed", "short"].includes(x.state)).length;
+      acts = waiting && nextFile.status !== "running" ? `<button data-send="${nextFile.id}" data-one="0">Send File ${i} of ${files.length}</button>` : `<span class="pill running">File ${i} of ${files.length} sending…</span>`;
+    }
+  } else if (isUp) {
+    const j = s.list[0], waiting = (j.items || []).filter((x) => ["waiting", "failed", "short"].includes(x.state)).length;
+    acts = waiting && j.status !== "running" ? `<button class="ghost" data-send="${j.id}" data-one="1">Send ONE</button><button data-send="${j.id}" data-one="0">Send ${waiting === (j.items || []).length ? "all" : "the rest"} (${waiting})</button>` : `<span class="pill running">Sending…</span>`;
+  }
+  const status = s.s === "closed" ? "closed" : s.s === "running" ? "running" : s.s === "problem" ? "problem" : "";
+  return `<div class="step ${status} ${isUp ? "up" : ""}"><span class="dot" aria-hidden="true"></span><span class="name">Step ${s.n} · ${esc(s.name)}</span>
+    <div class="info" style="font-size:.95rem">${isUp ? "<b>You're up.</b> " : ""}${s.c === "abe" ? "" : info}${s.c === "abe" ? info : ""}${s.s === "closed" ? ' <span class="ok">✓ Closed</span>' : ""}</div><div class="acts">${acts}</div></div>`;
+}
+function abeListBox(nj) {
+  const pds = nj.abe.flatMap((j) => (j.items || []).map((i) => i.pd)).sort();
+  if (!pds.length) return "";
+  return `<div class="row"><button class="ghost" id="copypd">Copy AbeBooks PD list (${pds.length})</button></div>
+    ${showPd ? `<textarea class="pdlist" id="pdbox" rows="3" readonly aria-label="AbeBooks PD list">${esc(pds.join(", "))}</textarea>` : ""}`;
+}
+
+// ---------- actions ----------
+function wire() {
+  document.querySelectorAll("[data-qa]").forEach((b) => b.onclick = () => answerQ(+b.dataset.qa, b.dataset.c, b));
+  document.querySelectorAll("[data-rc]").forEach((b) => b.onclick = () => answerRc(+b.dataset.rc, b.dataset.c, b));
+  document.querySelectorAll("[data-send]").forEach((b) => b.onclick = () => send(+b.dataset.send, b.dataset.one === "1", b));
+  const g = $("gobtn"); if (g) g.onclick = () => go(g);
+  const c = $("copypd"); if (c) c.onclick = copyPds;
+}
+async function startNight() {
+  const b = $("startbtn"); b.disabled = true; b.textContent = "Gathering tonight's books…";
+  try { const r = await call("select pipeline.launch_create() as r"); if (!r || !r.ok) say((r && r.error) || "Couldn't start.", true); else note = null; }
+  catch (e) { showError(e); }
+  refresh(true);
+}
+async function answerQ(id, choice, btn) {
+  const x = (st.questions || []).find((y) => y.id === id); if (!x) return;
+  const p = { choice };
+  if (choice === "custom" && x.kind === "price") p.price = ($("qp-" + id) || {}).value || "";
+  if (choice === "custom" && x.kind === "twins") { p.prices = {}; ((x.options || {}).pds || []).forEach((pd, i) => { const v = ($("qt-" + id + "-" + i) || {}).value; if (v) p.prices[pd] = v; }); }
+  btn.disabled = true;
+  try {
+    const r = await call(`select pipeline.launch_answer(${Number(id)}, ${lit(JSON.stringify(p))}::jsonb) as r`);
+    if (!r || !r.ok) say((r && r.error) || "That didn't save.", true); else note = null;
+  } catch (e) { showError(e); }
+  document.activeElement && document.activeElement.blur && document.activeElement.blur();
+  refresh(true);
+}
+async function answerRc(id, choice, btn) {
+  if (!choice) {   // "Change": clear the answer so the three buttons come back
+    try { await q(`update pipeline.launch_reconsider set answer = null, answered_at = null where id = ${Number(id)} and night_id = ${Number(st.night.id)} returning id`); } catch (e) { showError(e); }
+    return refresh(true);
+  }
+  btn.disabled = true;
+  try { const r = await call(`select pipeline.launch_reconsider_answer(${Number(id)}, ${lit(choice)}) as r`); if (!r || !r.ok) say((r && r.error) || "That didn't save.", true); else note = null; }
+  catch (e) { showError(e); }
+  refresh(true);
+}
+async function go(btn) {
+  btn.disabled = true; btn.textContent = "Starting the build…";
+  try { const r = await call(`select pipeline.launch_go(${Number(st.night.id)}) as r`); if (!r || !r.ok) say((r && r.error) || "The build didn't start.", true); else note = null; }
+  catch (e) { showError(e); }
+  refresh(true);
+}
+async function send(id, one, btn) {
+  btn.disabled = true; btn.textContent = "Starting…";
+  try { const r = await call(`select pipeline.dispatch_start(${Number(id)}, ${one ? "true" : "false"}) as r`); if (r && !r.ok) say(r.error, true); else note = null; }
+  catch (e) { showError(e); }
+  refresh(true);
+}
+async function copyPds() {
+  const nj = nightJobs();
+  const text = nj.abe.flatMap((j) => (j.items || []).map((i) => i.pd)).sort().join(", ");
+  try { await navigator.clipboard.writeText(text); say(`Copied ${text.split(", ").length} AbeBooks PD numbers.`, false); }
+  catch (_) { showPd = true; render(); const t = $("pdbox"); if (t) { t.focus(); t.select(); } say("Select the list below and copy it (Ctrl+C).", false); }
+}
+
+// ---------- Ask Grandpa Duck ----------
+function addMsg(who, text) { const p = document.createElement("p"); p.className = "msg " + who; p.textContent = text; $("chat").appendChild(p); $("chat").scrollTop = 1e9; return p; }
+const DUCK_TOOLS = [
+  { name: "night_state", description: "Returns tonight's Launch Pad state: books, questions and answers, Prayerfully Reconsider answers, build notes, and every send job with each book's state, photo colors and notes. Use it before answering about tonight.",
+    execute: async () => { await refresh(true); return JSON.stringify({ night: st && st.night, questions: st && st.questions, reconsider: st && st.reconsider,
+      jobs: Object.fromEntries(Object.entries(nightJobs()).map(([c, l]) => [c, l.map((j) => ({ id: j.id, name: j.name, status: j.status, summary: j.summary,
+        items: (j.items || []).map((i) => ({ pd: i.pd, state: i.state, note: i.note, photos: i.photos })) }))])) }).slice(0, 30000); } },
+  { name: "book_details", description: "Returns one book's draft details by PD number (title, author, year, grade, price, channels, Etsy and Amazon status, family-check note). Read-only.",
+    inputSchema: { type: "object", properties: { pd: { type: "string", description: "like PD-3417" } }, required: ["pd"] },
+    execute: async (inp) => { const pd = String(inp.pd || "").toUpperCase().replace(/[^A-Z0-9-]/g, "");
+      const rows = await q(`select pd, status, channel, etsy, amazon_on, coalesce(price_override,(pricing->>'list')::numeric) price, ident->>'title' title, ident->>'author' author, ident->>'publication_year' yr, ident->>'grade' grade, amazon->>'status' amz, amazon->>'fit' fit, amazon->>'off_reason' amz_off, ident->'audience'->>'note' family_note, built_at from pipeline.drafts where pd = ${lit(pd)} order by id desc limit 1`);
+      return rows[0] || "No book with that PD number."; } },
+  { name: "resend_failed", description: "Sends again every book or photo in one send job that failed or came up short (for example a red photo after a busy signal). Only use after Papa Duck says yes. Returns how many were queued.",
+    inputSchema: { type: "object", properties: { job_id: { type: "number" } }, required: ["job_id"] },
+    execute: async (inp) => { const r = await call(`select pipeline.dispatch_start(${Number(inp.job_id)}, false) as r`); refresh(true); return r; } },
+];
+async function ask(e) {
+  e.preventDefault();
+  const text = $("ask").value.trim(); if (!text) return;
+  if (!sample) { $("duckhint").textContent = "Grandpa Duck isn't available in this view."; return; }
+  $("ask").value = ""; addMsg("me", text);
+  chatTurns.push({ role: "user", content: text });
+  const out = addMsg("duck", "Thinking…"); $("askbtn").disabled = true;
+  const rules = `You are Grandpa Duck, the friendly helper inside Papa Duck's Launch Pad. Papa Duck (Dawayne) runs Papa Duck Homeschool, a family-friendly used-book business in Gresham, Oregon, selling on eBay, AbeBooks, Etsy and Amazon. The Launch Pad runs his nightly blast off: questions first (big prices, Amazon edition matches, two copies at different prices), then Prayerfully Reconsider for family-flagged books, then the build (Grandpa Duck writes listing details, then the files), then sending one step at a time: 1 eBay, 2 AbeBooks (files of 13 or fewer), 3 Etsy, 4 Amazon.
+House rules you know: never free shipping (Media Mail calculated); Etsy only for books 20+ years old with a known year; Amazon only when the edition truly matches; a photo that turns red usually means the photo server was busy and can simply be sent again; nothing The Good and the Beautiful is ever listed.
+Use your tools to look things up before answering about tonight. Keep answers short, warm and plain, a few sentences. Never change anything unless he clearly says yes; resend_failed is the only change you can make. If something needs Claude in the main chat (a price review, a rule change, a new build), say so plainly.`;
+  try {
+    const turns = chatTurns.slice(-10).map((t, i, a) => i === 0 ? { role: t.role, content: rules + "\n\nPapa Duck says: " + t.content } : t);
+    if (turns[0].role !== "user") turns.shift();
+    const r = await sample(turns, { tools: DUCK_TOOLS, cache: false, onText: ({ text }) => { out.textContent = text; $("chat").scrollTop = 1e9; } });
+    out.textContent = r.text; chatTurns.push({ role: "assistant", content: r.text });
+    if (st && st.night) q(`insert into pipeline.launch_chat(night_id, role, body) values (${Number(st.night.id)}, 'papa', ${lit(text)}), (${Number(st.night.id)}, 'duck', ${lit(r.text.slice(0, 4000))}) returning id`).catch(() => {});
+  } catch (err) {
+    out.textContent = err && err.code === "not_granted" ? "Grandpa Duck needs your OK to answer. Ask again and press Allow." : err && err.code === "rate_limited" ? "Too many questions at once. Give me a minute." : ((err && err.text) || "Sorry, I couldn't answer that just now.");
+    chatTurns.pop();
+  } finally { $("askbtn").disabled = false; }
+}
+
+// ---------- refresh loop ----------
+async function refresh(force) {
+  if (!mcp || (busy && !force)) return;
+  busy = true;
+  try {
+    const rows = await q("select pipeline.launch_state() as s, pipeline.dispatch_status(40) as j");
+    st = (rows[0] && rows[0].s) || null; jobs = (rows[0] && rows[0].j) || [];
+    if (st && !st.night) st = null;
+    $("conn").innerHTML = "Live from the cloud · updated <b>" + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) + "</b>";
+    render();
+  } catch (e) { showError(e); }
+  finally { busy = false; schedule(); }
+}
+function schedule() {
+  clearTimeout(timer);
+  const n = st && st.night;
+  const live = n && (["building", "dry_building"].includes(n.status) || jobs.some((j) => j.status === "running"));
+  timer = setTimeout(() => refresh(), document.hidden ? 30000 : live ? 3000 : 12000);
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(true); });
+$("askform").onsubmit = ask;
+
+(async () => {
+  mcp = window.claude && await window.claude.use("mcp");
+  if (!mcp) { $("conn").textContent = "Open this page inside claude.ai to connect."; $("main").innerHTML = '<p class="empty">This page talks to Supabase through your claude.ai connector, so it only works when opened in claude.ai.</p>'; return; }
+  window.claude.use("sample").then((s) => { sample = s; if (!s) { $("duckhint").textContent = "Grandpa Duck isn't available in this view."; $("askbtn").disabled = true; } });
+  refresh(true);
+})();
+</script>
