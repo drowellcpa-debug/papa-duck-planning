@@ -321,7 +321,7 @@ body.nobar .wrap{padding-bottom:40px}
 <div class="bar" id="bar">
   <div class="in">
     <div class="txt" id="bartxt"><b>0</b> sent, waiting for blast off</div>
-    <button class="btn primary" id="blast" type="button">Blast off</button>
+    <div class="actions"><button class="btn" id="blast" type="button">Blast off</button><button class="btn primary" id="lpblast" type="button">🚀 Blast off to Launch Pad</button></div>
   </div>
 </div>
 <aside class="buyer" id="buyer" aria-label="What the buyer sees"></aside>
@@ -352,7 +352,8 @@ let view = { mode: "list", id: null };
 let edits = {};          // per-draft unsaved edits
 let photoCache = {};     // drive_id -> data URL | "error"
 let selPhoto = 0;
-let blastConfirm = false, fblastConfirm = false, notConfirm = null, allOpen = false;
+let blastConfirm = false, fblastConfirm = false, notConfirm = null, allOpen = false, lpConfirm = false, lpBusy = false;
+const LAUNCH_PAD = "https://claude.ai/artifact/DiKnn9WmWgGqCp41ZPDT73";
 let example = true;
 
 // ---------- sample shown until your real drafts load ----------
@@ -551,6 +552,8 @@ function render(){
     : "<b>" + waiting + "</b> sent, waiting for blast off";
   $("blast").textContent = blastConfirm ? "Yes, blast off" : "Blast off";
   $("blast").disabled = example || (!blastConfirm && waiting === 0);
+  $("lpblast").textContent = lpConfirm ? "Yes, send " + waiting + " to the Launch Pad" : "🚀 Blast off to Launch Pad";
+  $("lpblast").disabled = example || lpBusy || (!lpConfirm && waiting === 0);
   // 2026-10-09 his ask: "I want a separate blast for amazon FBA I will get these out before my others"
   const fw = fbaWaiting();
   $("fblast").hidden = example || (fw.go.length + fw.held.length === 0 && !fblastConfirm);
@@ -1716,6 +1719,23 @@ $("blast").onclick = async () => {
     window.scrollTo(0, 0);
     render();
   } catch (e){ const x = explain(e, SUPA); setNotice(x.kind, x.text); render(); }
+};
+
+// ---------- 🚀 Blast off to Launch Pad (2026-10-24): same prep as Blast off, then tonight's questions open on the Launch Pad ----------
+$("lpblast").onclick = async () => {
+  if (!lpConfirm){ lpConfirm = true; render(); setTimeout(() => { if (lpConfirm){ lpConfirm = false; render(); } }, 8000); return; }
+  lpConfirm = false; lpBusy = true; $("lpblast").textContent = "Gathering tonight's books…"; $("lpblast").disabled = true;
+  try {
+    const rows = await sql("select pipeline.launch_create() as r");
+    const r = rows[0] && rows[0].r;
+    lpBusy = false; await load(true);   // reload first: load() clears the notice area
+    if (!r || !r.ok) setNotice("warn", "<b>" + esc((r && r.error) || "The Launch Pad didn't start.") + "</b>");
+    else setNotice("info", "<b>🚀 " + r.books + " book" + (r.books === 1 ? " is" : "s are") + " on the Launch Pad.</b> " + (r.questions ? r.questions + " question" + (r.questions === 1 ? "" : "s") + " and " : "") +
+      (r.reconsider ? r.reconsider + " to reconsider are waiting. " : "") +
+      '<div class="act"><a class="btn primary" href="' + LAUNCH_PAD + '" target="_blank" rel="noopener">Open the Launch Pad</a></div>');
+    window.scrollTo(0, 0);
+  } catch (e){ const x = explain(e, SUPA); setNotice(x.kind, x.text); }
+  lpBusy = false; render();
 };
 
 // ---------- auto refresh (prices arrive in the background) ----------

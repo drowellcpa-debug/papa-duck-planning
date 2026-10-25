@@ -112,7 +112,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 <script>
 const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
 let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false, note = null, showPd = false;
-let verify = null, verifyKey = "", verifying = false;
+let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false;
 const chatTurns = [];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -188,11 +188,13 @@ function render() {
   }
   // 3) build
   const building = ["building", "dry_building"].includes(n.status);
+  const realGaps = gaps.reduce((a, g) => a + Number(g.real_gaps || 0), 0);
+  if (n.status === "questions" || n.status === "dry_questions" || n.status === "build_failed") h += gapCard(realGaps);
   if (n.status === "questions" || n.status === "dry_questions" || n.status === "build_failed") {
-    const ready = !openQ.length && !openR.length;
+    const ready = !openQ.length && !openR.length && (!realGaps || gapOk);
     h += `<section class="card" aria-label="Build"><h2>Build tonight's files</h2>
       ${n.status === "build_failed" ? `<div class="notice bad">The build stopped: ${esc(n.meta_note || "")}</div>` : ""}
-      <p style="margin:0" class="muted">${ready ? "Everything is answered. Grandpa Duck writes each book's listing details, then the eBay, AbeBooks, Etsy and Amazon files are built." : `Answer the ${openQ.length + openR.length} open item${openQ.length + openR.length === 1 ? "" : "s"} above first.`}</p>
+      <p style="margin:0" class="muted">${ready ? "Everything is answered. Grandpa Duck writes each book's listing details, then the eBay, AbeBooks, Etsy and Amazon files are built." : openQ.length + openR.length ? `Answer the ${openQ.length + openR.length} open item${openQ.length + openR.length === 1 ? "" : "s"} above first.` : "Check the skipped PD numbers above first."}</p>
       <div class="row"><button id="gobtn" ${ready ? "" : "disabled"}>${n.status === "build_failed" ? "Try the build again" : "Build the files"}</button></div></section>`;
   }
   if (building || n.status === "ready_to_send" || n.status === "dry_built") h += buildCard(n, building);
@@ -239,29 +241,91 @@ function sendCard() {
   const steps = CH.filter(([c]) => nj[c].length).map(([c, name], i) => ({ c, name, n: i + 1, list: nj[c], s: jobState(nj[c]) }));
   const up = steps.find((s) => s.s !== "closed");
   const closed = steps.filter((s) => s.s === "closed").length;
-  if (!up) return `<section class="card" aria-label="Send"><h2>🎉 Tonight is DONE · ${closed} of ${steps.length} steps closed</h2><p style="margin:0">Every book is out. Thank you, Papa Duck.</p>${abeListBox(nj)}</section>`;
+  if (!up) return `<section class="card" aria-label="Send"><h2>🎉 Tonight is DONE · ${closed} of ${steps.length} steps closed</h2><p style="margin:0">Every book is out. Thank you, Papa Duck.</p>${abeListBox(nj)}
+    <div class="row"><button class="ghost" id="startbtn">🚀 Start the next blast off</button><span class="muted" style="font-size:.9rem">or press 🚀 Blast off to Launch Pad in Drafts</span></div></section>`;
   return `<section class="card" aria-label="Send"><div class="row" style="justify-content:space-between"><h2>Send, one step at a time</h2><b>${closed} of ${steps.length} steps closed</b></div>
     ${steps.map((s) => stepRow(s, s === up)).join("")}${abeListBox(nj)}</section>`;
 }
+// ---------- PD number check (no skipped numbers) ----------
+function gapCard(realGaps) {
+  if (!gaps.length) return "";
+  const lines = gaps.map((g) => {
+    const name = g.series === "media" ? "Media" : "Books";
+    const miss = (g.missing || []);
+    const real = miss.filter((m) => m.why === "NO BOOK HAS THIS NUMBER"), held = miss.filter((m) => m.why !== "NO BOOK HAS THIS NUMBER");
+    let s = `<p style="margin:0"><b>${name}:</b> ${esc(g.from)} to ${esc(g.to)}${g.last_before ? ` <span class="muted">(last night ended at ${esc(g.last_before)})</span>` : ""} `;
+    s += real.length ? `<span style="color:var(--red);font-weight:700">⚠️ ${real.length} number${real.length > 1 ? "s" : ""} skipped: ${real.map((m) => esc(m.pd)).join(", ")}</span>` : `<span class="ok">✅ no numbers skipped</span>`;
+    s += "</p>";
+    if (held.length) s += `<p class="muted" style="margin:0;font-size:.92rem">Not going out tonight: ${held.map((m) => `${esc(m.pd)} (${esc(m.why)})`).join(", ")}</p>`;
+    if ((g.older || []).length) s += `<p class="muted" style="margin:0;font-size:.92rem">Older number${g.older.length > 1 ? "s" : ""} going out tonight: ${g.older.map(esc).join(", ")}</p>`;
+    return s;
+  }).join("");
+  return `<section class="card" aria-label="PD number check"${realGaps && !gapOk ? ' style="border:2px solid var(--red)"' : ""}><h2>🔢 PD number check</h2>${lines}
+    ${realGaps ? (gapOk ? `<p class="muted" style="margin:0">You said go ahead anyway.</p>` : `<p style="margin:0">A skipped number usually means a book was never scanned or got a typo. Check the shelf, or tell Claude. Build is locked until you choose.</p><div class="row"><button class="danger" id="gapok">The skip is OK, go ahead</button></div>`) : ""}</section>`;
+}
+
 // ---------- confirmation: listed + Airtable fully updated, read back from Airtable itself ----------
 function verifyCard() {
   const v = verify, names = { ebay: "eBay", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
   const head = `<div class="row" style="justify-content:space-between"><h2>✅ Confirmation · listed and in Airtable</h2>
     <button class="ghost" id="verifybtn" ${verifying ? "disabled" : ""}>${verifying ? "Checking…" : "Check again"}</button></div>`;
-  if (!v || !v.ok) return `<section class="card" aria-label="Confirmation">${head}<p class="muted" style="margin:0">${v && v.error ? esc(v.error) : "Not checked yet. It checks by itself each time a step finishes."}</p></section>`;
+  if (!v || !v.ok || !v.channels) return `<section class="card" aria-label="Confirmation">${head}<p class="muted" style="margin:0">${v && v.error ? esc(v.error) : "Not checked yet. It checks by itself each time a step finishes."}</p></section>`;
   const rows = ["ebay", "abe", "etsy", "amazon"].filter((c) => v.channels[c]).map((c) => {
     const x = v.channels[c], all = x.listed === x.total, clean = all && !x.problems.length;
     const listed = x.listed === 0 ? `<span class="muted">Not sent yet</span>` : `<span class="${all ? "ok" : ""}">${all ? "✅" : "⏳"} ${x.listed} of ${x.total}</span>`;
     const at = x.listed === 0 ? `<span class="muted">—</span>` : `<span class="${clean ? "ok" : ""}">${clean ? "✅" : x.problems.length ? "⚠️" : "⏳"} ${x.airtable} of ${x.listed}</span>`;
-    return `<span><b>${names[c]}</b></span>${listed}${at}`;
-  }).join("");
+    return [c, listed + at];
+  });
+  const cells = Object.fromEntries(rows);
   const probs = ["ebay", "abe", "etsy", "amazon"].flatMap((c) => (v.channels[c] ? v.channels[c].problems : []).map((p) => `${names[c]}: ${p}`));
   const t = new Date(v.checked_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  // live-on-the-store column: eBay + Etsy are read back by the sender at send time; AbeBooks photos + Amazon status come from launch-check
+  const liveCell = (c) => {
+    const x = v.channels[c]; if (!x || !x.listed) return `<span class="muted">—</span>`;
+    if (c === "ebay" || c === "etsy") return `<span class="ok">✅ ${x.listed} live</span>`;
+    const L = live.filter((r) => r.ch === c), ok = L.filter((r) => r.st === "ok").length;
+    if (!L.length) return `<span class="muted">${liveBusy ? "checking…" : "not checked yet"}</span>`;
+    const bad = L.filter((r) => r.st === "problem").length;
+    return `<span class="${ok === x.listed ? "ok" : ""}">${ok === x.listed ? "✅" : bad ? "⚠️" : "⏳"} ${ok} of ${x.listed}${c === "abe" ? " with photos" : " buyable"}</span>`;
+  };
+  const liveRows = ["ebay", "abe", "etsy", "amazon"].filter((c) => v.channels[c]).map((c) => `<span><b>${names[c]}</b></span>` + cells[c] + liveCell(c)).join("");
+  const waitAbe = live.filter((r) => r.ch === "abe" && r.st !== "ok"), waitAmz = live.filter((r) => r.ch === "amazon" && r.st !== "ok");
+  const lastLive = live.length ? new Date(live.reduce((a, r) => r.at > a ? r.at : a, "")).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+  const liveNote = (waitAbe.length || waitAmz.length) ? `<div class="notice" style="font-weight:400;border:2px solid var(--yellow);background:var(--yellow-bg)">
+      ${waitAbe.length ? `<b>AbeBooks photos not showing yet (${waitAbe.length}):</b> ${waitAbe.map((r) => esc(r.pd)).join(", ")}<br>` : ""}
+      ${waitAmz.length ? `<b>Amazon still processing (${waitAmz.length}):</b> ${waitAmz.map((r) => `${esc(r.pd)}${r.st === "problem" ? " ⚠️ " + esc(r.d) : ""}`).join(", ")}<br>` : ""}
+      <span class="muted" style="font-size:.9rem">Usually 15 to 45 minutes. I re-check the live stores every 10 minutes by myself${lastLive ? ` (last check ${esc(lastLive)})` : ""}. If any are still waiting after an hour, tell Claude.</span></div>` : "";
   return `<section class="card" aria-label="Confirmation">${head}
-    <div style="display:grid;grid-template-columns:minmax(90px,1fr) minmax(0,1.2fr) minmax(0,1.6fr);gap:8px 12px;font-size:1.02rem">
-      <span class="muted">Channel</span><span class="muted">Listed</span><span class="muted">Airtable updated</span>${rows}</div>
+    <div style="display:grid;grid-template-columns:minmax(80px,1fr) minmax(0,1.1fr) minmax(0,1.2fr) minmax(0,1.5fr);gap:8px 12px;font-size:1.02rem">
+      <span class="muted">Channel</span><span class="muted">Sent</span><span class="muted">Airtable updated</span><span class="muted">Live on the store</span>${liveRows}</div>${liveNote}
     ${probs.length ? `<div class="notice bad" style="font-weight:400"><b>Needs a look:</b><br>${probs.map(esc).join("<br>")}</div>` : `<p class="ok" style="margin:0">Everything listed so far is in Airtable with the right item numbers, price and photos.</p>`}
-    <p class="muted" style="margin:0;font-size:.88rem">Read straight from Airtable at ${esc(t)} · ${v.airtable_records} of ${v.books} books have a record.</p></section>`;
+    <p class="muted" style="margin:0;font-size:.88rem">Read straight from Airtable at ${esc(t)} · ${v.airtable_records} of ${v.books} books have a record.</p>
+    <div class="row"><button class="ghost" id="sumbtn">📋 Copy tonight's summary for Claude</button></div>
+    ${showSum ? `<textarea class="pdlist" id="sumbox" rows="8" readonly aria-label="Tonight's summary">${esc(nightSummary())}</textarea>` : ""}</section>`;
+}
+function nightSummary() {
+  const n = st.night, v = verify || { channels: {} }, nj = nightJobs(), names = { ebay: "eBay", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
+  const L = [`Launch Pad night ${n.night} — ${n.pds.length} books, ${n.pds[0]} to ${n.pds[n.pds.length - 1]}, ${money(st.total)}`];
+  for (const c of ["ebay", "abe", "etsy", "amazon"]) {
+    const x = v.channels[c]; if (!x) continue;
+    const lv = live.filter((r) => r.ch === c), ok = lv.filter((r) => r.st === "ok").length;
+    L.push(`${names[c]}: sent ${x.listed}/${x.total} · Airtable ${x.airtable}/${x.listed}` + (c === "abe" || c === "amazon" ? ` · live ${ok}/${x.listed}` : "") + ` · jobs ${nj[c].map((j) => j.id).join(",")}`);
+  }
+  const ans = (st.questions || []).filter((q) => q.answer).map((q) => `${q.pd} ${q.kind}: ${q.answer.choice}${q.answer.price ? " $" + q.answer.price : ""}`);
+  if (ans.length) L.push("Answers: " + ans.join("; "));
+  const rc = (st.reconsider || []).filter((r) => r.answer && r.answer !== "list").map((r) => `${r.pd} ${r.answer}`);
+  if (rc.length) L.push("Not listed tonight: " + rc.join(", "));
+  const g = gaps.flatMap((x) => (x.missing || []).map((m) => `${m.pd} (${m.why})`));
+  if (g.length) L.push("PD check: " + g.join(", "));
+  const probs = Object.entries(v.channels).flatMap(([c, x]) => x.problems.map((p) => `${names[c]}: ${p}`));
+  const waits = live.filter((r) => r.st !== "ok").map((r) => `${names[r.ch]} ${r.pd} ${r.st}`);
+  L.push(probs.length || waits.length ? "Open: " + [...probs, ...waits].join("; ") : "Open: nothing — all confirmed.");
+  return L.join("\n");
+}
+async function copySummary() {
+  const text = nightSummary();
+  try { await navigator.clipboard.writeText(text); say("Tonight's summary is copied. Paste it to Claude.", false); }
+  catch (_) { showSum = true; render(); const t = $("sumbox"); if (t) { t.focus(); t.select(); } say("Select the summary below and copy it (Ctrl+C).", false); }
 }
 async function runVerify() {
   if (verifying || !st || !st.night) return;
@@ -270,12 +334,22 @@ async function runVerify() {
   catch (e) { showError(e); }
   verifying = false; render();
 }
+async function runLive() {
+  if (liveBusy || !st || !st.night) return;
+  liveBusy = true; render();
+  try { await call(`select pipeline.launch_check_start(${Number(st.night.id)}) as r`); } catch (e) { showError(e); }
+  setTimeout(() => { liveBusy = false; refresh(true); }, 45000);   // the live check takes about half a minute
+}
 function autoVerify() {
   const n = st && st.night; if (!n || n.status !== "ready_to_send") return;
   if (jobs.some((j) => j.status === "running")) return;            // wait until the step settles
   const nj = nightJobs();
   const key = Object.values(nj).flat().map((j) => j.id + ":" + (j.items || []).filter((i) => i.state === "done").length).join(",");
-  if (key !== verifyKey) { verifyKey = key; runVerify(); }
+  if (key !== verifyKey) {
+    const first = verifyKey === ""; verifyKey = key; runVerify();
+    const liveDone = [...nj.abe, ...nj.amazon].some((j) => (j.items || []).some((i) => i.state === "done"));
+    if (!first && liveDone) runLive();   // a step just finished: look at the live stores too
+  }
 }
 function stepRow(s, isUp) {
   const items = s.list.flatMap((j) => j.items || []);
@@ -324,7 +398,10 @@ function wire() {
   document.querySelectorAll("[data-send]").forEach((b) => b.onclick = () => send(+b.dataset.send, b.dataset.one === "1", b));
   const g = $("gobtn"); if (g) g.onclick = () => go(g);
   const c = $("copypd"); if (c) c.onclick = copyPds;
-  const vb = $("verifybtn"); if (vb) vb.onclick = runVerify;
+  const vb = $("verifybtn"); if (vb) vb.onclick = () => { runVerify(); runLive(); };
+  const sb = $("sumbtn"); if (sb) sb.onclick = copySummary;
+  const s2 = $("startbtn"); if (s2) s2.onclick = startNight;
+  const go2 = $("gapok"); if (go2) go2.onclick = () => { gapOk = true; render(); };
 }
 async function startNight() {
   const b = $("startbtn"); b.disabled = true; b.textContent = "Gathering tonight's books…";
@@ -421,10 +498,15 @@ async function refresh(force) {
   if (!mcp || (busy && !force)) return;
   busy = true;
   try {
-    const rows = await q("select pipeline.launch_state() as s, pipeline.dispatch_status(40) as j, (select result from pipeline.launch_verify v where v.night_id = (select max(id) from pipeline.launch_nights where status not like 'dry%')) as v");
+    const rows = await q(`with nn as (select max(id) id from pipeline.launch_nights where status not like 'dry%')
+      select pipeline.launch_state() as s, pipeline.dispatch_status(40) as j,
+        (select result from pipeline.launch_verify v, nn where v.night_id = nn.id) as v,
+        (select pipeline.launch_gaps(nn.id) from nn) as g,
+        (select jsonb_agg(jsonb_build_object('ch', c.channel, 'pd', c.pd, 'st', c.state, 'd', c.detail, 'at', c.checked_at) order by c.pd) from pipeline.launch_live_check c, nn where c.night_id = nn.id) as lc`);
     st = (rows[0] && rows[0].s) || null; jobs = (rows[0] && rows[0].j) || [];
     if (st && !st.night) st = null;
     if (!verifying && rows[0] && rows[0].v) verify = rows[0].v;
+    gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
     $("conn").innerHTML = "Live from the cloud · updated <b>" + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) + "</b>";
     render();
     autoVerify();
