@@ -112,6 +112,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 <script>
 const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
 let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false, note = null, showPd = false;
+let verify = null, verifyKey = "", verifying = false;
 const chatTurns = [];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -196,7 +197,7 @@ function render() {
   }
   if (building || n.status === "ready_to_send" || n.status === "dry_built") h += buildCard(n, building);
   // 4) send, one step at a time
-  if (n.status === "ready_to_send") h += sendCard();
+  if (n.status === "ready_to_send") h += sendCard() + verifyCard();
   if (n.status === "dry_built") h += `<section class="card"><h2>Test run finished</h2><p style="margin:0">The test files were built and checked. Nothing was sent.</p></section>`;
   box.innerHTML = h;
   wire();
@@ -242,6 +243,40 @@ function sendCard() {
   return `<section class="card" aria-label="Send"><div class="row" style="justify-content:space-between"><h2>Send, one step at a time</h2><b>${closed} of ${steps.length} steps closed</b></div>
     ${steps.map((s) => stepRow(s, s === up)).join("")}${abeListBox(nj)}</section>`;
 }
+// ---------- confirmation: listed + Airtable fully updated, read back from Airtable itself ----------
+function verifyCard() {
+  const v = verify, names = { ebay: "eBay", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
+  const head = `<div class="row" style="justify-content:space-between"><h2>✅ Confirmation · listed and in Airtable</h2>
+    <button class="ghost" id="verifybtn" ${verifying ? "disabled" : ""}>${verifying ? "Checking…" : "Check again"}</button></div>`;
+  if (!v || !v.ok) return `<section class="card" aria-label="Confirmation">${head}<p class="muted" style="margin:0">${v && v.error ? esc(v.error) : "Not checked yet. It checks by itself each time a step finishes."}</p></section>`;
+  const rows = ["ebay", "abe", "etsy", "amazon"].filter((c) => v.channels[c]).map((c) => {
+    const x = v.channels[c], all = x.listed === x.total, clean = all && !x.problems.length;
+    const listed = x.listed === 0 ? `<span class="muted">Not sent yet</span>` : `<span class="${all ? "ok" : ""}">${all ? "✅" : "⏳"} ${x.listed} of ${x.total}</span>`;
+    const at = x.listed === 0 ? `<span class="muted">—</span>` : `<span class="${clean ? "ok" : ""}">${clean ? "✅" : x.problems.length ? "⚠️" : "⏳"} ${x.airtable} of ${x.listed}</span>`;
+    return `<span><b>${names[c]}</b></span>${listed}${at}`;
+  }).join("");
+  const probs = ["ebay", "abe", "etsy", "amazon"].flatMap((c) => (v.channels[c] ? v.channels[c].problems : []).map((p) => `${names[c]}: ${p}`));
+  const t = new Date(v.checked_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return `<section class="card" aria-label="Confirmation">${head}
+    <div style="display:grid;grid-template-columns:minmax(90px,1fr) minmax(0,1.2fr) minmax(0,1.6fr);gap:8px 12px;font-size:1.02rem">
+      <span class="muted">Channel</span><span class="muted">Listed</span><span class="muted">Airtable updated</span>${rows}</div>
+    ${probs.length ? `<div class="notice bad" style="font-weight:400"><b>Needs a look:</b><br>${probs.map(esc).join("<br>")}</div>` : `<p class="ok" style="margin:0">Everything listed so far is in Airtable with the right item numbers, price and photos.</p>`}
+    <p class="muted" style="margin:0;font-size:.88rem">Read straight from Airtable at ${esc(t)} · ${v.airtable_records} of ${v.books} books have a record.</p></section>`;
+}
+async function runVerify() {
+  if (verifying || !st || !st.night) return;
+  verifying = true; render();
+  try { const r = await call(`select pipeline.launch_verify(${Number(st.night.id)}) as r`); verify = r; }
+  catch (e) { showError(e); }
+  verifying = false; render();
+}
+function autoVerify() {
+  const n = st && st.night; if (!n || n.status !== "ready_to_send") return;
+  if (jobs.some((j) => j.status === "running")) return;            // wait until the step settles
+  const nj = nightJobs();
+  const key = Object.values(nj).flat().map((j) => j.id + ":" + (j.items || []).filter((i) => i.state === "done").length).join(",");
+  if (key !== verifyKey) { verifyKey = key; runVerify(); }
+}
 function stepRow(s, isUp) {
   const items = s.list.flatMap((j) => j.items || []);
   const done = items.filter((i) => i.state === "done").length;
@@ -278,10 +313,18 @@ function abeListBox(nj) {
 // ---------- actions ----------
 function wire() {
   document.querySelectorAll("[data-qa]").forEach((b) => b.onclick = () => answerQ(+b.dataset.qa, b.dataset.c, b));
+  // Enter in a price box = press that question's Save button
+  document.querySelectorAll("input[id^='qp-'],input[id^='qt-']").forEach((inp) => inp.onkeydown = (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const id = inp.id.split("-")[1], b = document.querySelector(`[data-qa="${id}"][data-c="custom"]`);
+    if (b) b.click();
+  });
   document.querySelectorAll("[data-rc]").forEach((b) => b.onclick = () => answerRc(+b.dataset.rc, b.dataset.c, b));
   document.querySelectorAll("[data-send]").forEach((b) => b.onclick = () => send(+b.dataset.send, b.dataset.one === "1", b));
   const g = $("gobtn"); if (g) g.onclick = () => go(g);
   const c = $("copypd"); if (c) c.onclick = copyPds;
+  const vb = $("verifybtn"); if (vb) vb.onclick = runVerify;
 }
 async function startNight() {
   const b = $("startbtn"); b.disabled = true; b.textContent = "Gathering tonight's books…";
@@ -294,12 +337,16 @@ async function answerQ(id, choice, btn) {
   const p = { choice };
   if (choice === "custom" && x.kind === "price") p.price = ($("qp-" + id) || {}).value || "";
   if (choice === "custom" && x.kind === "twins") { p.prices = {}; ((x.options || {}).pds || []).forEach((pd, i) => { const v = ($("qt-" + id + "-" + i) || {}).value; if (v) p.prices[pd] = v; }); }
-  btn.disabled = true;
+  document.activeElement && document.activeElement.blur && document.activeElement.blur();
+  document.querySelectorAll(`[data-qa="${id}"]`).forEach((b) => b.disabled = true);
+  const was = btn.textContent; btn.textContent = "Saving…";
+  const slow = setTimeout(() => { note = { bad: true, text: "Still waiting on Supabase. If a permission box popped up, press Allow." }; render(); }, 12000);
   try {
     const r = await call(`select pipeline.launch_answer(${Number(id)}, ${lit(JSON.stringify(p))}::jsonb) as r`);
-    if (!r || !r.ok) say((r && r.error) || "That didn't save.", true); else note = null;
+    if (!r || !r.ok) { say((r && r.error) || "That didn't save. Try again.", true); btn.textContent = was; }
+    else note = { bad: false, text: `Saved ✓ ${x.pd}. Here's the next question.` };
   } catch (e) { showError(e); }
-  document.activeElement && document.activeElement.blur && document.activeElement.blur();
+  clearTimeout(slow);
   refresh(true);
 }
 async function answerRc(id, choice, btn) {
@@ -374,11 +421,13 @@ async function refresh(force) {
   if (!mcp || (busy && !force)) return;
   busy = true;
   try {
-    const rows = await q("select pipeline.launch_state() as s, pipeline.dispatch_status(40) as j");
+    const rows = await q("select pipeline.launch_state() as s, pipeline.dispatch_status(40) as j, (select result from pipeline.launch_verify v where v.night_id = (select max(id) from pipeline.launch_nights where status not like 'dry%')) as v");
     st = (rows[0] && rows[0].s) || null; jobs = (rows[0] && rows[0].j) || [];
     if (st && !st.night) st = null;
+    if (!verifying && rows[0] && rows[0].v) verify = rows[0].v;
     $("conn").innerHTML = "Live from the cloud · updated <b>" + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) + "</b>";
     render();
+    autoVerify();
   } catch (e) { showError(e); }
   finally { busy = false; schedule(); }
 }
