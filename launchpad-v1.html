@@ -112,7 +112,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 <script>
 const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
 let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false, note = null, showPd = false;
-let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false;
+let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false, hist = null, histSel = null, histAt = 0;
 const chatTurns = [];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -166,8 +166,8 @@ function render() {
   if (!n) {
     $("nightline").textContent = "No blast off waiting";
     box.innerHTML = h + `<section class="card"><h2>Nothing waiting yet</h2><p class="muted" style="margin:0">When tonight's books are ready, press the button. I gather everything in Sent, ask you anything I need, then build the files.</p>
-      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>`;
-    $("startbtn").onclick = startNight; return;
+      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + historyCard();
+    wire(); return;
   }
   const qs = st.questions || [], rc = st.reconsider || [];
   const openQ = qs.filter((x) => !x.answered_at), openR = rc.filter((x) => !x.answered_at);
@@ -201,8 +201,70 @@ function render() {
   // 4) send, one step at a time
   if (n.status === "ready_to_send") h += sendCard() + verifyCard();
   if (n.status === "dry_built") h += `<section class="card"><h2>Test run finished</h2><p style="margin:0">The test files were built and checked. Nothing was sent.</p></section>`;
+  h += historyCard();
   box.innerHTML = h;
   wire();
+}
+
+// ---------- 🚀 Blast offs: every night on the main screen, date + time, verified status, drill in ----------
+function historyCard() {
+  const head = `<h2>🚀 Blast offs</h2>`;
+  if (!hist) return `<section class="card" aria-label="Blast offs">${head}<p class="muted" style="margin:0">Loading…</p></section>`;
+  if (!hist.length) return `<section class="card" aria-label="Blast offs">${head}<p class="muted" style="margin:0">No blast offs yet.</p></section>`;
+  const names = { ebay: "eBay", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
+  const rows = hist.map((x) => {
+    const v = (x.verify || {}).channels || {}, lv = x.live || {};
+    const probs = Object.values(v).reduce((a, c) => a + (c.problems || []).length, 0);
+    const open = Object.values(lv).reduce((a, c) => a + ((c.open || []).length), 0);
+    const chans = Object.keys(v);
+    const sent = chans.length && Object.values(v).every((c) => c.listed === c.total);
+    const badge = !x.verify ? `<span class="pill">not checked yet</span>` : probs ? `<span class="pill problem">⚠️ ${probs} to look at</span>`
+      : !sent ? `<span class="pill running">⏳ still sending</span>` : open ? `<span class="pill running">⏳ ${open} waiting on a store</span>` : `<span class="pill closed">✅ All verified and done</span>`;
+    const isOpen = histSel === x.id;
+    let drill = "";
+    if (isOpen) {
+      const tr = ["ebay", "abe", "etsy", "amazon"].filter((c) => v[c]).map((c) => {
+        const a = v[c], l = lv[c];
+        const liveTxt = (c === "ebay" || c === "etsy") ? (a.listed ? `✅ ${a.listed} live` : "—") : l ? `${l.ok === l.n ? "✅" : "⏳"} ${l.ok} of ${l.n}` : "—";
+        return `<span><b>${names[c]}</b></span><span>${a.listed === a.total ? "✅" : "⏳"} ${a.listed} of ${a.total}</span><span>${(a.problems || []).length ? "⚠️" : "✅"} ${a.airtable} of ${a.listed}</span><span>${liveTxt}</span>`;
+      }).join("");
+      const pr = Object.entries(v).flatMap(([c, a]) => (a.problems || []).map((t) => `${names[c]}: ${t}`));
+      const wt = Object.entries(lv).flatMap(([c, l]) => (l.open || []).map((pd) => `${names[c]} ${pd}`));
+      drill = `<div style="display:grid;grid-template-columns:minmax(80px,1fr) repeat(3,minmax(0,1.2fr));gap:6px 12px;font-size:.98rem">
+          <span class="muted">Store</span><span class="muted">Sent</span><span class="muted">Airtable</span><span class="muted">Live on the store</span>${tr}</div>
+        ${pr.length ? `<div class="notice bad" style="font-weight:400"><b>Needs a look:</b><br>${pr.map(esc).join("<br>")}</div>` : ""}
+        ${wt.length ? `<p style="margin:0;font-size:.92rem"><b>Still waiting on the store:</b> ${wt.map(esc).join(", ")}</p>` : ""}
+        ${x.answers && x.answers.length ? `<p class="muted" style="margin:0;font-size:.92rem"><b>Your answers:</b> ${x.answers.map(esc).join("; ")}</p>` : ""}
+        ${x.not_listed && x.not_listed.length ? `<p class="muted" style="margin:0;font-size:.92rem"><b>Not listed:</b> ${x.not_listed.map(esc).join(", ")}</p>` : ""}
+        <details><summary class="muted" style="cursor:pointer">Copy this night's summary</summary><textarea class="pdlist" rows="8" readonly aria-label="Summary for ${esc(x.night)}">${esc(histText(x))}</textarea></details>`;
+    }
+    return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px">
+      <div class="row" style="justify-content:space-between"><button class="quiet" data-hist="${x.id}" style="text-align:left;border:0;padding:4px 0;color:var(--ink)" aria-expanded="${isOpen}">
+          ${isOpen ? "▾" : "▸"} <b>${esc(x.day)} · ${esc(x.time || "")}</b> <span class="muted">· ${x.books} books · ${esc(x.first)} to ${esc(x.last)} · ${money(x.total)}</span></button>
+        ${badge}</div>${drill}</div>`;
+  }).join("");
+  return `<section class="card" aria-label="Blast offs">${head}${rows}<p class="muted" style="margin:0;font-size:.86rem">Every night is kept here. The stores keep being checked in the cloud even when this page is closed.</p></section>`;
+}
+function histText(x) {
+  const names = { ebay: "eBay", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" }, v = (x.verify || {}).channels || {}, lv = x.live || {};
+  const L = [`Launch Pad night ${x.night} (${x.day}) — ${x.books} books, ${x.first} to ${x.last}, ${money(x.total)}`];
+  for (const c of ["ebay", "abe", "etsy", "amazon"]) {
+    const a = v[c]; if (!a) continue;
+    const l = lv[c];
+    L.push(`${names[c]}: sent ${a.listed}/${a.total} · Airtable ${a.airtable}/${a.listed}` + (l ? ` · live ${l.ok}/${l.n}` : (c === "ebay" || c === "etsy") ? " · live ✓ at send" : "") + (x.jobs && x.jobs[c] ? ` · jobs ${[].concat(x.jobs[c]).join(",")}` : ""));
+  }
+  if (x.answers && x.answers.length) L.push("Answers: " + x.answers.join("; "));
+  if (x.not_listed && x.not_listed.length) L.push("Not listed: " + x.not_listed.join(", "));
+  const probs = Object.entries(v).flatMap(([c, a]) => (a.problems || []).map((p) => `${names[c]}: ${p}`));
+  const waits = Object.entries(lv).flatMap(([c, l]) => (l.open || []).map((pd) => `${names[c]} ${pd}`));
+  L.push(probs.length ? "Needs a look: " + probs.join("; ") : "Airtable: all records correct.");
+  if (waits.length) L.push("Still waiting on the store: " + waits.join(", "));
+  if (x.verify && x.verify.checked_at) L.push("Last checked " + new Date(x.verify.checked_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }));
+  return L.join("\n");
+}
+async function loadHist() {
+  try { const rows = await q("select pipeline.launch_history(60) as h"); hist = (rows[0] && rows[0].h) || []; } catch (e) { hist = hist || []; }
+  render();
 }
 function qButtons(x) {
   const o = x.options || {};
@@ -401,6 +463,7 @@ function wire() {
   const vb = $("verifybtn"); if (vb) vb.onclick = () => { runVerify(); runLive(); };
   const sb = $("sumbtn"); if (sb) sb.onclick = copySummary;
   const s2 = $("startbtn"); if (s2) s2.onclick = startNight;
+  document.querySelectorAll("[data-hist]").forEach((b) => b.onclick = () => { const id = +b.dataset.hist; histSel = histSel === id ? null : id; render(); });
   const go2 = $("gapok"); if (go2) go2.onclick = () => { gapOk = true; render(); };
 }
 async function startNight() {
@@ -512,6 +575,7 @@ async function refresh(force) {
     if (!verifying && rows[0] && rows[0].v) verify = rows[0].v;
     gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
     $("conn").innerHTML = "Live from the cloud · updated <b>" + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) + "</b>";
+    if (!hist || Date.now() - histAt > 60000) { histAt = Date.now(); loadHist(); }
     render();
     autoVerify();
   } catch (e) { showError(e); }
