@@ -467,6 +467,9 @@ const DUCK_TOOLS = [
     execute: async (inp) => { const pd = String(inp.pd || "").toUpperCase().replace(/[^A-Z0-9-]/g, "");
       const rows = await q(`select pd, status, channel, etsy, amazon_on, coalesce(price_override,(pricing->>'list')::numeric) price, ident->>'title' title, ident->>'author' author, ident->>'publication_year' yr, ident->>'grade' grade, amazon->>'status' amz, amazon->>'fit' fit, amazon->>'off_reason' amz_off, ident->'audience'->>'note' family_note, built_at from pipeline.drafts where pd = ${lit(pd)} order by id desc limit 1`);
       return rows[0] || "No book with that PD number."; } },
+  { name: "fix_and_resend", description: "Fixes eBay books that failed because an item specific was missing (fills Author/Publisher with Unknown, Language with English, Book Title with the title) and sends them again. Returns what was fixed and what could not be fixed.",
+    inputSchema: { type: "object", properties: { job_id: { type: "number" } }, required: ["job_id"] },
+    execute: async (inp) => { const r = await call(`select pipeline.launch_autofix(${Number(inp.job_id)}) as r`); refresh(true); return r; } },
   { name: "resend_failed", description: "Sends again every book or photo in one send job that failed or came up short (for example a red photo after a busy signal). Only use after Papa Duck says yes. Returns how many were queued.",
     inputSchema: { type: "object", properties: { job_id: { type: "number" } }, required: ["job_id"] },
     execute: async (inp) => { const r = await call(`select pipeline.dispatch_start(${Number(inp.job_id)}, false) as r`); refresh(true); return r; } },
@@ -479,6 +482,7 @@ async function ask(e) {
   chatTurns.push({ role: "user", content: text });
   const out = addMsg("duck", "Thinking…"); $("askbtn").disabled = true;
   const rules = `You are Grandpa Duck, the friendly helper inside Papa Duck's Launch Pad. Papa Duck (Dawayne) runs Papa Duck Homeschool, a family-friendly used-book business in Gresham, Oregon, selling on eBay, AbeBooks, Etsy and Amazon. The Launch Pad runs his nightly blast off: questions first (big prices, Amazon edition matches, two copies at different prices), then Prayerfully Reconsider for family-flagged books, then the build (Grandpa Duck writes listing details, then the files), then sending one step at a time: 1 eBay, 2 AbeBooks (files of 13 or fewer), 3 Etsy, 4 Amazon.
+Fixing on your own: when eBay refuses a book because an item specific is missing (Author, Publisher, Language, Book Title...), the Launch Pad fills it in (Author/Publisher = "Unknown", Language = English) and re-sends it by itself within a minute. If he asks you to fix one, use fix_and_resend right away; tell him what you filled in. Anything you cannot fix that way, explain plainly and say Claude in the main chat can fix it.
 House rules you know: never free shipping (Media Mail calculated); Etsy only for books 20+ years old with a known year; Amazon only when the edition truly matches; a photo that turns red usually means the photo server was busy and can simply be sent again; nothing The Good and the Beautiful is ever listed.
 Use your tools to look things up before answering about tonight. Keep answers short, warm and plain, a few sentences. Never change anything unless he clearly says yes; resend_failed is the only change you can make. If something needs Claude in the main chat (a price review, a rule change, a new build), say so plainly.`;
   try {
