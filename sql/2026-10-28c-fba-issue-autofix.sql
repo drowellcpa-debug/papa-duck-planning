@@ -1,0 +1,3 @@
+-- 2026-10-28 fba_issue_check: ANY Amazon error on an UNPRINTED FBA book is fixed automatically (off the board, empty offer deleted,
+-- stays on eBay, box refills; brand/approval blocks mark the ASIN restricted). Printed books still alert him. Applied as migration fba_issue_autofix_all.
+-- First case: PD-0580 (ASIN 0805098542, "You need approval to list in this brand") - removed from Box #2, replaced by PD-0599.
