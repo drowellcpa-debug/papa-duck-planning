@@ -144,7 +144,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
 let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false, note = null, showPd = false;
 let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false, hist = null, histSel = null, histAt = 0;
-let toShip = [], shipArm = null, week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null, boxHistOpen = false, showIsbn = "", bbListOpen = false;
+let alerts = [], alertArm = null, toShip = [], shipArm = null, week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null, boxHistOpen = false, showIsbn = "", bbListOpen = false;
 const chatTurns = [];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -198,7 +198,7 @@ function render() {
   if (!n) {
     $("nightline").textContent = "No blast off waiting";
     box.innerHTML = h + `<section class="card"><h2>Nothing waiting yet</h2><p class="muted" style="margin:0">When tonight's books are ready, press the button. I gather everything in Sent, ask you anything I need, then build the files.</p>
-      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + shipCard() + weekCard() + historyCard();
+      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + alertCard() + shipCard() + weekCard() + historyCard();
     wire(); return;
   }
   const qs = st.questions || [], rc = st.reconsider || [];
@@ -233,7 +233,7 @@ function render() {
   // 4) send, one step at a time
   if (n.status === "ready_to_send") h += sendCard() + verifyCard();
   if (n.status === "dry_built") h += `<section class="card"><h2>Test run finished</h2><p style="margin:0">The test files were built and checked. Nothing was sent.</p></section>`;
-  h += shipCard() + weekCard() + historyCard();
+  h += alertCard() + shipCard() + weekCard() + historyCard();
   box.innerHTML = h;
   wire();
 }
@@ -243,6 +243,24 @@ function render() {
 // come up ready to go" · "I want fba ready before I even sit down so I can just print labels and pack the box".
 // Tap a square once = "tap again to clear"; second tap = his OK for that book (the cloud ends it on the other stores).
 const DUCK = `<svg class="hop" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="13" r="8" fill="#F2C230"/><path d="M22.5 13 L29 14.8 L22.5 16.6 Z" fill="#E07A2E"/><circle cx="18.5" cy="11.2" r="1.4" fill="#1D2420"/><path d="M6 23.5 C10 29.5 22 29.5 26 23.5 C22 21.5 10 21.5 6 23.5 Z" fill="#F2C230"/></svg>`;
+// ---------- ⚠️ To deal with: anything the cloud or the hourly email check found ("if there is any issues to deal with put it on there as well") ----------
+function alertCard() {
+  if (!alerts.length) return "";
+  const need = alerts.filter((a) => a.kind !== "handled").length;
+  return `<section class="card${need ? " ask" : ""}" aria-label="To deal with">
+    <h2>⚠️ To deal with · ${need ? need + " need you" : "all handled"}${alerts.length - need ? ` · ${alerts.length - need} handled for you` : ""}</h2>
+    ${alerts.map((a) => `<div class="row" style="justify-content:space-between;border:${a.kind === "handled" ? "1px solid var(--line)" : "2px solid var(--red)"};background:${a.kind === "handled" ? "transparent" : "var(--red-bg)"};border-radius:10px;padding:8px 12px">
+        <span style="flex:1;min-width:200px"><b>${a.kind === "handled" ? "✅ " : a.kind === "question" ? "❓ " : "⚠️ "}${esc(a.title)}</b><br><span style="font-size:.92rem">${esc(a.detail || "")}</span>
+          <br><span class="muted" style="font-size:.85rem">${esc(a.source)} · ${new Date(a.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${a.link ? ` · <a href="${esc(a.link)}" target="_blank" rel="noopener">open</a>` : ""}</span></span>
+        <button class="${alertArm === a.id ? "" : "ghost"}" data-alert="${a.id}">${alertArm === a.id ? "Tap again: done" : a.kind === "handled" ? "Got it" : "✓ Done"}</button></div>`).join("")}
+  </section>`;
+}
+async function alertTap(id) {
+  if (alertArm !== id) { alertArm = id; setTimeout(() => { if (alertArm === id) { alertArm = null; render(); } }, 6000); return render(); }
+  alertArm = null;
+  try { const r = await call(`select pipeline.alert_done(${Number(id)}) as r`); if (r) alerts = r; } catch (e) { showError(e); }
+  render();
+}
 // ---------- 📬 To ship: every sale the cloud caught (checked every 5 minutes), AbeBooks first - "flag me that we have a abe book sale so we dont miss it" ----------
 function shipCard() {
   if (!toShip.length) return "";
@@ -644,6 +662,7 @@ function wire() {
   document.querySelectorAll("[data-wsq]").forEach((b) => b.onclick = () => weekTap(+b.dataset.wsq));
   const bh = $("boxhist"); if (bh) bh.ontoggle = () => { boxHistOpen = bh.open; };
   const bl = $("bblist"); if (bl) bl.ontoggle = () => { bbListOpen = bl.open; };
+  document.querySelectorAll("[data-alert]").forEach((b) => b.onclick = () => alertTap(+b.dataset.alert));
   document.querySelectorAll("[data-ship]").forEach((b) => b.onclick = () => shipTap(b.dataset.ship));
   const wi = $("wisbn"); if (wi) wi.onclick = copyIsbns;
   const wp = $("wprint"); if (wp) wp.onclick = () => weekPrint(wp);
@@ -752,10 +771,11 @@ async function refresh(force) {
         (select result from pipeline.launch_verify v, nn where v.night_id = nn.id) as v,
         (select pipeline.launch_gaps(nn.id) from nn) as g,
         (select jsonb_agg(jsonb_build_object('ch', c.channel, 'pd', c.pd, 'st', c.state, 'd', c.detail, 'at', c.checked_at) order by c.pd) from pipeline.launch_live_check c, nn where c.night_id = nn.id) as lc,
-        pipeline.week_board() as w, pipeline.to_ship() as ts`);
+        pipeline.week_board() as w, pipeline.to_ship() as ts, pipeline.alerts_open() as al`);
     st = (rows[0] && rows[0].s) || null; jobs = (rows[0] && rows[0].j) || [];
     if (rows[0] && rows[0].w) week = rows[0].w;
     if (rows[0] && rows[0].ts) toShip = rows[0].ts;
+    if (rows[0] && rows[0].al) alerts = rows[0].al;
     if (st && !st.night) st = null;
     if (!verifying && rows[0] && rows[0].v) verify = rows[0].v;
     gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
