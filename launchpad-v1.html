@@ -144,7 +144,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
 let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false, note = null, showPd = false;
 let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false, hist = null, histSel = null, histAt = 0;
-let week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null, boxHistOpen = false;
+let week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null, boxHistOpen = false, showIsbn = "", bbListOpen = false;
 const chatTurns = [];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -247,11 +247,15 @@ function weekCard() {
   const w = week;
   if (!w) return `<section class="card" aria-label="This week"><h2>📦 This week</h2><p class="muted" style="margin:0">Loading…</p></section>`;
   const boxes = w.boxes || [], don = w.donate || [];
-  if (!weekTab || (weekTab !== "donate" && !boxes.some((b) => "box" + b.box === weekTab))) weekTab = boxes.length ? "box" + boxes[0].box : "donate";
+  const bbs = w.buyback || [], vname = (v) => String(v || "").replace(/ - Sell Your Books$/, ""), bbKey = (g) => "bb:" + g.vendor + ":" + g.box;
+  const bbTot = (g) => g.books.reduce((a, x) => a + Number(x.offer || 0) * Number(x.copies || 1), 0);
+  if (!weekTab || (weekTab !== "donate" && !boxes.some((b) => "box" + b.box === weekTab) && !bbs.some((g) => bbKey(g) === weekTab))) weekTab = boxes.length ? "box" + boxes[0].box : "donate";
   const tabs = `<div class="tabs" role="tablist">${boxes.map((b) => `<button role="tab" data-wtab="box${b.box}" aria-selected="${weekTab === "box" + b.box}">📦 Box #${esc(b.box)} · ${b.books.filter((x) => x.printed).length} of ${b.books.length} printed</button>`).join("")}
-    <button role="tab" data-wtab="donate" aria-selected="${weekTab === "donate"}">🎁 Donate · ${don.filter((x) => x.cleared).length} of ${don.length} cleared</button></div>`;
-  const isFba = weekTab !== "donate", bx = isFba ? boxes.find((b) => "box" + b.box === weekTab) : null;
-  const list = isFba ? (bx ? bx.books : []) : don;
+    <button role="tab" data-wtab="donate" aria-selected="${weekTab === "donate"}">🎁 Donate · ${don.filter((x) => x.cleared).length} of ${don.length} cleared</button>
+    ${bbs.map((g) => `<button role="tab" data-wtab="${esc(bbKey(g))}" aria-selected="${weekTab === bbKey(g)}">💵 ${esc(vname(g.vendor))} #${esc(g.box)} · ${money(bbTot(g))}</button>`).join("")}</div>`;
+  const bg = bbs.find((g) => bbKey(g) === weekTab);
+  const isFba = weekTab.startsWith("box"), bx = isFba ? boxes.find((b) => "box" + b.box === weekTab) : null;
+  const list = isFba ? (bx ? bx.books : []) : bg ? bg.books : don;
   const sq = (x) => {
     const armed = weekArm === x.id;
     let cls = "", state = "", tap = true;
@@ -266,7 +270,9 @@ function weekCard() {
     } else {
       if (x.cleared) { cls = x.clear_state === "problem" ? "bad" : "cleared"; state = x.clear_state === "problem" ? "⚠️ needs a look" : "✓ donated"; tap = false; }
       else if (x.checked) { cls = "clearing"; state = "⏳ clearing…"; tap = false; }
-      else if (armed) { cls = "armed"; state = "Tap again to clear"; }
+      else if (armed) { cls = "armed"; state = bg ? "Tap again: packed" : "Tap again to clear"; }
+      else if (bg) state = `${Number(x.copies) > 1 ? x.copies + " × " : ""}${money(x.offer)}${Number(x.keep) ? " · keep " + x.keep : ""}`;
+      if (bg && x.cleared && x.clear_state !== "problem") state = Number(x.keep) ? `✓ packed · ${x.keep} still listed` : "✓ packed · off all stores";
     }
     const inner = `<span class="pdn">${esc(x.pd)}</span><span class="tt">${esc(x.title || "")}</span>${isFba && x.printed ? storeChecks(x) : ""}
         <span class="meta"><span>${Number(x.lb || 0).toFixed(1)} lb</span><span>${esc(state)}</span></span>`;
@@ -289,7 +295,19 @@ function weekCard() {
       <div class="boxbar" role="img" aria-label="${lb.toFixed(1)} of 40 pounds"><i style="width:${Math.min(100, lb / 40 * 100)}%"></i></div>
       <div class="row"><button id="wprint" data-box="${esc(bx.box)}" ${ready ? "" : "disabled"}>${weekPrintArm === bx.box ? `Tap again: print ${ready} and commit them` : `🖨 Print all stickers${ready ? ` (${ready} ready)` : ""}`}</button>
         <span class="muted" style="font-size:.92rem">${making ? `⏳ ${making} sticker${making === 1 ? "" : "s"} still being made by Amazon · ` : ""}${pOn ? `Sticker printer ${esc(w.printer)} is on` : "Sticker printer is off — open Dispatch on your PC"}</span></div>`;
-  } else if (!isFba) {
+  } else if (bg) {
+    const lb = list.reduce((a, x) => a + Number(x.lb || 0), 0), copies = list.reduce((a, x) => a + Number(x.copies || 1), 0);
+    head = `<div class="row" style="justify-content:space-between"><b>${esc(vname(bg.vendor))} Box #${esc(bg.box)} · estimated ${money(bbTot(bg))}</b>
+        <span class="muted" style="font-size:.92rem">${list.length} titles · ${copies} copies · ${lb.toFixed(1)} lb</span></div>
+      <div class="row"><button id="wisbn" class="ghost">📋 Copy ISBNs (${copies})</button>
+        <span class="muted" style="font-size:.9rem">Paste into ${esc(vname(bg.vendor))}'s sell page. Their price is final there and can change a little.</span></div>
+      ${showIsbn === weekTab ? `<textarea class="pdlist" id="isbnbox" rows="4" readonly aria-label="ISBNs">${esc(bbIsbns(bg))}</textarea>` : ""}
+      <details id="bblist" ${bbListOpen ? "open" : ""}><summary style="cursor:pointer;font-weight:700">📄 Box list (PD order)</summary>
+        <div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:3px 12px;font-size:.92rem;margin-top:6px">
+          <span class="muted">PD</span><span class="muted">Book</span><span class="muted">Copies</span><span class="muted">Price</span>
+          ${list.map((x) => `<span class="mono">${esc(x.pd)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.title || "")}</span><span>${x.copies}</span><span>${money(Number(x.offer) * Number(x.copies || 1))}</span>`).join("")}
+          <b></b><b>Estimated total</b><b>${copies}</b><b>${money(bbTot(bg))}</b></div></details>`;
+  } else {
     const lb = don.reduce((a, x) => a + Number(x.lb || 0), 0);
     head = `<p class="muted" style="margin:0">${don.length} books · ${lb.toFixed(1)} lb leaving the storage unit. Each one is $7.99 or less, unsold since summer, and Amazon shows almost no buyers.</p>`;
   }
@@ -297,7 +315,8 @@ function weekCard() {
   const probTxt = probs.map((x) => `${esc(x.pd)}: ` + (x.clear_state === "problem"
     ? Object.entries(x.clear || {}).filter(([, v]) => /FAILED/.test(v)).map(([k, v]) => `${k} ${esc(v)}`).join("; ")
     : esc(x.error || "Amazon had a problem with the sticker"))).join("<br>");
-  const foot = isFba
+  const foot = bg ? "Tap a book twice when it's packed. That's your OK: a single copy comes off eBay, AbeBooks, Etsy and Amazon and Airtable marks it Buyback; for several copies only the extras go and the listing stays up with the copy you keep. New offers from your oldest books keep landing here by themselves."
+    : isFba
     ? "Tap 🖨 Print on a book twice to print one sticker, or use Print all. Nothing changes until a sticker prints. Printing is your OK: that book comes off eBay, AbeBooks and Etsy, and Airtable marks it in the FBA box. If it sells on eBay first, it's a normal sale and drops off this board. Two boxes are always kept ready."
     : "Tap a book twice to check it off. That's your OK: it comes off eBay, AbeBooks, Etsy and Amazon, and Airtable marks it Donated. When every square is cleared, the next 20 show up by themselves.";
   return `<section class="card" aria-label="This week">
@@ -319,6 +338,14 @@ function boxHistory(h) {
       ${h.map((b) => `${open.has(+b.box) ? `<button class="ghost" data-wtab="box${esc(b.box)}" data-wscroll="1" style="min-height:36px;padding:2px 12px">📦 #${esc(b.box)} ›</button>` : `<b>#${esc(b.box)}</b>`}<span>${b.books}</span><span>${b.printed} · ${b.verified === b.books && b.books ? "✅ " : ""}${b.verified}</span>
         <span>${Number(b.lb || 0).toFixed(1)} · ${money(b.value)}</span><span>${b.shipped ? "🚚 shipped " + d(b.shipped) : b.printed === b.books && b.books ? "📦 packed" : "packing · started " + d(b.opened)}</span>`).join("")}
     </div></details>`;
+}
+// every copy's ISBN, one per line, in PD order (vendors count each line as one copy)
+function bbIsbns(g) { return g.books.filter((x) => !x.cleared).flatMap((x) => Array(Number(x.copies || 1)).fill(x.isbn)).join("\n"); }
+async function copyIsbns() {
+  const g = ((week && week.buyback) || []).find((y) => "bb:" + y.vendor + ":" + y.box === weekTab); if (!g) return;
+  const t = bbIsbns(g);
+  try { await navigator.clipboard.writeText(t); say(`Copied ${t.split("\n").length} ISBNs. Paste them into the vendor's sell page.`, false); }
+  catch (_) { showIsbn = weekTab; render(); const b = $("isbnbox"); if (b) { b.focus(); b.select(); } say("Select the ISBNs below and copy them (Ctrl+C).", false); }
 }
 async function weekTap(id) {
   if (weekArm !== id) { weekArm = id; clearTimeout(weekArmT); weekArmT = setTimeout(() => { weekArm = null; render(); }, 6000); return render(); }
@@ -597,6 +624,8 @@ function wire() {
     if (b.dataset.wscroll) { const s = document.querySelector('section[aria-label="This week"]'); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); } });
   document.querySelectorAll("[data-wsq]").forEach((b) => b.onclick = () => weekTap(+b.dataset.wsq));
   const bh = $("boxhist"); if (bh) bh.ontoggle = () => { boxHistOpen = bh.open; };
+  const bl = $("bblist"); if (bl) bl.ontoggle = () => { bbListOpen = bl.open; };
+  const wi = $("wisbn"); if (wi) wi.onclick = copyIsbns;
   const wp = $("wprint"); if (wp) wp.onclick = () => weekPrint(wp);
 }
 async function startNight() {

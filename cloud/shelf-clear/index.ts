@@ -1,4 +1,4 @@
-// Papa Duck — Edge Function "shelf-clear" (2026-10-28; v2 adds Sell back books: off every store, Airtable Status "Buyback", Shelf "<Vendor> Box N"). The weekly board on the Launch Pad.
+// Papa Duck — Edge Function "shelf-clear" (2026-10-28; v2 adds Sell back books: off every store, Airtable Status "Buyback", Shelf "<Vendor> Box N"; v3: several copies -> extras sold, eBay + Airtable quantity set to what is kept). The weekly board on the Launch Pad.
 // Papa Duck: "when I mark them off, on the boxes, like checkers they will show cleared" ... "dont move anything officially until I ok it with you"
 // Checking a book off IS his OK for that one book. Then, in the cloud:
 //   FBA book    -> eBay ended, AbeBooks deleted, Etsy off. (The Amazon FBA offer made ahead stays - it is the book now;
@@ -127,6 +127,29 @@ Deno.serve(async (req) => {
           done.push(`${p.pd} sold already`); continue;
         }
         const itemid = String(f[F.ITEMID] || "").replace(/\D/g, ""), lid = String(f[F.ETSY] || "").replace(/\D/g, "");
+        if (p.kind === "buyback" && Number(p.keep) > 0) {
+          // several copies: the extras go to the vendor, the listing stays up with what's kept (eBay + Airtable quantity)
+          const keep = Number(p.keep);
+          await step("ebay", async () => {
+            if (!itemid) return "none (no eBay item #)";
+            const s0 = await ebayStatus(itemid);
+            if (s0 !== "Active") return `already off eBay (${s0 || "?"})`;
+            await ebay("ReviseInventoryStatus", `<InventoryStatus><ItemID>${itemid}</ItemID><Quantity>${keep}</Quantity></InventoryStatus>`);
+            return `updated: quantity ${keep}`;
+          });
+          if (!bad) await step("airtable", async () => {
+            if (!recs[0]) return "none (not in Inventory)";
+            await at("PATCH", "", { typecast: true, records: [{ id: recs[0].id, fields: { [F.QTY]: keep } }] });
+            return `updated: quantity ${keep} (still Listed)`;
+          });
+          log.abe = log.abe || "none (kept - copy still for sale)"; log.etsy = log.etsy || "none (kept)"; log.amazon = log.amazon || "none (kept)";
+          const tries0 = Number(p.attempts) + 1;
+          if (!bad) await sql`update pipeline.week_picks set cleared_at = now(), clear_state = 'ok', clear_log = ${sql.json(log)}, attempts = ${tries0} where id = ${p.id}`;
+          else if (tries0 >= 3) await sql`update pipeline.week_picks set cleared_at = now(), clear_state = 'problem', clear_log = ${sql.json(log)}, attempts = ${tries0} where id = ${p.id}`;
+          else await sql`update pipeline.week_picks set clear_log = ${sql.json(log)}, attempts = ${tries0}, next_try = now() + make_interval(mins => ${tries0 * 3}) where id = ${p.id}`;
+          done.push(`${p.pd} extras ${bad ? "PROBLEM" : "cleared"} ${JSON.stringify(log)}`);
+          continue;
+        }
         await step("ebay", async () => {
           if (!itemid) return "none (no eBay item #)";
           const s0 = await ebayStatus(itemid);
