@@ -1,4 +1,7 @@
 // Papa Duck — SCOUT. Phone page -> this function.
+// v26 (2026-10-28): UPC / product BARCODES ("can you add the bar code scan to scout"). A typed or scanned code that is not a book ISBN
+//   (UPC-A 12, UPC-E 8, EAN-13 not starting 978/979) is looked up by barcode on eBay (gtin search) + UPCitemdb, named by Claude,
+//   and checked as a non-book item; eBay comps also search by the barcode. Books and ISBNs: unchanged.
 // v25 (2026-10-28): NON-BOOKS too ("the scout app has to have the ability to read non books and give me buy or not" — cups, jewelry,
 //   miniature houses, games...). Claude says kind "book" or "item". Items: eBay searched by keywords in ALL categories (not Books),
 //   an item-matching judge, eBay sold counters, priced the same way, net with Ground Advantage shipping. AbeBooks / Amazon / buyback skipped.
@@ -156,6 +159,40 @@ async function browse(tok: string, q: string, cat: boolean): Promise<any[]> {
   }
   return [];
 }
+// v26: product barcodes (games, toys, boxed items)
+function upcCode(raw: string): string {
+  const d = String(raw || "").replace(/\D/g, "");
+  if (d.length === 12 || d.length === 8) return d;                       // UPC-A, UPC-E
+  if (d.length === 13 && !/^97[89]/.test(d)) return d;                   // EAN-13 that is not a book ISBN
+  return "";
+}
+async function browseGtin(tok: string, code: string): Promise<any[]> {
+  const out: any[] = [];
+  for (const g of [...new Set([code, code.length === 12 ? "0" + code : "", code.length === 13 && code[0] === "0" ? code.slice(1) : ""].filter(Boolean))]) {
+    const u = new URL("https://api.ebay.com/buy/browse/v1/item_summary/search");
+    u.searchParams.set("gtin", g); u.searchParams.set("limit", "40");
+    u.searchParams.set("filter", "buyingOptions:{FIXED_PRICE},priceCurrency:USD,itemLocationCountry:US");
+    const r = await fetch(u, { headers: { Authorization: `Bearer ${tok}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } }).catch(() => null);
+    if (r && r.ok) out.push(...(((await r.json()).itemSummaries) || []));
+  }
+  return out;
+}
+async function upcIdent(code: string, tok: string, model: string) {
+  const [eb, db] = await Promise.all([
+    browseGtin(tok, code).catch(() => []),
+    fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${code}`).then((r) => r.ok ? r.json() : null).catch(() => null),
+  ]);
+  const titles = eb.slice(0, 15).map((x: any) => String(x.title || ""));
+  const it = db?.items?.[0] || null;
+  DIAG.upc = { ebay: eb.length, upcitemdb: !!it };
+  if (!titles.length && !it) return { kind: "item", upc: code, title: "", search: "", confidence: "low" };
+  const out = await claude(model, [{ type: "text", text: `A product barcode ${code} was scanned. Here is what is known about it.
+eBay listings with this barcode: ${JSON.stringify(titles)}
+Product database: ${JSON.stringify(it ? { title: it.title, brand: it.brand, model: it.model, category: it.category, description: String(it.description || "").slice(0, 300) } : null)}
+Name the product. Respond ONLY JSON: {"kind":"item","title":"clear eBay-style name: brand + line + what it is + edition/year","item":{"type":"","maker":"","line_or_pattern":"","era":"","complete":"","box":""},
+"search":"best eBay search words for this exact product","weight_lb":2,"family_friendly":true,"family_note":"","occult":false,"confidence":"high | medium | low"}` }], 600);
+  return { ...out, kind: "item", upc: code, isbn: "", from_upc: true };
+}
 const cleanIsbn = (s: string) => { const d = String(s || "").replace(/[^0-9Xx]/g, ""); return d.length === 10 || d.length === 13 ? d.toUpperCase() : ""; };
 
 async function comps(ident: any, tok: string) {
@@ -164,8 +201,9 @@ async function comps(ident: any, tok: string) {
   const seen = new Map<string, any>();
   // both searches every time (same as Drafts): the ISBN finds sellers who filled in the ISBN, the title finds everyone else
   const isItem = ident.kind === "item";   // non-books: every category, never the Books category
-  const [a, b] = await Promise.all([isbn && !isItem ? browse(tok, isbn, false).catch(() => []) : Promise.resolve([]), q ? browse(tok, q, !isItem).catch(() => []) : Promise.resolve([])]);
-  for (const x of [...a, ...b]) if (!seen.has(x.itemId)) seen.set(x.itemId, x);
+  const [a, b, c] = await Promise.all([isbn && !isItem ? browse(tok, isbn, false).catch(() => []) : Promise.resolve([]), q ? browse(tok, q, !isItem).catch(() => []) : Promise.resolve([]),
+    isItem && ident.upc ? browseGtin(tok, String(ident.upc)).catch(() => []) : Promise.resolve([])]);   // v26: exact barcode matches first
+  for (const x of [...c, ...a, ...b]) if (!seen.has(x.itemId)) seen.set(x.itemId, x);
   return [...seen.values()].filter((x) => x.price && +x.price.value > 0).slice(0, 60).map((x, k) => ({
     i: k + 1, id: String(x.itemId || ""), seller: String(x.seller?.username || ""), title: String(x.title || ""), price: +x.price.value, cond: String(x.condition || ""),
     ship: x.shippingOptions?.[0]?.shippingCost ? +x.shippingOptions[0].shippingCost.value : 0,
@@ -440,10 +478,11 @@ Deno.serve(async (req) => {
       if (!shots.length && !body.ident && !body.isbn) return json({ error: "No photo" }, 400);
       for (const k in DIAG) delete DIAG[k];
       const ident = shots.length ? await identify(visionModel, shots)
+        : body.isbn && upcCode(String(body.isbn)) ? await upcIdent(upcCode(String(body.isbn)), await ebayToken(), fastModel)   // v26: product barcode
         : body.isbn ? await isbnIdent(sql, String(body.isbn))            // typed or barcode-scanned ISBN
         : body.ident;                                                      // ident-only = test mode
       if (!ident) return json({ ok: true, verdict: "RETAKE", reason: "That isn't a valid ISBN. Check the number and try again.", ident: { isbn: String(body.isbn || "") }, secs: 0 });
-      if (!ident.title && !ident.isbn) return json({ ok: true, verdict: "RETAKE", reason: "Couldn't read it — try the barcode or cover, closer and without glare.", ident, secs: Math.round((Date.now() - t0) / 1000) });
+      if (!ident.title && !ident.isbn) return json({ ok: true, verdict: "RETAKE", reason: ident.upc ? "No product found for barcode " + ident.upc + " — take a photo of it instead." : "Couldn't read it — try the barcode or cover, closer and without glare.", ident, secs: Math.round((Date.now() - t0) / 1000) });
 
       // eBay comps and "already bought?" at the same time
       const isItem = ident.kind === "item";   // v25: non-book — eBay only (no AbeBooks, Amazon/Keepa, BookScouter)

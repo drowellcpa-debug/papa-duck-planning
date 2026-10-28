@@ -1,0 +1,950 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Papa Duck Scout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+:root{
+  --ground:#F1F4F0; --surface:#FFFFFF; --sunk:#E7ECE6; --line:#CFD8CF; --ink:#16201A; --muted:#58645C;
+  --accent:#1E5B43; --accent-ink:#FFFFFF; --accent-soft:#DCEBE2;
+  --flag:#8A5200; --flag-bg:#FBEFD8; --danger:#A12A1E; --danger-bg:#FBE4E0; --ok:#1C7443; --ok-bg:#DDF1E4;
+  --buy:#1C7443; --pass:#A12A1E; --check:#8A5200; --sell:#1F5A8A; --verdict-ink:#FFFFFF;
+  --display:"Bitter", Georgia, "Times New Roman", serif;
+  --body:"Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --ground:#0F1411; --surface:#171F1A; --sunk:#1E2822; --line:#2E3A33; --ink:#E4EBE6; --muted:#9BA9A1;
+    --accent:#6CC196; --accent-ink:#0C1A13; --accent-soft:#1D3528;
+    --flag:#F0B866; --flag-bg:#382810; --danger:#FF8C7C; --danger-bg:#3C1B16; --ok:#7AD29E; --ok-bg:#16301F;
+    --buy:#23804C; --pass:#B3372A; --check:#9A6208; --sell:#2B6CA3; --verdict-ink:#FFFFFF;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0F1411; --surface:#171F1A; --sunk:#1E2822; --line:#2E3A33; --ink:#E4EBE6; --muted:#9BA9A1;
+  --accent:#6CC196; --accent-ink:#0C1A13; --accent-soft:#1D3528;
+  --flag:#F0B866; --flag-bg:#382810; --danger:#FF8C7C; --danger-bg:#3C1B16; --ok:#7AD29E; --ok-bg:#16301F;
+  --buy:#23804C; --pass:#B3372A; --check:#9A6208; --sell:#2B6CA3; --verdict-ink:#FFFFFF;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);margin:0}
+.wrap{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--ground);padding-block:14px 10px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.top h1{font-size:1.4rem;letter-spacing:-.01em}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-size:.9rem;font-weight:600}
+.tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+.notice{border-radius:var(--r);padding:12px 14px;margin-top:14px;font-size:.92rem;line-height:1.45}
+.notice.info{background:var(--accent-soft)}
+.notice.warn{background:var(--flag-bg);color:var(--flag)}
+.notice.bad{background:var(--danger-bg);color:var(--danger)}
+.notice b{font-weight:700}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-top:14px}
+.label{display:block;font-size:.76rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.step{display:grid;gap:6px;margin-top:14px}
+.step:first-of-type{margin-top:4px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-weight:600;font-size:.9rem}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.in{width:100%;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;font-size:1rem}
+.money{display:flex;align-items:stretch}
+.money span{font-family:var(--mono);font-weight:600;background:var(--sunk);border:1px solid var(--line);border-right:0;border-radius:8px 0 0 8px;padding:10px 12px}
+.money input{border-radius:0 8px 8px 0;font-family:var(--mono)}
+.hint{color:var(--muted);font-size:.84rem}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:10px 14px;font-weight:700;font-size:.95rem}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.big{width:100%;padding:15px;font-size:1.08rem}
+.btn:disabled{opacity:.5;cursor:default}
+
+.trip{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.trip .t{font-family:var(--display);font-weight:700;font-size:1.05rem}
+.trip .s{color:var(--muted);font-size:.85rem;font-family:var(--mono)}
+.costrow{display:flex;gap:8px;align-items:center;margin-top:12px}
+.costrow .label{margin:0;flex:none}
+
+.scan{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:14px;border:0;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-family:var(--display);font-weight:800;font-size:1.35rem;padding:22px 16px}
+.scan:disabled{opacity:.6}
+.scan svg{width:28px;height:28px;flex:none}
+
+.verdict{margin-top:14px;border-radius:14px;padding:16px;color:var(--verdict-ink);text-align:center}
+.verdict .v{font-family:var(--display);font-weight:800;font-size:2.6rem;line-height:1;letter-spacing:.02em}
+.verdict .r{margin-top:6px;font-size:.98rem}
+.verdict.BUY,.verdict.LIST{background:var(--buy)} .verdict.PASS,.verdict.TOSS{background:var(--pass)} .verdict.CHECK,.verdict.RETAKE,.verdict.WORK,.verdict.GOODWILL{background:var(--check)} .verdict.SELL{background:var(--sell)}
+.tally{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:14px}
+.tally button{font:inherit;color:inherit;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 4px;text-align:center}
+.tally b{display:block;font-family:var(--mono);font-size:1.2rem}
+.tally span{font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.moves{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.moves button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-weight:600;font-size:.86rem}
+.moves button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.pilepick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.pilepick button{min-height:56px;border-radius:12px;border:2px solid var(--line);background:var(--surface);font-family:var(--display);font-weight:800;font-size:1.1rem;letter-spacing:.02em}
+.pilepick button[aria-pressed="true"]{color:var(--verdict-ink);border-color:transparent}
+.pilepick button[data-pile="LIST"][aria-pressed="true"]{background:var(--buy)} .pilepick button[data-pile="SELL"][aria-pressed="true"]{background:var(--sell)}
+.pilepick button[data-pile="GOODWILL"][aria-pressed="true"]{background:var(--check)} .pilepick button[data-pile="TOSS"][aria-pressed="true"]{background:var(--pass)}
+.savedline{margin-top:8px;font-weight:600;font-size:.92rem;color:var(--ok)}
+.savedline.err{color:var(--danger)}
+.pile{margin-top:14px}
+.pile h3{font-size:1.05rem;display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:8px 12px;border-radius:8px;color:var(--verdict-ink)}
+.pile h3 .mono{font-size:.9rem}
+.pile.LIST h3{background:var(--buy)} .pile.SELL h3{background:var(--sell)} .pile.GOODWILL h3{background:var(--check)} .pile.TOSS h3{background:var(--pass)}
+.prow{display:grid;grid-template-columns:1fr auto;gap:8px;padding:8px 4px;border-bottom:1px solid var(--line);font-size:.9rem}
+.prow .s{color:var(--muted);font-size:.8rem}
+.bk{border:1.5px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 12px;margin:8px 0;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.bk .bkt{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}
+.bk .tt{font-weight:700;line-height:1.3}
+.bk .s{color:var(--muted);font-size:.8rem;margin-top:2px}
+.bk .px{font-size:.8rem;margin-top:6px;padding:6px 8px;background:var(--sunk);border-radius:6px;line-height:1.4}
+.bk .mv{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:.78rem;color:var(--muted);font-weight:600}
+.bk .mv button{border:1px solid var(--line);background:var(--sunk);border-radius:999px;padding:6px 12px;font-size:.8rem;font-weight:700;min-height:34px}
+.vendor{font-weight:700;font-size:.85rem;margin:10px 4px 2px;color:var(--muted)}
+.book{display:flex;gap:12px;align-items:flex-start}
+.book img{width:70px;height:94px;object-fit:cover;border-radius:6px;border:1px solid var(--line);flex:none;background:var(--sunk)}
+.book .noimg{width:70px;height:94px;border-radius:6px;border:1px dashed var(--line);background:var(--sunk);flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.7rem;color:var(--muted);font-weight:600}
+.isbnrow .in{font-family:var(--mono)}
+[hidden]{display:none!important}
+.ver{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:2px}
+.book .t{font-weight:700;line-height:1.3}
+.book .a{color:var(--muted);font-size:.86rem;margin-top:2px}
+.nums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.num{background:var(--sunk);border-radius:8px;padding:8px 6px;text-align:center}
+.num b{display:block;font-family:var(--mono);font-size:1.15rem}
+.num span{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.line{font-size:.88rem;color:var(--muted);margin-top:8px}
+details{margin-top:12px}
+summary{cursor:pointer;font-weight:600;font-size:.92rem}
+.comp{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line);font-size:.86rem}
+.comp a{color:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.chip{font-size:.72rem;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap;background:var(--sunk);color:var(--muted)}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}
+.buyrow{display:flex;gap:8px;margin-top:14px;align-items:stretch}
+.qty{display:flex;align-items:center;gap:4px;flex:none}
+.qty button{width:40px;height:100%;min-height:48px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:1.1rem}
+.qty span{font-family:var(--mono);font-weight:600;min-width:28px;text-align:center}
+
+.match{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.match img{width:52px;height:70px;object-fit:cover;border-radius:6px;flex:none;background:var(--sunk)}
+.where{font-family:var(--display);font-weight:800;font-size:1.5rem;line-height:1.2}
+.spin{display:inline-block;width:20px;height:20px;border:3px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s .8s linear infinite;vertical-align:-4px}
+@keyframes s{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spin{animation-duration:2.4s}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--ground);padding:10px 16px;border-radius:999px;font-weight:600;font-size:.9rem;z-index:9;max-width:calc(100% - 32px)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.shots{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.shots img{width:44px;height:58px;object-fit:cover;border-radius:5px;border:1px solid var(--line);background:var(--sunk)}
+.addshot{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border:1px dashed var(--line);border-radius:8px;color:var(--accent);font-weight:600;cursor:pointer;background:transparent}
+.addshot:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.shstat{font-weight:700}
+.shleg{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.shleg .sp{width:auto;padding:0 8px;font-size:.72rem;cursor:default}
+.shrow{margin-top:12px}
+.spines{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;padding:6px;background:var(--sunk);border-radius:6px;border-bottom:4px solid var(--line)}
+.sp{min-width:28px;height:44px;border-radius:3px;border:1px solid var(--line);background:var(--surface);font-family:var(--mono);font-size:.75rem;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;padding:0 2px}
+.sp.wait{background:repeating-linear-gradient(45deg,var(--surface),var(--surface) 4px,var(--sunk) 4px,var(--sunk) 8px)}
+.sp.skip{border-style:dashed;background:transparent;opacity:.7}
+.sp.pass{background:var(--surface)}
+.sp.pull{background:var(--buy);border-color:var(--buy);color:#fff}
+.sp.maybe{background:var(--check);border-color:var(--check);color:#fff}
+.sp.sel{outline:3px solid var(--ink);outline-offset:1px}
+.pullcard{border-left:5px solid var(--buy)} .pullcard.maybe{border-left-color:var(--check)}
+.bk .loc{font-size:.86rem;font-weight:600;margin-top:6px;line-height:1.35}
+.vchips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 4px 2px}
+.vchips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;font-weight:700;font-size:.88rem;min-height:40px}
+.vchips button[aria-pressed="true"]{background:var(--sell);border-color:var(--sell);color:#fff}
+.pilechips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.printrow{display:flex;gap:8px;margin:10px 4px 4px}
+.printrow .btn{flex:1}
+#printsheet{display:none}
+.mkt{width:100%;border-collapse:collapse;margin-top:12px;font-size:.86rem;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.mkt th,.mkt td{padding:6px 7px;text-align:right;white-space:nowrap}
+.mkt th:first-child,.mkt td:first-child{text-align:left;font-weight:700}
+.mkt thead th{font-size:.7rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--sunk)}
+.mkt td{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.mkt td:first-child{font-family:var(--body)}
+.mkt tr.nt td{font-weight:400;font-family:var(--body);text-align:left;white-space:normal;color:var(--muted);font-size:.78rem;padding-top:0;border-bottom:1px solid var(--line)}
+.mkt tbody tr.nt:last-child td{border-bottom:0}
+.mktwhy{font-size:.84rem;color:var(--muted);margin-top:6px}
+@media print{
+  body{background:#fff!important;color:#000!important}
+  .wrap,.toast{display:none!important}
+  #printsheet{display:block!important;font:11pt/1.35 "Public Sans",Arial,sans-serif;color:#000}
+  #printsheet h1{font-size:15pt;margin:0 0 2pt}
+  #printsheet h2{font-size:12.5pt;margin:14pt 0 4pt;border-bottom:1.5pt solid #000;padding-bottom:2pt;display:flex;justify-content:space-between;break-after:avoid}
+  #printsheet table{width:100%;border-collapse:collapse;table-layout:fixed}
+  #printsheet td.box{width:16pt} #printsheet td.n{width:22pt} #printsheet td.isbn{width:110pt} #printsheet td.p{width:60pt}
+  #printsheet td{border-bottom:.5pt solid #999;padding:3pt 4pt;vertical-align:top}
+  #printsheet .n,#printsheet .p{white-space:nowrap} #printsheet .p{text-align:right;font-family:"IBM Plex Mono",monospace}
+  #printsheet .isbn{font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+  #printsheet .box{width:12pt} #printsheet .box i{display:inline-block;width:9pt;height:9pt;border:1pt solid #000}
+  #printsheet tr{break-inside:avoid}
+  #printsheet .grand{margin-top:14pt;font-weight:700;font-size:12pt}
+}
+</style>
+
+<div id="printsheet"></div>
+<div class="wrap">
+  <header class="top">
+    <div><h1>Papa Duck Scout</h1><div class="ver" id="ver">Version 20 · Oct 28, 2026</div></div>
+    <div class="tabs" role="group" aria-label="Mode">
+      <button class="tab" id="tab-scout" aria-pressed="true" type="button">Scout</button>
+      <button class="tab" id="tab-shelf" aria-pressed="false" type="button">Shelf</button>
+      <button class="tab" id="tab-clean" aria-pressed="false" type="button" hidden>Clean up</button>
+      <button class="tab" id="tab-trips" aria-pressed="false" type="button" hidden>Trips</button>
+      <button class="tab" id="tab-check" aria-pressed="false" type="button">Check</button>
+    </div>
+  </header>
+  <div id="notices"></div>
+
+  <section id="scout">
+    <!-- New trip: asked at the start of every trip -->
+    <div class="card" id="setup" hidden>
+      <h2 style="font-size:1.15rem">New trip</h2>
+      <div class="hint" style="margin-top:2px">Answer once. Every scan and buy on this trip uses these.</div>
+      <div class="step"><label class="label" for="t-date">1 · Date</label><input class="in" id="t-date" type="date"></div>
+      <div class="step"><span class="label">2 · Store</span><div class="seg" id="stores" role="group" aria-label="Store"></div>
+        <input class="in" id="t-other" type="text" placeholder="Store name" hidden></div>
+      <div class="step"><label class="label" for="t-loc">3 · Location</label><input class="in" id="t-loc" type="text" placeholder="City or branch, e.g. Gresham"></div>
+      <div class="step"><label class="label" for="t-cost">4 · Average cost per book here</label>
+        <div class="money"><span>$</span><input class="in" id="t-cost" inputmode="decimal" placeholder="1.75"></div>
+        <div class="hint" id="costhint"></div></div>
+      <button class="btn primary big" id="t-go" type="button" style="margin-top:16px">Start trip</button>
+    </div>
+
+    <!-- Active trip -->
+    <div class="card" id="tripbar" hidden>
+      <div class="trip" hidden>
+        <div><div class="t" id="trip-t"></div><div class="s" id="trip-s"></div></div>
+        <button class="btn" id="t-new" type="button">New trip</button>
+      </div>
+      <div class="costrow" style="margin-top:0"><label class="label" for="bookcost">Cost</label>
+        <div class="money" style="flex:1"><span>$</span><input class="in" id="bookcost" inputmode="decimal" placeholder="0.00"></div></div>
+      <div class="hint" style="margin-top:6px">Stays until you change it. Use 0 for books you already own.</div>
+    </div>
+
+    <label class="scan" id="scanlbl" for="cam" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span id="scantxt">Snap a book or item</span>
+    </label>
+    <input class="sr" id="cam" type="file" accept="image/*" capture="environment">
+    <input class="sr" id="camadd" type="file" accept="image/*" capture="environment">
+    <form class="costrow isbnrow" id="isbnform1" hidden autocomplete="off"><input class="in" id="isbn1" inputmode="numeric" placeholder="…or type or scan the barcode (ISBN or UPC)" aria-label="Barcode"><button class="btn" type="submit">Check</button></form>
+    <div id="out"></div>
+  </section>
+
+  <section id="clean" hidden>
+    <label class="scan" for="cam3">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span id="cleantxt">Scan new book</span>
+    </label>
+    <input class="sr" id="cam3" type="file" accept="image/*" capture="environment">
+    <input class="sr" id="cam3add" type="file" accept="image/*" capture="environment">
+    <form class="costrow isbnrow" id="isbnform3" autocomplete="off"><input class="in" id="isbn3" inputmode="numeric" placeholder="…or type or scan the ISBN" aria-label="ISBN"><button class="btn" type="submit">Check</button></form>
+    <div id="clout"></div>
+    <div class="card"><div class="hint">For books you already own from lots. Scan each one and it tells you where it goes: <b>List</b> on eBay, <b>Sell</b> to a buyback site, <b>Goodwill</b>, or <b>Toss</b>.</div>
+      <div class="tally" id="tally"></div>
+      <div class="costrow" style="margin-top:10px">
+        <button class="btn primary" id="piles-show" type="button" style="flex:1">See the pile list</button>
+        <button class="btn" id="tally-reset" type="button">New lot</button>
+      </div>
+      <div class="hint" id="batchname" style="margin-top:6px"></div></div>
+    <div id="pilelist"></div>
+  </section>
+
+  <section id="trips" hidden>
+    <div class="costrow" style="margin-top:14px"><div class="hint" style="flex:1">Every trip, with what you bought and what you paid.</div><button class="btn" id="trips-refresh" type="button">Refresh</button></div>
+    <div id="tripsout"></div>
+  </section>
+
+  <section id="shelf" hidden>
+    <label class="scan" for="cam4">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span id="shelftxt">Photo of 1 or 2 shelves</span>
+    </label>
+    <input class="sr" id="cam4" type="file" accept="image/*" capture="environment">
+    <input class="sr" id="cam4add" type="file" accept="image/*" capture="environment">
+    <div class="card"><div class="hint">Stand back so 1 or 2 shelves fill the photo, straight on, no glare. The app reads every spine, then checks each one and shows you which books to pull.</div></div>
+    <div id="shout"></div>
+  </section>
+
+  <section id="check" hidden>
+    <div class="card"><div class="hint">Scan a book you're about to list to see where you bought it and what you paid.</div></div>
+    <label class="scan" for="cam2">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span>Scan to check</span>
+    </label>
+    <input class="sr" id="cam2" type="file" accept="image/*" capture="environment">
+    <div class="costrow"><input class="in" id="isbn" placeholder="…or type the ISBN or title" aria-label="ISBN or title"><button class="btn" id="isbn-go" type="button">Find</button></div>
+    <div id="cout"></div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const PROJECT = "gdwxwiwckxthwcsrgywh";
+const SUPA = "Supabase";
+const STORES = ["Goodwill","Goodwill Bins","St Vincent","Estate sale","Library sale","Exodus","Other"];
+const USUAL = {"Goodwill":"$1.75 paperback · $2.75 hardcover","Goodwill Bins":"$2.75","St Vincent":"$1.50","Exodus":"$0.60"};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = (n) => (n == null || isNaN(n)) ? "—" : "$" + Number(n).toFixed(2);
+const store = { get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : v; } catch(e){ return d; } },
+                set(k, v){ try { localStorage.setItem(k, v); } catch(e){} } };
+const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
+
+let mcp = null;
+// v20 (2026-10-28): no trip setup ("I just need it to tell me buy or pass, and a simple quick place to put cost and have it keep it until I change it").
+// One cost box, remembered on this device; 0 for books he already owns. Buys still save with today's date.
+let trip = { date: today(), store: "", location: "", cost: "", label: today() + " Scout" };
+let pickStore = store.get("scout_store", "Goodwill");
+let last = null, lastImg = null, copies = 1, familyOk = false, busy = false, shots = [];
+const MAX_SHOTS = 4;
+const imgsOf = (arr) => arr.map((d) => ({ data: d, mt: "image/jpeg" }));
+// thumbnails of every photo of this book + a button to add the copyright page or barcode
+const coverImg = (img) => img ? '<img alt="" src="data:image/jpeg;base64,' + img + '">' : '<div class="noimg">ISBN</div>';
+const desk = () => { try { return matchMedia("(pointer:fine)").matches; } catch (e) { return false; } };
+const cleanIsbn = (v) => String(v || "").toUpperCase().replace(/[^0-9X]/g, "");
+function shotsRow(arr, inputId){
+  if (!arr.length) return "";
+  let h = '<div class="shots">' + arr.map((d, n) => '<img alt="Photo ' + (n + 1) + '" src="data:image/jpeg;base64,' + d + '">').join("");
+  if (arr.length < MAX_SHOTS) h += '<label class="addshot" for="' + inputId + '">＋ Add photo<span class="hint" style="font-weight:400">&nbsp;copyright page or barcode</span></label>';
+  return h + "</div>";
+}
+
+function toast(t){ const el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 2600); }
+function notice(kind, html){ $("notices").innerHTML = kind ? '<div class="notice ' + kind + '">' + html + "</div>" : ""; }
+
+// ---------- connector plumbing (same as Papa Duck Drafts) ----------
+function sqlRows(result){
+  let t = result && result.payload;
+  if (t && typeof t === "object") {
+    if (Array.isArray(t)) return t;
+    t = (typeof t.result === "string" && t.result) || (typeof t.text === "string" && t.text) ||
+        (Array.isArray(t.content) && t.content.filter((b) => b && b.type === "text").map((b) => b.text).join("\n")) || JSON.stringify(t);
+  }
+  if (!t) t = ((result && result.content) || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+  const m = /<untrusted-data-[^>]+>\s*([\s\S]*?)\s*<\/untrusted-data/.exec(t);
+  let body = m ? m[1] : t;
+  body = body.slice(body.indexOf("["));
+  try { return JSON.parse(body); } catch (e) {
+    const fixed = body.slice(0, body.lastIndexOf("]") + 1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+    return JSON.parse(fixed);
+  }
+}
+function jsonLit(obj){
+  const s = JSON.stringify(obj);
+  let tag; do { tag = "sc" + Math.random().toString(36).slice(2, 10); } while (s.indexOf(tag) !== -1);
+  return "$" + tag + "$" + s + "$" + tag + "$::jsonb";
+}
+function explain(e){
+  const code = e && e.code;
+  if (code === "server_not_connected" || code === "selection_required") return "<b>Supabase isn't connected for this page.</b> Add or pick Supabase in claude.ai Settings → Connectors, then try again.";
+  if (code === "needs_reauth") return "<b>Supabase needs to be reconnected.</b> Reconnect it in claude.ai Settings → Connectors, then try again.";
+  if (code === "not_in_manifest") return "<b>Supabase is turned off for this page.</b> Allow it when the page asks, or turn it on in this page's connector settings.";
+  if (code === "blocked_by_policy" || code === "approval_required") return "<b>Supabase is blocked here by your organization's settings.</b>";
+  if (code === "server_unavailable" || code === "upstream_error") return "<b>The cloud didn't answer just now.</b> Wait a moment and scan again.";
+  if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") return "<b>This view can't reach your connectors.</b> Open the page in the Claude app or at claude.ai while signed in.";
+  return esc((e && e.message) || e || "Something went wrong.");
+}
+async function scout(req){
+  if (!mcp) throw { code: "not_granted" };
+  const r = await mcp.callTool(SUPA, "execute_sql", { project_id: PROJECT, query: "select pipeline.scout_call(" + jsonLit(req) + ") as r" }, { cache: false });
+  const rows = sqlRows(r);
+  const out = rows[0] && rows[0].r;
+  if (!out) throw new Error("The cloud sent back nothing.");
+  if (out.ok === false || out.error) throw new Error(out.error || "The cloud reported a problem.");
+  return out;
+}
+
+// ---------- tabs ----------
+function mode(m){
+  ["scout", "shelf", "clean", "trips", "check"].forEach((k) => { $("tab-" + k).setAttribute("aria-pressed", m === k); $(k).hidden = m !== k; });
+  store.set("scout_mode", m);
+}
+$("tab-scout").onclick = () => mode("scout");
+$("tab-clean").onclick = () => mode("clean");
+$("tab-shelf").onclick = () => mode("shelf");
+$("tab-trips").onclick = () => { mode("trips"); loadTrips(); };
+$("tab-check").onclick = () => mode("check");
+
+// ---------- trip ----------
+const storeKey = () => STORES.indexOf(pickStore) !== -1 ? pickStore : "Other";
+function drawStores(){
+  $("stores").innerHTML = STORES.map((s) => '<button type="button" data-s="' + esc(s) + '" aria-pressed="' + (s === storeKey()) + '">' + esc(s) + "</button>").join("");
+  $("t-other").hidden = storeKey() !== "Other";
+  const u = USUAL[storeKey()]; $("costhint").textContent = u ? "Your usual here: " + u : "";
+}
+$("stores").onclick = (e) => { const b = e.target.closest("[data-s]"); if (!b) return; pickStore = b.dataset.s; store.set("scout_store", pickStore); drawStores(); };
+function drawTrip(){
+  $("setup").hidden = !!trip; $("tripbar").hidden = !trip; $("scanlbl").hidden = !trip; $("isbnform1").hidden = !trip;
+  if (trip) {
+    $("trip-t").textContent = trip.store + (trip.location ? " · " + trip.location : "");
+    $("trip-s").textContent = trip.date + " · avg " + money(trip.cost) + "/book";
+  } else {
+    $("t-date").value = today(); $("t-loc").value = store.get("scout_loc", ""); $("t-cost").value = ""; drawStores();
+  }
+}
+$("t-go").onclick = () => {
+  const s = storeKey() === "Other" ? $("t-other").value.trim() : pickStore;
+  const c = $("t-cost").value.trim();
+  if (!$("t-date").value) return toast("Pick the date");
+  if (!s) return toast("Pick or type the store");
+  if (!$("t-loc").value.trim()) return toast("Add the location");
+  if (c === "" || isNaN(Number(c))) return toast("Add the average cost per book");
+  trip = { date: $("t-date").value, store: s, location: $("t-loc").value.trim(), cost: Number(c) };
+  trip.label = trip.date + " " + trip.store + " " + trip.location;
+  store.set("scout_trip", JSON.stringify(trip)); store.set("scout_loc", trip.location);
+  $("out").innerHTML = ""; drawTrip();
+};
+$("t-new").onclick = () => { trip = null; store.set("scout_trip", "null"); $("out").innerHTML = ""; drawTrip(); };
+const bookCost = () => { const v = $("bookcost").value.trim(); return v !== "" && !isNaN(Number(v)) ? Number(v) : ""; };
+$("bookcost").value = store.get("scout_cost", "");
+$("bookcost").addEventListener("input", () => store.set("scout_cost", $("bookcost").value.trim()));
+
+// ---------- photo: shrink on the phone so it sends fast ----------
+function shrink(file, max){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      res(c.toDataURL("image/jpeg", 0.78).split(",")[1]);
+    };
+    img.onerror = () => rej(new Error("Couldn't read that photo. Try again.")); img.src = url;
+  });
+}
+
+// ---------- scout ----------
+$("cam").onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f || busy) return;
+  busy = true; $("scantxt").textContent = "Checking…"; $("scanlbl").setAttribute("aria-disabled", "true");
+  $("out").innerHTML = '<div class="verdict WORK"><div class="r" style="font-size:1.05rem"><span class="spin"></span>&nbsp; Reading the book and checking eBay…</div></div>';
+  try {
+    lastImg = await shrink(f, 1100); shots = [lastImg];
+    last = await scout({ action: "evaluate", images: imgsOf(shots), store: trip.store, cost: bookCost() });
+    copies = 1; familyOk = false; notice(null); drawResult();
+  } catch (err) {
+    $("out").innerHTML = '<div class="verdict PASS"><div class="v" style="font-size:1.5rem">Couldn\'t check</div><div class="r">' + (err && err.code ? explain(err) : esc(err.message || err)) + "</div></div>";
+  }
+  busy = false; $("scantxt").textContent = "Snap a book or item"; $("scanlbl").removeAttribute("aria-disabled");
+};
+
+// another photo of the SAME book: re-check with all of them
+$("camadd").onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f || busy || !shots.length) return;
+  busy = true; $("scantxt").textContent = "Checking…";
+  $("out").innerHTML = '<div class="verdict WORK"><div class="r" style="font-size:1.05rem"><span class="spin"></span>&nbsp; Re-reading with ' + (shots.length + 1) + ' photos…</div></div>';
+  try {
+    shots.push(await shrink(f, 900));
+    last = await scout({ action: "evaluate", images: imgsOf(shots), store: trip.store, cost: bookCost() });
+    copies = 1; familyOk = false; drawResult();
+  } catch (err) {
+    shots.pop();
+    $("out").innerHTML = '<div class="verdict PASS"><div class="v" style="font-size:1.5rem">Couldn\'t check</div><div class="r">' + (err && err.code ? explain(err) : esc(err.message || err)) + "</div></div>";
+  }
+  busy = false; $("scantxt").textContent = "Snap a book or item";
+};
+
+$("isbnform1").onsubmit = async (e) => {
+  e.preventDefault(); const inp = $("isbn1"), isbn = cleanIsbn(inp.value);
+  if (busy) return; if ([8, 10, 12, 13].indexOf(isbn.length) === -1) { toast("A barcode is 8, 10, 12 or 13 digits"); inp.select(); return; }
+  busy = true; inp.value = ""; $("scantxt").textContent = "Checking…";
+  $("out").innerHTML = '<div class="verdict WORK"><div class="r" style="font-size:1.05rem"><span class="spin"></span>&nbsp; Looking up ' + esc(isbn) + ' and checking eBay…</div></div>';
+  try {
+    last = await scout({ action: "evaluate", isbn, store: trip.store, cost: bookCost() });
+    lastImg = null; shots = []; copies = 1; familyOk = false; notice(null); drawResult();
+  } catch (err) {
+    $("out").innerHTML = '<div class="verdict PASS"><div class="v" style="font-size:1.5rem">Couldn\'t check</div><div class="r">' + (err && err.code ? explain(err) : esc(err.message || err)) + "</div></div>";
+  }
+  busy = false; $("scantxt").textContent = "Snap a book or item"; if (desk()) inp.focus();
+};
+
+// eBay / AbeBooks / Amazon side by side — the same grid as the Drafts page
+function gridHtml(d){
+  const g = d.grid; if (!g) return "";
+  const m = (v) => (v == null || !(Number(v) > 0)) ? "—" : money(v);
+  const row = (name, n, lo, av, hi, note) => "<tr><td>" + name + "</td><td>" + (n == null ? "—" : n) + "</td><td>" + m(lo) + "</td><td>" + m(av) + "</td><td>" + m(hi) + "</td></tr>" +
+    '<tr class="nt"><td colspan="5">' + note + "</td></tr>";
+  const e = g.ebay || {}, a = g.abe || {}, z = g.amazon || {};
+  let h = '<table class="mkt"><thead><tr><th>Where</th><th>Copies</th><th>Low</th><th>Avg</th><th>High</th></tr></thead><tbody>';
+  h += row("eBay", e.n || 0, e.low, e.avg, e.high, (e.sold ? "<b>" + e.sold + " sold</b>" + (e.sold_avg ? " · selling at " + money(e.sold_avg) : "") : "no sales showing") + " · matching copies of " + (e.found || 0) + " found");
+  h += row("AbeBooks", a.n || 0, a.low, a.avg, a.high, a.n ? "used copies, before shipping" : "no used copies found");
+  if (z.error) h += row("Amazon", null, null, null, null, esc(z.error));
+  else {
+    const bits = [];
+    bits.push(z.used_bb ? "<b>Used buy box " + money(z.used_bb) + "</b>" + (z.used_bb_fba ? " (FBA seller)" : " (seller ships it)") : "no used buy box");
+    if (z.rank) bits.push("rank #" + Number(z.rank).toLocaleString("en-US"));
+    if (z.sales90 != null) bits.push("about " + z.sales90 + " sale" + (z.sales90 === 1 ? "" : "s") + " in 90 days");
+    h += row("Amazon", null, z.used_low, null, null, bits.join(" · "));
+  }
+  h += "</tbody></table>";
+  if (g.fair_why) h += '<div class="mktwhy">Claude: ' + esc(g.fair_why) + "</div>";
+  return h;
+}
+// the grid already shows these, so they aren't repeated as bullet lines
+const gridDup = (d, x) => d.grid && (/^eBay: /.test(x) || /^Amazon: /.test(x) || /^Claude: /.test(x));
+
+function drawResult(){
+  const d = last, id = d.ident || {};
+  const book = '<div class="book">' + coverImg(lastImg) + '<div><div class="t">' + esc(id.title || "Couldn't read the title") + '</div><div class="a">' +
+    esc([id.author, id.format, id.year].filter(Boolean).join(" · ")) + "</div>" + (id.isbn ? '<div class="a mono">ISBN ' + esc(id.isbn) + "</div>" : "") + "</div></div>";
+
+  if (d.family && !familyOk) {
+    $("out").innerHTML = '<div class="card"><div class="notice warn" style="margin-top:0"><b>⚠️ Family-friendly check.</b> ' + esc(d.family) + "</div>" +
+      '<div style="margin-top:12px">' + book + '</div><div class="buyrow"><button class="btn big" id="fam-pass" type="button">Pass</button>' +
+      '<button class="btn big primary" id="fam-ok" type="button">Accept, show the call</button></div></div>';
+    $("fam-pass").onclick = () => { $("out").innerHTML = '<div class="verdict PASS"><div class="v">PASS</div><div class="r">Not a fit for the shop</div></div>'; last = null; };
+    $("fam-ok").onclick = () => { familyOk = true; drawResult(); };
+    return;
+  }
+  const prior = (d.prior || []).filter((p) => p.isbn_match || !id.isbn);
+  const comps = d.comps || [];
+  const canBuy = d.verdict !== "RETAKE" && (id.title || id.isbn);
+  let h = '<div class="verdict ' + esc(d.verdict) + '"><div class="v">' + esc(d.verdict) + '</div><div class="r">' + esc(d.reason) + "</div></div>";
+  h += '<div class="card">' + book + shotsRow(shots, "camadd");
+  if (d.verdict !== "RETAKE") {
+    h += '<div class="nums"><div class="num"><b>' + money(d.list) + '</b><span>List at</span></div><div class="num"><b>' + money(d.profit) +
+         '</b><span>Profit</span></div><div class="num"><b>' + (d.soldN || 0) + "</b><span>Sold</span></div></div>";
+    h += gridHtml(d);
+    h += '<div class="line">Cost ' + money(d.cost) + " · " + (d.basis === "sold" ? "priced like you do: the middle of the market or higher, never the bargain end" : d.basis === "active" ? "priced from the matching listings (no sales showing)" : d.basis === "amazon" ? "no eBay copies, priced from Amazon's used buy box" : d.basis === "abebooks" ? "no eBay copies, priced from AbeBooks asking prices" : d.basis === "web" ? "no eBay copies, priced from a web search" : "no copies found") + "</div>";
+  }
+  (d.hard || []).slice(1).forEach((x) => { h += '<div class="line">• ' + esc(x) + "</div>"; });
+  (d.flags || []).forEach((x) => { if (!gridDup(d, x)) h += '<div class="line">• ' + esc(x) + "</div>"; });
+  if (d.family) h += '<div class="line">• Family check: ' + esc(d.family) + " (you accepted)</div>";
+  if (prior.length) h += '<div class="notice warn"><b>📦 You already bought this.</b><br>' + prior.slice(0, 3).map((p) =>
+      esc(p.date) + " · " + esc(p.store) + (p.location ? " " + esc(p.location) : "") + " · " + money(p.cost) + (p.pd ? " · " + esc(p.pd) : "")).join("<br>") + "</div>";
+  const onEbay = !d.source || d.source === "ebay";
+  const srcName = d.source === "abebooks" ? "AbeBooks" : d.source === "web" ? "web" : "eBay";
+  if (comps.length) h += "<details><summary>See the " + srcName + " copies (" + (onEbay ? (d.activeN || comps.length) : comps.length) + ")</summary>" + comps.map((c) =>
+      '<div class="comp"><span class="chip' + (onEbay && c.sold ? " ok" : "") + '">' + (onEbay ? (c.sold ? c.sold + " sold" : "0 sold") : esc(c.cond || "Used")) + '</span><a href="' + esc(c.url) + '" target="_blank" rel="noopener">' +
+      esc((c.seller ? c.seller + " · " : "") + c.title) + '</a><b class="mono">' + money(c.price + (c.ship || 0)) + "</b></div>").join("") +
+      '<div class="hint" style="margin-top:6px">' + (onEbay ? "Prices are delivered (price plus shipping)." : "Asking prices before shipping. These show what's for sale, not what sold.") + "</div></details>";
+  if (canBuy) h += '<div class="buyrow"><div class="qty" role="group" aria-label="Copies"><button type="button" id="q-minus" aria-label="Fewer copies">−</button><span id="q-n" class="mono">1</span><button type="button" id="q-plus" aria-label="More copies">+</button></div>' +
+      '<button class="btn big ' + (d.verdict === "BUY" ? "primary" : "") + '" id="bought" type="button">✓ Bought</button></div>' +
+      '<div class="hint" style="margin-top:6px">Saves ' + (shots.length > 1 ? "all " + shots.length + " photos" : shots.length ? "the photo" : "the book") + ' and ' + money(bookCost() !== "" ? bookCost() : d.cost) + " to Scout Buys.</div>";
+  h += "</div>";
+  $("out").innerHTML = h;
+  if (canBuy) {
+    $("q-minus").onclick = () => { copies = Math.max(1, copies - 1); $("q-n").textContent = copies; };
+    $("q-plus").onclick = () => { copies++; $("q-n").textContent = copies; };
+    $("bought").onclick = doBought;
+  }
+}
+
+async function doBought(){
+  const b = $("bought"); b.disabled = true; b.innerHTML = '<span class="spin"></span> Saving…';
+  const c = bookCost() !== "" ? bookCost() : last.cost;
+  try {
+    const r = await scout({ action: "bought", ident: last.ident, images: imgsOf(shots), store: trip.store, location: trip.location, date: trip.date, trip: trip.label,
+      cost: c == null ? "" : c, list: last.list, copies, notes: last.family ? "Family check accepted: " + last.family : "" });
+    b.disabled = false; b.className = "btn big"; b.textContent = "Saved ✓  Tap to undo";
+    toast(r.airtable === "saved" ? "Saved to Scout Buys" : "Saved (Airtable copy is off for now)");
+    b.onclick = async () => {
+      b.disabled = true;
+      try { await scout({ action: "undo", id: r.id }); toast("Removed"); drawResult(); }
+      catch (e) { b.disabled = false; toast(e.message || "Couldn't undo"); }
+    };
+  } catch (e) {
+    b.disabled = false; b.textContent = "✓ Bought";
+    notice("bad", e && e.code ? explain(e) : "<b>Not saved.</b> " + esc(e.message || e) + " Tap Bought to try again.");
+  }
+}
+
+// ---------- clean up ----------
+const PILES = ["LIST", "SELL", "GOODWILL", "TOSS"];
+const PILE_NAME = { LIST: "List", SELL: "Sell", GOODWILL: "Goodwill", TOSS: "Toss" };
+let tally = { LIST: 0, SELL: 0, GOODWILL: 0, TOSS: 0 }; try { tally = Object.assign(tally, JSON.parse(store.get("scout_tally", "{}"))); } catch(e){}
+let cleanLast = null, cleanImg = null, cleanPile = null, cleanBusy = false, cleanShots = [];
+const newBatch = () => "Lot " + today() + " " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+let batch = store.get("scout_batch", "") || newBatch(); store.set("scout_batch", batch);
+function drawTally(){
+  $("tally").innerHTML = PILES.map((k) => '<button type="button" data-tile="' + k + '" aria-label="Show the ' + PILE_NAME[k] + ' pile"><b>' + tally[k] + "</b><span>" + PILE_NAME[k] + "</span></button>").join("");
+  $("tally").querySelectorAll("[data-tile]").forEach((b) => { b.onclick = () => { pileOnly = b.dataset.tile; $("piles-show").click(); setTimeout(() => $("pilelist").scrollIntoView({ behavior: "smooth", block: "start" }), 50); }; });
+  store.set("scout_tally", JSON.stringify(tally)); $("batchname").textContent = batch;
+}
+$("tally-reset").onclick = () => {
+  PILES.forEach((k) => { tally[k] = 0; }); batch = newBatch(); store.set("scout_batch", batch); store.set("scout_batch_at", String(Date.now()));
+  drawTally(); $("clout").innerHTML = ""; $("pilelist").innerHTML = ""; toast("New lot started. The last lot's list is saved.");
+};
+let pileSaved = "saved";   // saved | saving | error
+function setPile(k, sync){
+  if (cleanPile) tally[cleanPile] = Math.max(0, tally[cleanPile] - 1); cleanPile = k; tally[k]++; drawTally();
+  if (sync && cleanLast && cleanLast.pile_id) {
+    pileSaved = "saving";
+    scout({ action: "pile", id: cleanLast.pile_id, pile: k })
+      .then(() => { pileSaved = "saved"; if (cleanPile === k) drawClean(); })
+      .catch(() => { pileSaved = "error"; if (cleanPile === k) drawClean(); });
+  } else pileSaved = cleanLast && cleanLast.pile_id ? "saved" : "error";
+}
+let lots = [];
+async function lotsCall(){
+  if (!mcp) return [];
+  const r = await mcp.callTool(SUPA, "execute_sql", { project_id: PROJECT, query: "select pipeline.scout_lots() as r" }, { cache: false });
+  const rows = sqlRows(r), v = rows[0] && rows[0].r; return Array.isArray(v) ? v : [];
+}
+// every device works on the same lot: the one scanned into most recently, unless this device just started a new one
+async function syncLot(){
+  try { lots = await lotsCall(); } catch (e) { return; }
+  const at = Number(store.get("scout_batch_at", "0")) || 0, top = lots[0];
+  if (top && top.batch !== batch && Date.parse(top.last) > at) { batch = top.batch; store.set("scout_batch", batch); }
+  const mine = lots.find((l) => l.batch === batch);
+  PILES.forEach((k) => { tally[k] = mine ? Number(mine[k]) || 0 : 0; }); drawTally();
+}
+function useLot(b){ batch = b; store.set("scout_batch", batch); store.set("scout_batch_at", String(Date.now())); $("clout").innerHTML = ""; $("piles-show").click(); }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && mcp) syncLot(); });
+
+let pileRows = [], pickHtml = "", sellVendors = [], pileOnly = "";
+const vLabel = () => sellVendors.join(" + ");
+function sellGroups(){
+  const byV = {};
+  pileRows.filter((r) => r.pile === "SELL").forEach((r) => { const v = r.buyback_vendor || "No offer"; (byV[v] = byV[v] || []).push(r); });
+  return Object.keys(byV).sort((a, b) => a.localeCompare(b)).map((v) => {
+    const list = byV[v].slice().sort((a, b) => (b.buyback_price || 0) - (a.buyback_price || 0));
+    return { vendor: v, list, total: list.reduce((t, r) => t + (r.buyback_price || 0), 0) };
+  });
+}
+const shownGroups = () => sellGroups().filter((x) => !sellVendors.length || sellVendors.indexOf(x.vendor) !== -1);
+function pileSheet(k){
+  const stamp = " · printed " + esc(new Date().toLocaleString()) + "</div>";
+  const tr = (r, i, right) => '<tr><td class="box"><i></i></td><td class="n">' + (i + 1) + ".</td><td>" + esc(r.title || "Untitled") + (r.author ? "<br><small>" + esc(r.author) + "</small>" : "") +
+    '</td><td class="isbn">' + esc(r.isbn || "") + '</td><td class="p">' + right + "</td></tr>";
+  if (k === "SELL") {
+    const g = shownGroups(), all = g.reduce((t, x) => t + x.total, 0), n = g.reduce((t, x) => t + x.list.length, 0);
+    let h = "<h1>Sell pile" + (sellVendors.length ? " · " + esc(vLabel()) : "") + " · " + esc(batch) + "</h1><div>" + n + " books · " + money(all) + " total" + stamp;
+    g.forEach((x) => { h += "<h2><span>" + esc(x.vendor) + "</span><span>" + x.list.length + " books · " + money(x.total) + "</span></h2><table>" + x.list.map((r, i) => tr(r, i, money(r.buyback_price))).join("") + "</table>"; });
+    return h + '<div class="grand">Total: ' + money(all) + "</div>";
+  }
+  const list = pileRows.filter((r) => r.pile === k).slice().sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
+  return "<h1>" + PILE_NAME[k] + " pile · " + esc(batch) + "</h1><div>" + list.length + " books" + stamp +
+    "<table style=\"margin-top:10pt\">" + list.map((r, i) => tr(r, i, k === "LIST" && r.list_price != null ? money(r.list_price) : "")).join("") + "</table>";
+}
+function printPile(k){
+  $("printsheet").innerHTML = pileSheet(k);
+  try { window.print(); } catch (e) { toast("Printing is blocked here. Use Save instead."); }
+}
+async function savePile(k){
+  const dl = window.claude && window.claude.use ? await window.claude.use("downloads").catch(() => null) : null;
+  if (!dl) { toast("Saving isn't available here"); return; }
+  const name = PILE_NAME[k] + " pile" + (k === "SELL" && sellVendors.length ? " " + vLabel() : "") + " " + batch;
+  const doc = '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(name) + '</title><style>body{font:11pt/1.35 Arial,sans-serif;max-width:760px;margin:24px auto;padding:0 16px}h1{font-size:16pt;margin:0 0 4px}h2{font-size:13pt;margin:18px 0 4px;border-bottom:2px solid #000;display:flex;justify-content:space-between}table{width:100%;border-collapse:collapse;table-layout:fixed}td.box{width:18px}td.n{width:30px}td.isbn{width:130px}td.p{width:70px}td{border-bottom:1px solid #aaa;padding:4px 5px;vertical-align:top}.p{text-align:right;white-space:nowrap}.isbn{font-family:monospace;white-space:nowrap}.box i{display:inline-block;width:11px;height:11px;border:1px solid #000}tr{break-inside:avoid}.grand{margin-top:16px;font-weight:700}</style></head><body>' + pileSheet(k) + "</body></html>";
+  try { await dl.save({ filename: name.replace(/[^\w -]/g, "") + ".html", data: doc }); }
+  catch (e) { if (e && e.code !== "declined") toast("Couldn't save the file"); }
+}
+function drawPiles(){
+  const rows = pileRows;
+  if (!rows.length) { $("pilelist").innerHTML = '<div class="card">' + pickHtml + '<div class="hint">No books scanned in this lot yet.</div></div>'; wirePick(); return; }
+  const row = (r, right) => '<div class="bk"><div class="bkt"><div><div class="tt">' + esc(r.title || "Untitled") + '</div><div class="s">' + esc([r.author, r.isbn].filter(Boolean).join(" · ")) + '</div></div><b class="mono">' + right + "</b></div>" +
+    (r.summary ? '<div class="px">' + esc(String(r.summary).replace(/^[A-Z]+ · (list \$[\d.,]+ · )?/, "") + (/buyback/.test(r.summary) ? "" : " · no buyback offer")) + "</div>" : "") +
+    '<div class="mv">Move to:' + PILES.filter((p) => p !== r.pile).map((p) => '<button type="button" data-mv="' + p + '" data-id="' + r.id + '">' + PILE_NAME[p] + "</button>").join("") + "</div></div>";
+  const printRow = (k, label) => '<div class="printrow"><button class="btn primary" type="button" data-print="' + k + '">🖨 Print ' + label + '</button><button class="btn" type="button" data-save="' + k + '">Save to print later</button></div>';
+  let h = '<div class="card">' + pickHtml + '<span class="label">' + esc(batch) + " · " + rows.length + " books</span>";
+  h += '<div class="vchips pilechips" role="group" aria-label="Which pile"><button type="button" data-only="" aria-pressed="' + (!pileOnly) + '">All piles</button>' +
+    PILES.map((k) => '<button type="button" data-only="' + k + '" aria-pressed="' + (pileOnly === k) + '">' + PILE_NAME[k] + " · " + rows.filter((r) => r.pile === k).length + "</button>").join("") + "</div>";
+  PILES.forEach((k) => {
+    if (pileOnly && pileOnly !== k) return;
+    const list = rows.filter((r) => r.pile === k);
+    if (!list.length) { if (pileOnly) h += '<div class="hint" style="margin:12px 4px">No books in the ' + PILE_NAME[k] + " pile.</div>"; return; }
+    h += '<div class="pile ' + k + '"><h3><span>' + PILE_NAME[k] + '</span><span class="mono">' + list.length + "</span></h3>";
+    if (k === "SELL") {
+      const all = sellGroups();
+      sellVendors = sellVendors.filter((v) => all.some((x) => x.vendor === v));
+      if (all.length > 1) h += '<div class="vchips" role="group" aria-label="Filter by buyback company"><button type="button" data-vendor="" aria-pressed="' + (!sellVendors.length) + '">All · ' + list.length + "</button>" +
+        all.map((x) => '<button type="button" data-vendor="' + esc(x.vendor) + '" aria-pressed="' + (sellVendors.indexOf(x.vendor) !== -1) + '">' + esc(x.vendor) + " · " + x.list.length + "</button>").join("") + "</div>";
+      h += printRow("SELL", sellVendors.length === 1 ? esc(sellVendors[0]) + " list" : sellVendors.length ? "these " + sellVendors.length + " companies" : "sell list");
+      shownGroups().forEach((x) => {
+        h += '<div class="vendor">' + esc(x.vendor) + " · " + x.list.length + " books · " + money(x.total) + "</div>" + x.list.map((r) => row(r, money(r.buyback_price))).join("");
+      });
+    } else {
+      h += printRow(k, PILE_NAME[k].toLowerCase() + " list");
+      h += list.map((r) => row(r, k === "LIST" ? money(r.list_price) : r.list_price != null ? '<span class="s" style="font-weight:600">list </span>' + money(r.list_price) : "")).join("");
+    }
+    h += "</div>";
+  });
+  $("pilelist").innerHTML = h + "</div>";
+  wirePick();
+  $("pilelist").querySelectorAll("[data-vendor]").forEach((b) => { b.onclick = () => {
+    const v = b.dataset.vendor, i = sellVendors.indexOf(v);
+    if (!v) sellVendors = []; else if (i === -1) sellVendors.push(v); else sellVendors.splice(i, 1);
+    drawPiles(); }; });
+  $("pilelist").querySelectorAll("[data-only]").forEach((b) => { b.onclick = () => { pileOnly = b.dataset.only; drawPiles(); }; });
+  $("pilelist").querySelectorAll("[data-print]").forEach((b) => { b.onclick = () => printPile(b.dataset.print); });
+  $("pilelist").querySelectorAll("[data-save]").forEach((b) => { b.onclick = () => savePile(b.dataset.save); });
+  $("pilelist").querySelectorAll("[data-mv]").forEach((b) => { b.onclick = async () => {
+    b.disabled = true; b.textContent = "Moving…";
+    try { await scout({ action: "pile", id: Number(b.dataset.id), pile: b.dataset.mv }); toast("Moved to " + PILE_NAME[b.dataset.mv]); $("piles-show").click(); }
+    catch (e) { b.disabled = false; b.textContent = PILE_NAME[b.dataset.mv]; toast("Couldn't move it. Try again."); }
+  }; });
+}
+function wirePick(){ if ($("lotpick")) $("lotpick").onchange = (e) => { sellVendors = []; useLot(e.target.value); }; }
+
+$("piles-show").addEventListener("pointerdown", () => { pileOnly = ""; });
+$("piles-show").onclick = async () => {
+  $("pilelist").innerHTML = '<div class="card"><span class="spin" style="color:var(--accent)"></span>&nbsp; Loading the pile list…</div>';
+  try {
+    try { lots = await lotsCall(); } catch (e) {}
+    pickHtml = lots.length > 1 || (lots.length === 1 && lots[0].batch !== batch)
+      ? '<label class="label" for="lotpick" style="display:block;margin-bottom:4px">Showing lot</label><select class="in" id="lotpick" style="margin-bottom:10px">' +
+        (lots.some((l) => l.batch === batch) ? "" : '<option value="' + esc(batch) + '" selected>' + esc(batch) + " · 0 books</option>") +
+        lots.map((l) => '<option value="' + esc(l.batch) + '"' + (l.batch === batch ? " selected" : "") + ">" + esc(l.batch) + " · " + l.n + " books</option>").join("") + "</select>" : "";
+    let d;
+    try {
+      const pr = await mcp.callTool(SUPA, "execute_sql", { project_id: PROJECT, query: "select pipeline.scout_piles('" + String(batch).replace(/'/g, "''") + "') as r" }, { cache: false });
+      const rr = sqlRows(pr); d = (rr[0] && rr[0].r) || { rows: [] };
+    } catch (e) { d = await scout({ action: "piles", batch }); }
+    pileRows = d.rows || [];
+    PILES.forEach((k) => { tally[k] = pileRows.filter((r) => r.pile === k).length; }); drawTally();
+    drawPiles();
+  } catch (e) { $("pilelist").innerHTML = '<div class="notice bad">' + (e && e.code ? explain(e) : esc(e.message || e)) + "</div>"; }
+};
+$("cam3").onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f || cleanBusy) return;
+  cleanBusy = true; $("cleantxt").textContent = "Checking…";
+  $("clout").innerHTML = '<div class="verdict WORK"><div class="r" style="font-size:1.05rem"><span class="spin"></span>&nbsp; Reading the book and checking eBay…</div></div>';
+  try {
+    cleanImg = await shrink(f, 1100); cleanShots = [cleanImg];
+    cleanLast = await scout({ action: "evaluate", mode: "cleanup", batch, images: imgsOf(cleanShots), store: "", cost: 0 });
+    cleanPile = null;
+    if (PILES.indexOf(cleanLast.verdict) !== -1) setPile(cleanLast.verdict, false);
+    drawClean();
+  } catch (err) {
+    $("clout").innerHTML = '<div class="verdict PASS"><div class="v" style="font-size:1.5rem">Couldn\'t check</div><div class="r">' + (err && err.code ? explain(err) : esc(err.message || err)) + "</div></div>";
+  }
+  cleanBusy = false; $("cleantxt").textContent = "Scan new book";
+};
+$("cam3add").onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f || cleanBusy || !cleanShots.length) return;
+  cleanBusy = true; $("cleantxt").textContent = "Checking…";
+  $("clout").innerHTML = '<div class="verdict WORK"><div class="r" style="font-size:1.05rem"><span class="spin"></span>&nbsp; Re-reading with ' + (cleanShots.length + 1) + ' photos…</div></div>';
+  try {
+    cleanShots.push(await shrink(f, 900));
+    // re-check replaces this book's pile row rather than adding a second one
+    if (cleanLast && cleanLast.pile_id) await scout({ action: "pile_delete", id: cleanLast.pile_id }).catch(() => null);
+    cleanLast = await scout({ action: "evaluate", mode: "cleanup", batch, images: imgsOf(cleanShots), store: "", cost: 0 });
+    cleanPile = null;
+    if (PILES.indexOf(cleanLast.verdict) !== -1) setPile(cleanLast.verdict, false);
+    drawClean();
+  } catch (err) {
+    cleanShots.pop();
+    $("clout").innerHTML = '<div class="verdict PASS"><div class="v" style="font-size:1.5rem">Couldn\'t check</div><div class="r">' + (err && err.code ? explain(err) : esc(err.message || err)) + "</div></div>";
+  }
+  cleanBusy = false; $("cleantxt").textContent = "Scan new book";
+};
+$("isbnform3").onsubmit = async (e) => {
+  e.preventDefault(); const inp = $("isbn3"), isbn = cleanIsbn(inp.value);
+  if (cleanBusy) return; if (isbn.length !== 10 && isbn.length !== 13) { toast("An ISBN is 10 or 13 digits"); inp.select(); return; }
+  cleanBusy = true; inp.value = ""; $("cleantxt").textContent = "Checking…";
+  $("clout").innerHTML = '<div class="verdict WORK"><div class="r" style="font-size:1.05rem"><span class="spin"></span>&nbsp; Looking up ' + esc(isbn) + ' and checking eBay…</div></div>';
+  try {
+    cleanLast = await scout({ action: "evaluate", mode: "cleanup", batch, isbn, store: "", cost: 0 });
+    cleanImg = null; cleanShots = []; cleanPile = null;
+    if (PILES.indexOf(cleanLast.verdict) !== -1) setPile(cleanLast.verdict, false);
+    drawClean();
+  } catch (err) {
+    $("clout").innerHTML = '<div class="verdict PASS"><div class="v" style="font-size:1.5rem">Couldn\'t check</div><div class="r">' + (err && err.code ? explain(err) : esc(err.message || err)) + "</div></div>";
+  }
+  cleanBusy = false; $("cleantxt").textContent = "Scan new book"; if (desk()) inp.focus();
+};
+
+function drawClean(){
+  const d = cleanLast, id = d.ident || {}, bb = d.buyback || {};
+  const shown = cleanPile || d.verdict;
+  const onEbay = !d.source || d.source === "ebay";
+  const canPile = d.verdict !== "RETAKE";
+  let h = '<div class="verdict ' + esc(shown) + '"><div class="v">' + esc((PILE_NAME[shown] || shown).toUpperCase()) + '</div><div class="r">' +
+    esc(shown === d.verdict ? d.reason : "You moved it here. The app suggested " + (PILE_NAME[d.verdict] || d.verdict) + ".") + "</div></div>";
+  if (canPile) {
+    h += '<div class="card"><span class="label">Which pile? Tap to change</span><div class="pilepick" role="group" aria-label="Pile">' +
+      PILES.map((k) => '<button type="button" data-pile="' + k + '" aria-pressed="' + (k === shown) + '">' + (k === shown ? "✓ " : "") + PILE_NAME[k].toUpperCase() + "</button>").join("") + "</div>" +
+      '<div class="savedline' + (pileSaved === "error" ? " err" : "") + '">' +
+      (pileSaved === "saving" ? "Saving…" : pileSaved === "error" ? "Not saved. Tap a pile again." : "✓ Saved to the " + esc(PILE_NAME[shown] || shown) + " pile") + "</div>" +
+      (cleanShots.length || !desk() ? '<label class="scan" for="cam3" style="margin-top:12px;font-size:1.15rem;padding:16px">Next book →</label>' : '<div class="hint" style="margin-top:10px">Scan the next ISBN whenever you\'re ready.</div>') + "</div>";
+  }
+  h += '<div class="card"><div class="book">' + coverImg(cleanImg) + '<div><div class="t">' + esc(id.title || "Couldn't read the title") + '</div><div class="a">' +
+       esc([id.author, id.format, id.year].filter(Boolean).join(" · ")) + "</div>" + (id.isbn ? '<div class="a mono">ISBN ' + esc(id.isbn) + "</div>" : "") + "</div></div>" + shotsRow(cleanShots, "cam3add");
+  if (canPile) h += '<div class="nums"><div class="num"><b>' + money(d.list) + '</b><span>List at</span></div><div class="num"><b>' + (bb.price > 0 ? money(bb.price) : "—") +
+       '</b><span>Buyback</span></div><div class="num"><b>' + (onEbay ? (d.soldN || 0) : "—") + "</b><span>Sold</span></div></div>";
+  if (canPile) h += gridHtml(d);
+  if (bb.price > 0) h += '<div class="line">Best buyback: ' + esc(bb.vendor) + " " + money(bb.price) + ((bb.others || []).length ? " · also " + bb.others.map((o) => esc(o.vendor) + " " + money(o.price)).join(", ") : "") + "</div>";
+  (d.flags || []).forEach((x) => { if (!gridDup(d, x)) h += '<div class="line">• ' + esc(x) + "</div>"; });
+  h += "</div>";
+  $("clout").innerHTML = h;
+  $("clout").querySelectorAll("[data-pile]").forEach((b) => { b.onclick = () => { if (b.dataset.pile === cleanPile && pileSaved === "saved") return; setPile(b.dataset.pile, true); drawClean(); }; });
+}
+drawTally();
+
+// ---------- shelf: read every spine, check each one, say which to pull ----------
+let shelves = [], shelfBusy = false, shelfQ = [], shelfActive = 0, shelfSel = null, shelfNotes = [];
+const ORD = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
+const shelfName = (sh) => "Shelf " + sh.shelf + (shelves.length > 1 && sh.shelf === 1 ? " (top)" : shelves.length > 1 && sh.shelf === shelves.length ? " (bottom)" : "");
+const bookName = (b) => b && b.title ? "“" + b.title + "”" : "an unreadable spine" + (b && b.look ? " (" + b.look + ")" : "");
+function whereIs(sh, b){
+  const n = sh.books.length, fromLeft = b.pos <= Math.ceil(n / 2);
+  const k = fromLeft ? b.pos : n - b.pos + 1;
+  const anchor = fromLeft ? sh.books[0] : sh.books[n - 1];
+  const prev = sh.books[b.pos - 2], next = sh.books[b.pos];
+  let t = shelfName(sh) + " · " + ORD(k) + " from the " + (fromLeft ? "left" : "right") + " of " + n + ".";
+  if (k > 1) t += " Count from " + bookName(anchor) + " on the far " + (fromLeft ? "left" : "right") + ".";
+  const nb = [prev, next].filter(Boolean).map(bookName);
+  if (nb.length) t += " Sits " + (nb.length === 2 ? "between " + nb[0] + " and " + nb[1] : "next to " + nb[0]) + ".";
+  return t;
+}
+const tone = (b) => b.state === "wait" ? "wait" : b.state === "skip" ? "skip" : !b.res ? "wait" : b.res.verdict === "BUY" ? "pull" : b.res.verdict === "CHECK" ? "maybe" : "pass";
+function drawShelf(){
+  if (!shelves.length) { $("shout").innerHTML = ""; return; }
+  const all = shelves.flatMap((sh) => sh.books.map((b) => ({ sh, b })));
+  const todo = all.filter((x) => x.b.state !== "skip"), done = todo.filter((x) => x.b.res || x.b.state === "err").length;
+  const pulls = all.filter((x) => x.b.res && (x.b.res.verdict === "BUY" || x.b.res.verdict === "CHECK"))
+    .sort((a, b) => (a.b.res.verdict === "BUY" ? 0 : 1) - (b.b.res.verdict === "BUY" ? 0 : 1) || (b.b.res.list || 0) - (a.b.res.list || 0));
+  let h = '<div class="card"><div class="shstat">' + (done < todo.length ? '<span class="spin" style="color:var(--accent)"></span>&nbsp; Checking prices: ' + done + " of " + todo.length : "✓ Checked " + todo.length + " books") +
+    " · " + all.length + " spines on " + shelves.length + " shel" + (shelves.length > 1 ? "ves" : "f") + "</div>" +
+    (shelfNotes.length ? '<div class="hint">' + esc(shelfNotes.join(" · ")) + "</div>" : "") +
+    '<div class="shleg"><span class="sp pull">Pull</span><span class="sp maybe">Maybe</span><span class="sp pass">Pass</span><span class="sp skip">Can\'t read</span></div>';
+  shelves.forEach((sh) => {
+    h += '<div class="shrow"><div class="label">' + esc(shelfName(sh)) + " · " + sh.books.length + ' books · left → right</div><div class="spines">' +
+      sh.books.map((b) => '<button type="button" class="sp ' + tone(b) + (shelfSel === sh.shelf + "-" + b.pos ? " sel" : "") + '" data-sp="' + sh.shelf + "-" + b.pos + '" aria-label="' + esc(ORD(b.pos) + " from left: " + (b.title || "unreadable")) + '">' + b.pos + "</button>").join("") + "</div></div>";
+  });
+  h += '<label class="addshot" for="cam4add" style="margin-top:12px">＋ Add another shelf photo</label></div>';
+  if (shelfSel) {
+    const [si, pi] = shelfSel.split("-").map(Number), sh = shelves.find((x) => x.shelf === si), b = sh && sh.books[pi - 1];
+    if (b) h += '<div class="card"><div class="tt" style="font-weight:700">' + esc(b.title || "Can't read this spine") + "</div>" + (b.author ? '<div class="hint">' + esc(b.author) + "</div>" : "") +
+      '<div class="hint" style="margin-top:4px">' + esc(whereIs(sh, b)) + "</div>" +
+      (b.res ? '<div class="line"><b>' + esc(b.res.verdict) + "</b> · " + esc(b.res.reason || "") + (b.res.list != null ? " · list " + money(b.res.list) : "") + "</div>" : b.state === "skip" ? '<div class="line">Too hard to read. Pull it and scan the barcode if it looks interesting.</div>' : '<div class="line">Still checking…</div>') + "</div>";
+  }
+  h += '<div class="card"><span class="label">Pull these (' + pulls.length + ")</span>" +
+    (pulls.length ? pulls.map((x) => '<div class="bk pullcard ' + (x.b.res.verdict === "BUY" ? "pull" : "maybe") + '"><div class="bkt"><div><div class="tt">' + esc(x.b.title) + '</div><div class="s">' + esc(x.b.author || "") + '</div></div><b class="mono">' + money(x.b.res.list) + "</b></div>" +
+      '<div class="loc">' + esc(whereIs(x.sh, x.b)) + "</div>" +
+      '<div class="px">' + (x.b.res.verdict === "BUY" ? "Looks like a buy. " : "Maybe. ") + esc(x.b.res.reason || "") + (x.b.readable === "partial" ? " (spine only partly readable)" : "") + "</div></div>").join("") +
+      '<div class="hint" style="margin-top:8px">Read from the spine only. Pull it, then scan the barcode on the Scout tab for the exact edition and price.</div>'
+      : '<div class="hint">' + (done < todo.length ? "Nothing yet. Still checking…" : "Nothing worth pulling on " + (shelves.length > 1 ? "these shelves" : "this shelf") + ".") + "</div>") + "</div>";
+  $("shout").innerHTML = h;
+  $("shout").querySelectorAll("[data-sp]").forEach((el) => { el.onclick = () => { shelfSel = shelfSel === el.dataset.sp ? null : el.dataset.sp; drawShelf(); }; });
+}
+function shelfPump(){
+  while (shelfActive < 3 && shelfQ.length) {
+    const b = shelfQ.shift(); shelfActive++;
+    const surname = (b.author || "").split(/[;,&]| and /)[0].trim().split(" ").pop() || "";
+    const ident = { title: b.title, author: b.author, format: b.format, weight_lb: /hard/i.test(b.format) ? 2 : 1, confidence: b.readable === "partial" ? "low" : "medium",
+      search: (b.title + " " + surname).replace(/[^\w\s'-]/g, " ").replace(/\s+/g, " ").trim(), family_friendly: true };
+    const c = bookCost();
+    scout({ action: "evaluate", quick: true, ident, store: trip ? trip.store : "", cost: c !== "" ? c : 2 })
+      .then((r) => { b.res = r; b.state = "done"; }).catch(() => { b.state = "err"; b.res = { verdict: "PASS", reason: "Couldn't check this one" }; })
+      .finally(() => { shelfActive--; drawShelf(); shelfPump(); });
+  }
+}
+async function readShelf(f, append){
+  if (shelfBusy) return;
+  shelfBusy = true; $("shelftxt").textContent = "Reading spines…";
+  if (!append) { shelves = []; shelfQ = []; shelfSel = null; shelfNotes = []; }
+  const keep = $("shout").innerHTML;
+  $("shout").innerHTML = '<div class="verdict WORK"><div class="r" style="font-size:1.05rem"><span class="spin"></span>&nbsp; Reading every spine… this takes about 20 to 40 seconds</div></div>' + (append ? keep : "");
+  try {
+    const img = await shrink(f, 1800);
+    const d = await scout({ action: "shelf", images: [{ data: img, mt: "image/jpeg" }] });
+    const base = shelves.length;
+    (d.shelves || []).forEach((sh, i) => {
+      const books = (sh.books || []).map((b, k) => ({ ...b, pos: k + 1, state: (b.readable === "no" || !b.title || b.title.length < 3) ? "skip" : "wait" }));
+      if (books.length) shelves.push({ shelf: base + i + 1, books });
+    });
+    if (d.notes) shelfNotes.push(d.notes);
+    if (!shelves.length) { $("shout").innerHTML = '<div class="verdict PASS"><div class="v" style="font-size:1.5rem">Couldn\'t read it</div><div class="r">Get a little closer, straight on, and avoid glare.</div></div>'; }
+    else {
+      shelves.slice(base).forEach((sh) => sh.books.forEach((b) => { if (b.state === "wait") shelfQ.push(b); }));
+      drawShelf(); shelfPump();
+    }
+  } catch (err) {
+    $("shout").innerHTML = '<div class="verdict PASS"><div class="v" style="font-size:1.5rem">Couldn\'t read it</div><div class="r">' + (err && err.code ? explain(err) : esc(err.message || err)) + "</div></div>" + (append ? keep : "");
+  }
+  shelfBusy = false; $("shelftxt").textContent = "Photo of 1 or 2 shelves";
+}
+$("cam4").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) readShelf(f, false); };
+$("cam4add").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) readShelf(f, true); };
+
+// ---------- trips ----------
+async function tripsCall(req){
+  if (!mcp) throw { code: "not_granted" };
+  const r = await mcp.callTool(SUPA, "execute_sql", { project_id: PROJECT, query: "select pipeline.scout_trips(" + jsonLit(req) + ") as r" }, { cache: false });
+  const rows = sqlRows(r); return (rows[0] && rows[0].r) || [];
+}
+async function loadTrips(){
+  $("tripsout").innerHTML = '<div class="card"><span class="spin" style="color:var(--accent)"></span>&nbsp; Loading trips…</div>';
+  try {
+    const t = await tripsCall({});
+    if (!t.length) { $("tripsout").innerHTML = '<div class="card hint">No trips yet. Books you tap Bought on show up here, grouped by trip.</div>'; return; }
+    $("tripsout").innerHTML = t.map((x, i) => '<button class="card" type="button" data-trip="' + i + '" style="width:100%;text-align:left;display:block;cursor:pointer">' +
+      '<div class="trip"><div><div class="t">' + esc([x.store, x.location].filter(Boolean).join(" · ") || x.trip) + '</div><div class="s">' + esc(x.date) + "</div></div>" +
+      '<div style="text-align:right"><div class="mono" style="font-weight:600">' + x.books + " book" + (x.books == 1 ? "" : "s") + '</div><div class="s">paid ' + money(x.cost) + " · list " + money(x.list) + "</div></div></div></button>").join("");
+    $("tripsout").querySelectorAll("[data-trip]").forEach((b) => { b.onclick = () => openTrip(t[Number(b.dataset.trip)]); });
+  } catch (e) { $("tripsout").innerHTML = '<div class="notice bad">' + (e && e.code ? explain(e) : esc(e.message || e)) + "</div>"; }
+}
+async function openTrip(x){
+  $("tripsout").innerHTML = '<div class="card"><span class="spin" style="color:var(--accent)"></span>&nbsp; Loading ' + esc(x.trip) + "…</div>";
+  try {
+    const rows = await tripsCall({ trip: x.trip });
+    let h = '<button class="btn" id="trips-back" type="button" style="margin-top:14px">← All trips</button>' +
+      '<div class="card"><div class="t" style="font-family:var(--display);font-weight:700;font-size:1.1rem">' + esc([x.store, x.location].filter(Boolean).join(" · ")) + '</div>' +
+      '<div class="hint">' + esc(x.date) + " · " + x.books + " books · paid " + money(x.cost) + " · list " + money(x.list) + " · profit " + money((x.list || 0) - (x.cost || 0)) + "</div>";
+    h += rows.map((r) => '<div class="match">' + (r.photo ? '<img alt="" src="' + esc(r.photo) + '">' : "") + '<div style="flex:1;min-width:0"><b>' + esc(r.title) + "</b>" +
+      '<div class="hint">' + esc([r.author, r.isbn].filter(Boolean).join(" · ")) + "</div>" +
+      '<div class="hint">' + (r.copies > 1 ? r.copies + " copies · " : "") + "paid " + money(r.cost) + " · list " + money(r.list) + (r.pd ? " · " + esc(r.pd) : "") + (r.listed ? " · listed" : "") + "</div></div></div>").join("");
+    $("tripsout").innerHTML = h + "</div>";
+    $("trips-back").onclick = loadTrips;
+  } catch (e) { $("tripsout").innerHTML = '<div class="notice bad">' + (e && e.code ? explain(e) : esc(e.message || e)) + "</div>"; }
+}
+$("trips-refresh").onclick = loadTrips;
+
+// ---------- check ----------
+$("cam2").onchange = async (e) => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; doCheck({ image: await shrink(f, 1100), mt: "image/jpeg" }); };
+$("isbn-go").onclick = () => {
+  const v = $("isbn").value.trim(); if (!v) return;
+  const dg = v.replace(/[^0-9Xx]/g, "");
+  doCheck(dg.length === 10 || dg.length === 13 ? { isbn: dg } : { title: v });
+};
+async function doCheck(body){
+  $("cout").innerHTML = '<div class="card"><span class="spin" style="color:var(--accent)"></span>&nbsp; Looking it up…</div>';
+  try {
+    const d = await scout(Object.assign({ action: "lookup" }, body));
+    const id = d.ident || {}, m = d.matches || [];
+    if (!m.length) { $("cout").innerHTML = '<div class="card"><div class="where">Not in Scout Buys</div><div class="hint" style="margin-top:4px">' +
+        esc(d.note || [id.title, id.isbn && "ISBN " + id.isbn].filter(Boolean).join(" · ")) + '</div><div class="hint" style="margin-top:6px">Bought before Scout, or logged under a different title.</div></div>'; return; }
+    const top = m[0];
+    $("cout").innerHTML = '<div class="card"><span class="label">' + (top.isbn_match ? "Matched by ISBN" : "Matched by title, double-check") + "</span>" +
+      '<div class="where">' + esc(top.store || "?") + (top.location ? " " + esc(top.location) : "") + " · " + money(top.cost) + "</div>" +
+      '<div class="hint" style="margin-top:2px">Bought ' + esc(top.date) + (top.copies > 1 ? " · " + top.copies + " copies" : "") + (top.list ? " · list target " + money(top.list) : "") + (top.pd ? " · " + esc(top.pd) : "") + "</div>" +
+      '<div style="margin-top:10px">' + m.map((x) => '<div class="match">' + (x.photo ? '<img alt="" src="' + esc(x.photo) + '">' : "") + "<div><b>" + esc(x.title) + '</b><div class="hint">' +
+        esc(x.date) + " · " + esc(x.store) + (x.location ? " " + esc(x.location) : "") + " · " + money(x.cost) + (x.listed ? " · listed" : "") + "</div></div></div>").join("") + "</div></div>";
+  } catch (e) {
+    $("cout").innerHTML = '<div class="notice bad">' + (e && e.code ? explain(e) : esc(e.message || e)) + "</div>";
+  }
+}
+
+// ---------- start ----------
+drawTrip();
+{ const m = store.get("scout_mode", "scout"); mode(["scout", "shelf", "check"].indexOf(m) !== -1 ? m : "scout"); }
+if (window.claude && window.claude.use) {
+  window.claude.use("mcp").then((x) => {
+    mcp = x;
+    if (mcp && !$("trips").hidden) loadTrips();
+    if (mcp) syncLot();
+    if (!mcp) notice("warn", "<b>This view can't reach your cloud.</b> Open the page in the Claude app or at claude.ai while signed in.");
+  });
+} else {
+  notice("warn", "<b>This view can't reach your cloud.</b> Open the page in the Claude app or at claude.ai while signed in.");
+}
+})();
+</script>
+
+</body></html>
