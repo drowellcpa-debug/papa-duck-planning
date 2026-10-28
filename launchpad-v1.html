@@ -763,16 +763,22 @@ Use your tools to look things up before answering about tonight. Keep answers sh
 }
 
 // ---------- refresh loop ----------
+// 2026-10-28: a stuck connector call used to freeze the page (busy never cleared). Each refresh now gives up after 25 s,
+// and a watchdog restarts the loop if nothing has refreshed for 45 s. Papa Duck: "it not auto refreshing".
+let lastOk = Date.now();
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("The cloud took too long. Trying again…")), ms))]);
+setInterval(() => { if (mcp && Date.now() - lastOk > 45000) { busy = false; refresh(true); } }, 15000);
 async function refresh(force) {
   if (!mcp || (busy && !force)) return;
   busy = true;
   try {
-    const rows = await q(`with nn as (select max(id) id from pipeline.launch_nights where status not like 'dry%')
+    const rows = await withTimeout(q(`with nn as (select max(id) id from pipeline.launch_nights where status not like 'dry%')
       select pipeline.launch_state() as s, pipeline.dispatch_status(40) as j,
         (select result from pipeline.launch_verify v, nn where v.night_id = nn.id) as v,
         (select pipeline.launch_gaps(nn.id) from nn) as g,
         (select jsonb_agg(jsonb_build_object('ch', c.channel, 'pd', c.pd, 'st', c.state, 'd', c.detail, 'at', c.checked_at) order by c.pd) from pipeline.launch_live_check c, nn where c.night_id = nn.id) as lc,
-        pipeline.week_board() as w, pipeline.to_ship() as ts, pipeline.alerts_open() as al`);
+        pipeline.week_board() as w, pipeline.to_ship() as ts, pipeline.alerts_open() as al`), 25000);
+    lastOk = Date.now();
     st = (rows[0] && rows[0].s) || null; jobs = (rows[0] && rows[0].j) || [];
     if (rows[0] && rows[0].w) week = rows[0].w;
     if (rows[0] && rows[0].ts) toShip = rows[0].ts;
