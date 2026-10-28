@@ -238,7 +238,7 @@ function weekCard() {
   if (!w) return `<section class="card" aria-label="This week"><h2>📦 This week</h2><p class="muted" style="margin:0">Loading…</p></section>`;
   const boxes = w.boxes || [], don = w.donate || [];
   if (!weekTab || (weekTab !== "donate" && !boxes.some((b) => "box" + b.box === weekTab))) weekTab = boxes.length ? "box" + boxes[0].box : "donate";
-  const tabs = `<div class="tabs" role="tablist">${boxes.map((b) => `<button role="tab" data-wtab="box${b.box}" aria-selected="${weekTab === "box" + b.box}">📦 Box ${esc(b.box)} · ${b.books.filter((x) => x.printed).length} of ${b.books.length} printed</button>`).join("")}
+  const tabs = `<div class="tabs" role="tablist">${boxes.map((b) => `<button role="tab" data-wtab="box${b.box}" aria-selected="${weekTab === "box" + b.box}">📦 Box #${esc(b.box)} · ${b.books.filter((x) => x.printed).length} of ${b.books.length} printed</button>`).join("")}
     <button role="tab" data-wtab="donate" aria-selected="${weekTab === "donate"}">🎁 Donate · ${don.filter((x) => x.cleared).length} of ${don.length} cleared</button></div>`;
   const isFba = weekTab !== "donate", bx = isFba ? boxes.find((b) => "box" + b.box === weekTab) : null;
   const list = isFba ? (bx ? bx.books : []) : don;
@@ -246,8 +246,9 @@ function weekCard() {
     const armed = weekArm === x.id;
     let cls = "", state = "", tap = true;
     if (isFba) {
-      if (x.printed && x.cleared) { cls = x.clear_state === "problem" ? "bad" : "cleared"; state = x.clear_state === "problem" ? "⚠️ needs a look" : "✓ committed"; tap = false; }
-      else if (x.printed) { cls = "clearing"; state = "⏳ clearing stores…"; tap = false; }
+      if (x.printed && x.cleared && x.clear_state === "problem") { cls = "bad"; state = "⚠️ needs a look"; tap = false; }
+      else if (x.printed && x.cleared && x.at_ok) { cls = "cleared"; state = "✓ printed · verified"; tap = false; }
+      else if (x.printed) { cls = "clearing"; state = "⏳ printed · clearing stores"; tap = false; }
       else if (x.print_pending) { cls = "clearing"; state = "🖨 printing…"; tap = false; }
       else if (x.sticker === "error") { cls = "bad"; state = "⚠️ sticker problem"; tap = false; }
       else if (!x.fnsku) { state = "⏳ making sticker"; tap = false; }
@@ -259,16 +260,19 @@ function weekCard() {
       else if (armed) { cls = "armed"; state = "Tap again to clear"; }
     }
     return `<button class="sq ${cls}" data-wsq="${x.id}" ${tap ? "" : "disabled"} aria-label="${esc(x.pd + " " + (x.title || "") + ". " + (state || "Tap to check off"))}">
-        <span class="pdn">${esc(x.pd)}</span><span class="tt">${esc(x.title || "")}</span>
+        <span class="pdn">${esc(x.pd)}</span><span class="tt">${esc(x.title || "")}</span>${isFba && x.printed ? storeChecks(x) : ""}
         <span class="meta"><span>${Number(x.lb || 0).toFixed(1)} lb</span><span>${esc(state)}</span></span></button>`;
   };
+  // one mark per store: ✓ verified off / ⏳ working / ✗ failed (eBay and Etsy are read back after ending; AbeBooks confirms the delete)
+  const storeChecks = (x) => { const c = x.clear || {}, m = (v) => !v ? "⏳" : /FAILED/.test(v) ? "✗" : "✓";
+    return `<span style="font-size:.78rem">eBay ${m(c.ebay)} Abe ${m(c.abe)} Etsy ${m(c.etsy)} Airtable ${x.at_ok ? "✓" : "⏳"}</span>`; };
   let head = "";
   if (isFba && bx) {
     const extra = bx.extra || [], lb = list.reduce((a, x) => a + Number(x.lb || 0), 0) + extra.reduce((a, x) => a + Number(x.lb || 0), 0);
     const ready = list.filter((x) => x.fnsku && !x.printed && !x.print_pending && x.sticker !== "error").length;
     const making = list.filter((x) => !x.fnsku && x.sticker !== "error").length;
     const pOn = w.printer && w.printer_age != null && w.printer_age < 120;
-    head = `<div class="row" style="justify-content:space-between"><b>Box ${esc(bx.box)} · ${lb.toFixed(1)} of 40 lb</b>
+    head = `<div class="row" style="justify-content:space-between"><b>Box #${esc(bx.box)} · ${lb.toFixed(1)} of 40 lb</b>
         <span class="muted" style="font-size:.9rem">${extra.length ? "Already in the box: " + extra.map((e) => esc(e.pd)).join(", ") : ""}</span></div>
       <div class="boxbar" role="img" aria-label="${lb.toFixed(1)} of 40 pounds"><i style="width:${Math.min(100, lb / 40 * 100)}%"></i></div>
       <div class="row"><button id="wprint" data-box="${esc(bx.box)}" ${ready ? "" : "disabled"}>${weekPrintArm === bx.box ? `Tap again: print ${ready} and commit them` : `🖨 Print all stickers${ready ? ` (${ready} ready)` : ""}`}</button>
@@ -289,7 +293,19 @@ function weekCard() {
     <div class="board">${list.map(sq).join("") || '<p class="muted">Getting the next books ready…</p>'}</div>
     ${probTxt ? `<div class="notice bad" style="font-weight:400"><b>Needs a look:</b><br>${probTxt}</div>` : ""}
     <p class="muted" style="margin:0;font-size:.88rem">${foot}</p>
+    ${isFba ? boxHistory(w.history || []) : ""}
   </section>`;
+}
+// every box ever made, newest first: Box # · books · printed · verified off the other stores · weight · value · shipped
+function boxHistory(h) {
+  if (!h.length) return "";
+  const d = (t) => t ? new Date(t).toLocaleDateString([], { month: "short", day: "numeric" }) : "";
+  return `<details><summary style="cursor:pointer;font-weight:700">📋 All boxes (${h.length})</summary>
+    <div style="display:grid;grid-template-columns:auto repeat(4,minmax(0,1fr));gap:4px 12px;font-size:.92rem;margin-top:8px">
+      <span class="muted">Box</span><span class="muted">Books</span><span class="muted">Printed · verified</span><span class="muted">lb · value</span><span class="muted">Status</span>
+      ${h.map((b) => `<b>#${esc(b.box)}</b><span>${b.books}</span><span>${b.printed} · ${b.verified === b.books && b.books ? "✅ " : ""}${b.verified}</span>
+        <span>${Number(b.lb || 0).toFixed(1)} · ${money(b.value)}</span><span>${b.shipped ? "🚚 shipped " + d(b.shipped) : b.printed === b.books && b.books ? "📦 packed" : "packing · started " + d(b.opened)}</span>`).join("")}
+    </div></details>`;
 }
 async function weekTap(id) {
   if (weekArm !== id) { weekArm = id; clearTimeout(weekArmT); weekArmT = setTimeout(() => { weekArm = null; render(); }, 6000); return render(); }
