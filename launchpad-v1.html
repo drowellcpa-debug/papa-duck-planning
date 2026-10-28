@@ -144,7 +144,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
 let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false, note = null, showPd = false;
 let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false, hist = null, histSel = null, histAt = 0;
-let week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null, boxHistOpen = false, showIsbn = "", bbListOpen = false;
+let toShip = [], shipArm = null, week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null, boxHistOpen = false, showIsbn = "", bbListOpen = false;
 const chatTurns = [];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -198,7 +198,7 @@ function render() {
   if (!n) {
     $("nightline").textContent = "No blast off waiting";
     box.innerHTML = h + `<section class="card"><h2>Nothing waiting yet</h2><p class="muted" style="margin:0">When tonight's books are ready, press the button. I gather everything in Sent, ask you anything I need, then build the files.</p>
-      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + weekCard() + historyCard();
+      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + shipCard() + weekCard() + historyCard();
     wire(); return;
   }
   const qs = st.questions || [], rc = st.reconsider || [];
@@ -233,7 +233,7 @@ function render() {
   // 4) send, one step at a time
   if (n.status === "ready_to_send") h += sendCard() + verifyCard();
   if (n.status === "dry_built") h += `<section class="card"><h2>Test run finished</h2><p style="margin:0">The test files were built and checked. Nothing was sent.</p></section>`;
-  h += weekCard() + historyCard();
+  h += shipCard() + weekCard() + historyCard();
   box.innerHTML = h;
   wire();
 }
@@ -243,6 +243,25 @@ function render() {
 // come up ready to go" · "I want fba ready before I even sit down so I can just print labels and pack the box".
 // Tap a square once = "tap again to clear"; second tap = his OK for that book (the cloud ends it on the other stores).
 const DUCK = `<svg class="hop" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="13" r="8" fill="#F2C230"/><path d="M22.5 13 L29 14.8 L22.5 16.6 Z" fill="#E07A2E"/><circle cx="18.5" cy="11.2" r="1.4" fill="#1D2420"/><path d="M6 23.5 C10 29.5 22 29.5 26 23.5 C22 21.5 10 21.5 6 23.5 Z" fill="#F2C230"/></svg>`;
+// ---------- 📬 To ship: every sale the cloud caught (checked every 5 minutes), AbeBooks first - "flag me that we have a abe book sale so we dont miss it" ----------
+function shipCard() {
+  if (!toShip.length) return "";
+  const names = { ebay: "eBay", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
+  const list = [...toShip].sort((a, b) => (a.channel === "abe" ? 0 : 1) - (b.channel === "abe" ? 0 : 1));
+  const abe = list.filter((x) => x.channel === "abe").length;
+  return `<section class="card ask" aria-label="To ship">
+    <h2>📬 To ship · ${list.length} sale${list.length === 1 ? "" : "s"}${abe ? ` · <span style="color:var(--yellow-ink)">${abe} AbeBooks</span>` : ""}</h2>
+    ${list.map((x) => `<div class="row" style="justify-content:space-between;border:${x.channel === "abe" ? "2px solid var(--yellow)" : "1px solid var(--line)"};background:${x.channel === "abe" ? "var(--yellow-bg)" : "transparent"};border-radius:10px;padding:8px 12px">
+        <span><b class="mono">${esc(x.pd)}</b> ${esc(x.title || "")}<br><span class="muted" style="font-size:.9rem">${x.channel === "abe" ? "📦 " : ""}${names[x.channel] || esc(x.channel)} · ${money(x.price)} · ${esc(x.date || "")}${x.order ? " · order " + esc(x.order) : ""}</span></span>
+        <button class="${shipArm === x.key ? "" : "ghost"}" data-ship="${esc(x.key)}">${shipArm === x.key ? "Tap again: shipped" : "✓ Shipped"}</button></div>`).join("")}
+    <p class="muted" style="margin:0;font-size:.86rem">The cloud already took each book off your other stores and logged it in Airtable. Tap ✓ Shipped twice once it's in the mail.</p></section>`;
+}
+async function shipTap(key) {
+  if (shipArm !== key) { shipArm = key; setTimeout(() => { if (shipArm === key) { shipArm = null; render(); } }, 6000); return render(); }
+  shipArm = null;
+  try { const r = await call(`select pipeline.mark_shipped(${lit(key)}) as r`); if (r) toShip = r; } catch (e) { showError(e); }
+  render();
+}
 function weekCard() {
   const w = week;
   if (!w) return `<section class="card" aria-label="This week"><h2>📦 This week</h2><p class="muted" style="margin:0">Loading…</p></section>`;
@@ -625,6 +644,7 @@ function wire() {
   document.querySelectorAll("[data-wsq]").forEach((b) => b.onclick = () => weekTap(+b.dataset.wsq));
   const bh = $("boxhist"); if (bh) bh.ontoggle = () => { boxHistOpen = bh.open; };
   const bl = $("bblist"); if (bl) bl.ontoggle = () => { bbListOpen = bl.open; };
+  document.querySelectorAll("[data-ship]").forEach((b) => b.onclick = () => shipTap(b.dataset.ship));
   const wi = $("wisbn"); if (wi) wi.onclick = copyIsbns;
   const wp = $("wprint"); if (wp) wp.onclick = () => weekPrint(wp);
 }
@@ -732,9 +752,10 @@ async function refresh(force) {
         (select result from pipeline.launch_verify v, nn where v.night_id = nn.id) as v,
         (select pipeline.launch_gaps(nn.id) from nn) as g,
         (select jsonb_agg(jsonb_build_object('ch', c.channel, 'pd', c.pd, 'st', c.state, 'd', c.detail, 'at', c.checked_at) order by c.pd) from pipeline.launch_live_check c, nn where c.night_id = nn.id) as lc,
-        pipeline.week_board() as w`);
+        pipeline.week_board() as w, pipeline.to_ship() as ts`);
     st = (rows[0] && rows[0].s) || null; jobs = (rows[0] && rows[0].j) || [];
     if (rows[0] && rows[0].w) week = rows[0].w;
+    if (rows[0] && rows[0].ts) toShip = rows[0].ts;
     if (st && !st.night) st = null;
     if (!verifying && rows[0] && rows[0].v) verify = rows[0].v;
     gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
