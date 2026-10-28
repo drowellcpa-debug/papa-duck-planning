@@ -27,7 +27,9 @@ header.top { background: var(--head); color: var(--head-ink); padding: 14px max(
 .brandline { display: flex; align-items: center; gap: 12px; min-width: 0 }
 .brandline h1 { margin: 0; font-size: 1.45rem }
 .sub { margin: 0; font-size: .92rem; color: var(--head-muted) }
-.conn { font-size: .88rem; color: var(--head-muted) }
+.conn { font-size: .88rem; color: var(--head-muted); display:flex; align-items:center; gap:8px }
+.lclock { flex:none } .lclock .hand { transform-origin: 12px 12px; transition: transform .2s linear }
+.conn .ago.stale { color: #E8A33D; font-weight: 700 }
 .wrap { max-width: 1320px; margin: 0 auto; padding: 18px max(16px, 2vw) 40px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start }
 @media (max-width: 980px) { .wrap { grid-template-columns: 1fr } }
 main { display: flex; flex-direction: column; gap: 16px; min-width: 0 }
@@ -124,7 +126,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
     <svg width="38" height="38" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="13" r="8" fill="#F2C230"/><path d="M22.5 13 L29 14.8 L22.5 16.6 Z" fill="#E07A2E"/><circle cx="18.5" cy="11.2" r="1.4" fill="#1D2420"/><path d="M6 23.5 C10 29.5 22 29.5 26 23.5 C22 21.5 10 21.5 6 23.5 Z" fill="#F2C230"/></svg>
     <div><h1>Papa Duck Launch Pad</h1><p class="sub" id="nightline">Connecting…</p></div>
   </div>
-  <div class="conn" id="conn">Connecting to Supabase…</div>
+  <div class="conn" id="conn"><svg class="lclock" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line class="hand" id="lhand" x1="12" y1="12" x2="12" y2="4" stroke="#F2C230" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg><span id="connt">Connecting to Supabase…</span></div>
 </header>
 <div class="wrap">
   <main id="main"><p class="empty">Loading tonight's blast off…</p></main>
@@ -765,7 +767,17 @@ Use your tools to look things up before answering about tonight. Keep answers sh
 // ---------- refresh loop ----------
 // 2026-10-28: a stuck connector call used to freeze the page (busy never cleared). Each refresh now gives up after 25 s,
 // and a watchdog restarts the loop if nothing has refreshed for 45 s. Papa Duck: "it not auto refreshing".
-let lastOk = Date.now();
+let lastOk = 0;
+// live clock: the second hand moves every second; the line says how long ago the cloud last answered (Papa Duck: "it should look like a clock with the second hand moving")
+function tickClock(){
+  const now = new Date(), h = document.getElementById("lhand"), t = document.getElementById("connt"); if (!h || !t) return;
+  h.setAttribute("transform", "rotate(" + (now.getSeconds() * 6) + " 12 12)");
+  if (!lastOk) return;
+  const ago = Math.max(0, Math.round((Date.now() - lastOk) / 1000));
+  t.innerHTML = "Live · " + now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) +
+    ' · <span class="ago' + (ago > 40 ? " stale" : "") + '">' + (ago < 2 ? "just updated" : "updated " + ago + "s ago") + "</span>";
+}
+setInterval(tickClock, 1000);
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("The cloud took too long. Trying again…")), ms))]);
 setInterval(() => { if (mcp && Date.now() - lastOk > 45000) { busy = false; refresh(true); } }, 15000);
 async function refresh(force) {
@@ -786,7 +798,7 @@ async function refresh(force) {
     if (st && !st.night) st = null;
     if (!verifying && rows[0] && rows[0].v) verify = rows[0].v;
     gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
-    $("conn").innerHTML = "Live from the cloud · updated <b>" + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) + "</b>";
+    tickClock();
     if (!hist || Date.now() - histAt > 60000) { histAt = Date.now(); loadHist(); }
     render();
     autoVerify();
