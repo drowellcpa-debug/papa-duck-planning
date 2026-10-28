@@ -135,7 +135,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
 let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false, note = null, showPd = false;
 let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false, hist = null, histSel = null, histAt = 0;
-let week = null, weekTab = "fba", weekArm = null, weekArmT = null;
+let week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null;
 const chatTurns = [];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -236,65 +236,72 @@ function render() {
 function weekCard() {
   const w = week;
   if (!w) return `<section class="card" aria-label="This week"><h2>📦 This week</h2><p class="muted" style="margin:0">Loading…</p></section>`;
-  const fba = w.fba || [], don = w.donate || [];
-  const fDone = fba.filter((x) => x.cleared).length, dDone = don.filter((x) => x.cleared).length;
-  const tabs = `<div class="tabs" role="tablist">
-    <button role="tab" data-wtab="fba" aria-selected="${weekTab === "fba"}">📦 FBA box ${esc(w.box || "")} · ${fDone} of ${fba.length} cleared</button>
-    <button role="tab" data-wtab="donate" aria-selected="${weekTab === "donate"}">🎁 Donate · ${dDone} of ${don.length} cleared</button></div>`;
-  const list = weekTab === "fba" ? fba : don;
+  const boxes = w.boxes || [], don = w.donate || [];
+  if (!weekTab || (weekTab !== "donate" && !boxes.some((b) => "box" + b.box === weekTab))) weekTab = boxes.length ? "box" + boxes[0].box : "donate";
+  const tabs = `<div class="tabs" role="tablist">${boxes.map((b) => `<button role="tab" data-wtab="box${b.box}" aria-selected="${weekTab === "box" + b.box}">📦 Box ${esc(b.box)} · ${b.books.filter((x) => x.printed).length} of ${b.books.length} printed</button>`).join("")}
+    <button role="tab" data-wtab="donate" aria-selected="${weekTab === "donate"}">🎁 Donate · ${don.filter((x) => x.cleared).length} of ${don.length} cleared</button></div>`;
+  const isFba = weekTab !== "donate", bx = isFba ? boxes.find((b) => "box" + b.box === weekTab) : null;
+  const list = isFba ? (bx ? bx.books : []) : don;
   const sq = (x) => {
-    const armed = weekArm === x.id && !x.checked;
-    const bad = x.clear_state === "problem" || (weekTab === "fba" && x.sticker === "error");
-    const cls = x.cleared ? (x.clear_state === "problem" ? "bad" : "cleared") : x.checked ? "clearing" : armed ? "armed" : bad ? "bad" : "";
-    let state;
-    if (x.cleared) state = x.clear_state === "problem" ? "⚠️ needs a look" : x.clear_state === "sold" ? "✓ sold already" : weekTab === "fba" ? "✓ in the box" : "✓ donated";
-    else if (x.checked) state = "⏳ clearing…";
-    else if (armed) state = "Tap again to clear";
-    else if (weekTab === "fba") state = x.sticker === "error" ? "⚠️ sticker problem" : x.printed ? "🖨 printed" : x.print_pending ? "🖨 printing…" : x.fnsku ? "🏷 sticker ready" : "⏳ making sticker";
-    else state = "";
-    const label = `${x.pd} ${x.title || ""}. ${state || "Tap to check off"}`;
-    return `<button class="sq ${cls}" data-wsq="${x.id}" ${x.checked ? "disabled" : ""} aria-label="${esc(label)}">
+    const armed = weekArm === x.id;
+    let cls = "", state = "", tap = true;
+    if (isFba) {
+      if (x.printed && x.cleared) { cls = x.clear_state === "problem" ? "bad" : "cleared"; state = x.clear_state === "problem" ? "⚠️ needs a look" : "✓ committed"; tap = false; }
+      else if (x.printed) { cls = "clearing"; state = "⏳ clearing stores…"; tap = false; }
+      else if (x.print_pending) { cls = "clearing"; state = "🖨 printing…"; tap = false; }
+      else if (x.sticker === "error") { cls = "bad"; state = "⚠️ sticker problem"; tap = false; }
+      else if (!x.fnsku) { state = "⏳ making sticker"; tap = false; }
+      else if (armed) { cls = "armed"; state = "Tap again to print"; }
+      else state = "🏷 sticker ready";
+    } else {
+      if (x.cleared) { cls = x.clear_state === "problem" ? "bad" : "cleared"; state = x.clear_state === "problem" ? "⚠️ needs a look" : "✓ donated"; tap = false; }
+      else if (x.checked) { cls = "clearing"; state = "⏳ clearing…"; tap = false; }
+      else if (armed) { cls = "armed"; state = "Tap again to clear"; }
+    }
+    return `<button class="sq ${cls}" data-wsq="${x.id}" ${tap ? "" : "disabled"} aria-label="${esc(x.pd + " " + (x.title || "") + ". " + (state || "Tap to check off"))}">
         <span class="pdn">${esc(x.pd)}</span><span class="tt">${esc(x.title || "")}</span>
         <span class="meta"><span>${Number(x.lb || 0).toFixed(1)} lb</span><span>${esc(state)}</span></span></button>`;
   };
   let head = "";
-  if (weekTab === "fba") {
-    const extra = w.box_extra || [], lb = fba.reduce((a, x) => a + Number(x.lb || 0), 0) + extra.reduce((a, x) => a + Number(x.lb || 0), 0);
-    const ready = fba.filter((x) => x.fnsku && !x.printed && !x.print_pending && !x.cleared).length;
-    const making = fba.filter((x) => !x.fnsku && x.sticker !== "error").length;
+  if (isFba && bx) {
+    const extra = bx.extra || [], lb = list.reduce((a, x) => a + Number(x.lb || 0), 0) + extra.reduce((a, x) => a + Number(x.lb || 0), 0);
+    const ready = list.filter((x) => x.fnsku && !x.printed && !x.print_pending && x.sticker !== "error").length;
+    const making = list.filter((x) => !x.fnsku && x.sticker !== "error").length;
     const pOn = w.printer && w.printer_age != null && w.printer_age < 120;
-    head = `<div class="row" style="justify-content:space-between"><b>Box ${esc(w.box || "")} · ${lb.toFixed(1)} of 40 lb</b>
+    head = `<div class="row" style="justify-content:space-between"><b>Box ${esc(bx.box)} · ${lb.toFixed(1)} of 40 lb</b>
         <span class="muted" style="font-size:.9rem">${extra.length ? "Already in the box: " + extra.map((e) => esc(e.pd)).join(", ") : ""}</span></div>
       <div class="boxbar" role="img" aria-label="${lb.toFixed(1)} of 40 pounds"><i style="width:${Math.min(100, lb / 40 * 100)}%"></i></div>
-      <div class="row"><button id="wprint" ${ready ? "" : "disabled"}>🖨 Print all stickers${ready ? ` (${ready} ready)` : ""}</button>
-        <span class="muted" style="font-size:.92rem">${making ? `⏳ ${making} sticker${making === 1 ? "" : "s"} still being made by Amazon · ` : "All stickers made · "}${pOn ? `Sticker printer ${esc(w.printer)} is on` : "Sticker printer is off — open Dispatch on your PC"}</span></div>`;
-  } else {
+      <div class="row"><button id="wprint" data-box="${esc(bx.box)}" ${ready ? "" : "disabled"}>${weekPrintArm === bx.box ? `Tap again: print ${ready} and commit them` : `🖨 Print all stickers${ready ? ` (${ready} ready)` : ""}`}</button>
+        <span class="muted" style="font-size:.92rem">${making ? `⏳ ${making} sticker${making === 1 ? "" : "s"} still being made by Amazon · ` : ""}${pOn ? `Sticker printer ${esc(w.printer)} is on` : "Sticker printer is off — open Dispatch on your PC"}</span></div>`;
+  } else if (!isFba) {
     const lb = don.reduce((a, x) => a + Number(x.lb || 0), 0);
     head = `<p class="muted" style="margin:0">${don.length} books · ${lb.toFixed(1)} lb leaving the storage unit. Each one is $7.99 or less, unsold since summer, and Amazon shows almost no buyers.</p>`;
   }
-  const probs = list.filter((x) => x.clear_state === "problem" || (weekTab === "fba" && x.sticker === "error"));
+  const probs = list.filter((x) => x.clear_state === "problem" || (isFba && x.sticker === "error"));
   const probTxt = probs.map((x) => `${esc(x.pd)}: ` + (x.clear_state === "problem"
     ? Object.entries(x.clear || {}).filter(([, v]) => /FAILED/.test(v)).map(([k, v]) => `${k} ${esc(v)}`).join("; ")
     : esc(x.error || "Amazon had a problem with the sticker"))).join("<br>");
+  const foot = isFba
+    ? "Nothing changes until a sticker prints. Printing is your OK: that book comes off eBay, AbeBooks and Etsy, and Airtable marks it in the FBA box. If it sells on eBay first, it's a normal sale and drops off this board. Two boxes are always kept ready."
+    : "Tap a book twice to check it off. That's your OK: it comes off eBay, AbeBooks, Etsy and Amazon, and Airtable marks it Donated. When every square is cleared, the next 20 show up by themselves.";
   return `<section class="card" aria-label="This week">
     <h2>📦 This week</h2>${tabs}${head}
     <div class="board">${list.map(sq).join("") || '<p class="muted">Getting the next books ready…</p>'}</div>
     ${probTxt ? `<div class="notice bad" style="font-weight:400"><b>Needs a look:</b><br>${probTxt}</div>` : ""}
-    <p class="muted" style="margin:0;font-size:.88rem">Tap a book twice to check it off. That's your OK: it comes off eBay, AbeBooks and Etsy${weekTab === "donate" ? " and Amazon, and Airtable marks it Donated" : ", and Airtable marks it in the FBA box"}. When every square is cleared, the next books show up here by themselves.</p>
+    <p class="muted" style="margin:0;font-size:.88rem">${foot}</p>
   </section>`;
 }
-async function weekLoad() { try { const r = await call("select pipeline.week_board() as r"); if (r) week = r; } catch (e) { showError(e); } render(); }
 async function weekTap(id) {
   if (weekArm !== id) { weekArm = id; clearTimeout(weekArmT); weekArmT = setTimeout(() => { weekArm = null; render(); }, 6000); return render(); }
   weekArm = null;
-  const list = [...((week && week.fba) || []), ...((week && week.donate) || [])], x = list.find((y) => y.id === id);
-  if (x) x.checked = true; render();
   try { const r = await call(`select pipeline.week_check(${Number(id)}) as r`); if (r) week = r; note = null; } catch (e) { showError(e); }
   render();
 }
 async function weekPrint(btn) {
-  btn.disabled = true; btn.textContent = "Sending to the printer…";
-  try { const r = await call("select pipeline.week_print() as r"); if (r) week = r; } catch (e) { showError(e); }
+  const box = Number(btn.dataset.box);
+  if (weekPrintArm !== box) { weekPrintArm = box; clearTimeout(weekArmT); weekArmT = setTimeout(() => { weekPrintArm = null; render(); }, 6000); return render(); }
+  weekPrintArm = null; btn.disabled = true; btn.textContent = "Sending to the printer…";
+  try { const r = await call(`select pipeline.week_print(${box}) as r`); if (r) week = r; } catch (e) { showError(e); }
   render();
 }
 
