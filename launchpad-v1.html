@@ -144,7 +144,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
 let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false, note = null, showPd = false;
 let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false, hist = null, histSel = null, histAt = 0;
-let week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null;
+let week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null, boxHistOpen = false;
 const chatTurns = [];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -311,11 +311,12 @@ function weekCard() {
 // every box ever made, newest first: Box # · books · printed · verified off the other stores · weight · value · shipped
 function boxHistory(h) {
   if (!h.length) return "";
+  const open = new Set(((week && week.boxes) || []).map((b) => +b.box));
   const d = (t) => t ? new Date(t).toLocaleDateString([], { month: "short", day: "numeric" }) : "";
-  return `<details><summary style="cursor:pointer;font-weight:700">📋 All boxes (${h.length})</summary>
+  return `<details id="boxhist" ${boxHistOpen ? "open" : ""}><summary style="cursor:pointer;font-weight:700">📋 All boxes (${h.length})</summary>
     <div style="display:grid;grid-template-columns:auto repeat(4,minmax(0,1fr));gap:4px 12px;font-size:.92rem;margin-top:8px">
       <span class="muted">Box</span><span class="muted">Books</span><span class="muted">Printed · verified</span><span class="muted">lb · value</span><span class="muted">Status</span>
-      ${h.map((b) => `<b>#${esc(b.box)}</b><span>${b.books}</span><span>${b.printed} · ${b.verified === b.books && b.books ? "✅ " : ""}${b.verified}</span>
+      ${h.map((b) => `${open.has(+b.box) ? `<button class="ghost" data-wtab="box${esc(b.box)}" data-wscroll="1" style="min-height:36px;padding:2px 12px">📦 #${esc(b.box)} ›</button>` : `<b>#${esc(b.box)}</b>`}<span>${b.books}</span><span>${b.printed} · ${b.verified === b.books && b.books ? "✅ " : ""}${b.verified}</span>
         <span>${Number(b.lb || 0).toFixed(1)} · ${money(b.value)}</span><span>${b.shipped ? "🚚 shipped " + d(b.shipped) : b.printed === b.books && b.books ? "📦 packed" : "packing · started " + d(b.opened)}</span>`).join("")}
     </div></details>`;
 }
@@ -592,8 +593,10 @@ function wire() {
   const s2 = $("startbtn"); if (s2) s2.onclick = startNight;
   document.querySelectorAll("[data-hist]").forEach((b) => b.onclick = () => { const id = +b.dataset.hist; histSel = histSel === id ? null : id; render(); });
   const go2 = $("gapok"); if (go2) go2.onclick = () => { gapOk = true; render(); };
-  document.querySelectorAll("[data-wtab]").forEach((b) => b.onclick = () => { weekTab = b.dataset.wtab; weekArm = null; render(); });
+  document.querySelectorAll("[data-wtab]").forEach((b) => b.onclick = () => { weekTab = b.dataset.wtab; weekArm = null; render();
+    if (b.dataset.wscroll) { const s = document.querySelector('section[aria-label="This week"]'); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); } });
   document.querySelectorAll("[data-wsq]").forEach((b) => b.onclick = () => weekTap(+b.dataset.wsq));
+  const bh = $("boxhist"); if (bh) bh.ontoggle = () => { boxHistOpen = bh.open; };
   const wp = $("wprint"); if (wp) wp.onclick = () => weekPrint(wp);
 }
 async function startNight() {
