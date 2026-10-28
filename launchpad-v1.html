@@ -27,6 +27,13 @@ header.top { background: var(--head); color: var(--head-ink); padding: 14px max(
 .brandline { display: flex; align-items: center; gap: 12px; min-width: 0 }
 .brandline h1 { margin: 0; font-size: 1.45rem }
 .sub { margin: 0; font-size: .92rem; color: var(--head-muted) }
+.shiplist { display:grid; gap:6px; margin:10px 0 }
+.shiprow { display:grid; grid-template-columns: 5.6em 1fr 8.5em; gap:10px; align-items:center; border:1px solid var(--line); border-radius:10px; padding:8px 10px }
+.shiprow.abe { border:2px solid var(--yellow); background:var(--yellow-bg) }
+.shiprow .st { min-width:0; overflow-wrap:anywhere } .shiprow .st .muted { font-size:.9rem }
+.shiprow button { width:100%; justify-self:end }
+.shiphead { font-weight:800; margin-top:8px; padding:4px 2px; border-bottom:2px solid var(--line) }
+@media (max-width:480px){ .shiprow { grid-template-columns: 4.6em 1fr 6.4em; gap:8px; padding:8px } .shiprow button { padding-left:4px; padding-right:4px; font-size:.85rem } }
 .conn { font-size: .88rem; color: var(--head-muted); display:flex; align-items:center; gap:8px }
 .lclock { flex:none } .lclock .hand { transform-origin: 12px 12px; transition: transform .2s linear }
 .conn .ago.stale { color: #E8A33D; font-weight: 700 }
@@ -264,16 +271,30 @@ async function alertTap(id) {
   render();
 }
 // ---------- 📬 To ship: every sale the cloud caught (checked every 5 minutes), AbeBooks first - "flag me that we have a abe book sale so we dont miss it" ----------
+let shipSort = (() => { try { return localStorage.getItem("lp_ship_sort") || "pd"; } catch (e) { return "pd"; } })();
 function shipCard() {
   if (!toShip.length) return "";
   const names = { ebay: "eBay", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
-  const list = [...toShip].sort((a, b) => (a.channel === "abe" ? 0 : 1) - (b.channel === "abe" ? 0 : 1));
-  const abe = list.filter((x) => x.channel === "abe").length;
+  const order = ["abe", "ebay", "etsy", "amazon"];
+  const byPd = (a, b) => String(a.pd || "").localeCompare(String(b.pd || ""), undefined, { numeric: true });
+  const abe = toShip.filter((x) => x.channel === "abe").length;
+  // one row: PD | title + store/price/order | Shipped button, in fixed columns so the buttons line up
+  const row = (x) => `<div class="shiprow${x.channel === "abe" ? " abe" : ""}">
+      <b class="mono">${esc(x.pd || "—")}</b>
+      <span class="st">${esc(x.title || "")}<br><span class="muted">${x.channel === "abe" ? "📦 " : ""}${names[x.channel] || esc(x.channel)} · ${money(x.price)} · ${esc(x.date || "")}${x.order ? " · order " + esc(x.order) : ""}</span></span>
+      <button class="${shipArm === x.key ? "" : "ghost"}" data-ship="${esc(x.key)}">${shipArm === x.key ? "Tap again" : "✓ Shipped"}</button></div>`;
+  let body = "";
+  if (shipSort === "store") {
+    const chans = [...new Set(toShip.map((x) => x.channel))].sort((a, b) => (order.indexOf(a) + 1 || 9) - (order.indexOf(b) + 1 || 9));
+    body = chans.map((c) => { const l = toShip.filter((x) => x.channel === c).sort(byPd);
+      return `<div class="shiphead">${c === "abe" ? "📦 " : ""}${names[c] || esc(c)} · ${l.length}</div>` + l.map(row).join(""); }).join("");
+  } else body = [...toShip].sort(byPd).map(row).join("");
   return `<section class="card ask" aria-label="To ship">
-    <h2>📬 To ship · ${list.length} sale${list.length === 1 ? "" : "s"}${abe ? ` · <span style="color:var(--yellow-ink)">${abe} AbeBooks</span>` : ""}</h2>
-    ${list.map((x) => `<div class="row" style="justify-content:space-between;border:${x.channel === "abe" ? "2px solid var(--yellow)" : "1px solid var(--line)"};background:${x.channel === "abe" ? "var(--yellow-bg)" : "transparent"};border-radius:10px;padding:8px 12px">
-        <span><b class="mono">${esc(x.pd)}</b> ${esc(x.title || "")}<br><span class="muted" style="font-size:.9rem">${x.channel === "abe" ? "📦 " : ""}${names[x.channel] || esc(x.channel)} · ${money(x.price)} · ${esc(x.date || "")}${x.order ? " · order " + esc(x.order) : ""}</span></span>
-        <button class="${shipArm === x.key ? "" : "ghost"}" data-ship="${esc(x.key)}">${shipArm === x.key ? "Tap again: shipped" : "✓ Shipped"}</button></div>`).join("")}
+    <h2>📬 To ship · ${toShip.length} sale${toShip.length === 1 ? "" : "s"}${abe ? ` · <span style="color:var(--yellow-ink)">${abe} AbeBooks</span>` : ""}</h2>
+    <div class="row" role="group" aria-label="Sort the ship list" style="gap:6px">
+      <button class="${shipSort === "pd" ? "" : "ghost"}" data-shipsort="pd" aria-pressed="${shipSort === "pd"}">By PD # (pulling)</button>
+      <button class="${shipSort === "store" ? "" : "ghost"}" data-shipsort="store" aria-pressed="${shipSort === "store"}">By store (shipping)</button></div>
+    <div class="shiplist">${body}</div>
     <p class="muted" style="margin:0;font-size:.86rem">The cloud already took each book off your other stores and logged it in Airtable. Tap ✓ Shipped twice once it's in the mail.</p></section>`;
 }
 async function shipTap(key) {
@@ -667,6 +688,7 @@ function wire() {
   const bl = $("bblist"); if (bl) bl.ontoggle = () => { bbListOpen = bl.open; };
   document.querySelectorAll("[data-alert]").forEach((b) => b.onclick = () => alertTap(+b.dataset.alert));
   document.querySelectorAll("[data-ship]").forEach((b) => b.onclick = () => shipTap(b.dataset.ship));
+  document.querySelectorAll("[data-shipsort]").forEach((b) => b.onclick = () => { shipSort = b.dataset.shipsort; try { localStorage.setItem("lp_ship_sort", shipSort); } catch (e) {} render(); });
   const wi = $("wisbn"); if (wi) wi.onclick = copyIsbns;
   const wp = $("wprint"); if (wp) wp.onclick = () => weekPrint(wp);
 }
