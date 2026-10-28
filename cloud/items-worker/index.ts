@@ -8,6 +8,7 @@
 //             an item gets a full item identification + damage questions, channel 'ebay', item_stale = true.
 //   2) PRICE  ident.kind = 'item' and item_stale -> eBay comps in ALL categories, sold counters, judge, his price rule (average delivered - $0.50,
 //             never under $9.99), eBay category + item specifics from eBay's Taxonomy API, and the technical listing (title, Block 1, Block 2).
+//             v3: vintage items (20+ years) also get their Etsy category, 13 tags and when-made (pricing.item.etsy).
 // Test: {"dry": draft_id} runs step 2 on one draft and returns the result without saving.
 // Auth: x-backup-secret = backup.config.cron_secret. Secrets: EBAY_CLIENT_ID / EBAY_CLIENT_SECRET, ANTHROPIC_API_KEY.
 import postgres from "npm:postgres@3.4.4";
@@ -209,6 +210,45 @@ Respond with ONLY JSON, no fences:
 {"ebay_title":"","b1":"","h2":"","intro":"","history":"","details":[""],"condition":[""],"closing":"","specifics":{},"etsy_rec":false,"etsy_why":""}`;
 }
 
+// ---------------- Etsy (vintage items only, 20+ years) ----------------
+// Etsy's own category list lives in pipeline.etsy_taxonomy (etsy-items-setup). Shortlist the leaf categories whose words match
+// the item, then Claude picks one and writes 13 tags.
+function whenMade(y: number): string {
+  if (y >= 2000) return "2000_2006";
+  if (y >= 1900) return `${Math.floor(y / 10) * 10}s`;
+  if (y >= 1800) return "1800s";
+  if (y >= 1700) return "1700s";
+  return "before_1700";
+}
+const STOP = new Set(["the", "and", "with", "for", "vintage", "antique", "used", "set", "of", "in", "a", "an", "lot", "piece", "pieces", "style", "made", "inch", "in."]);
+async function etsyPick(sql: any, ident: any, title: string, model: string) {
+  const it = ident.item || {};
+  const words = [...new Set([it.type, it.material, it.line_or_pattern, it.decoration, title].join(" ").toLowerCase().replace(/[^a-z ]/g, " ").split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP.has(w)).map((w) => w.replace(/(es|s)$/, "")))].slice(0, 25);
+  const rows = await sql`select id, path from pipeline.etsy_taxonomy where leaf
+      and path ~ '^(Home & Living|Art & Collectibles|Jewelry|Toys & Games|Books, Movies & Music|Accessories|Craft Supplies & Tools)'`;
+  const scored = rows.map((r: any) => { const p = String(r.path).toLowerCase(); return { id: Number(r.id), path: r.path, s: words.reduce((t, w) => t + (p.includes(w) ? 1 : 0), 0) }; })
+    .filter((r: any) => r.s > 0).sort((a: any, b: any) => b.s - a.s).slice(0, 45);
+  const always = rows.filter((r: any) => /(Figurines & Knick Knacks|Dolls & Miniatures|Drinkware|> Plates$|> Bowls$|Serving Odds & Ends|Home Decor > Ornaments|Seasonal Decor|Vinyl Records|Board Games|Jigsaw Puzzles|Collectibles >)/.test(r.path))
+    .map((r: any) => ({ id: Number(r.id), path: r.path }));
+  const cands = [...new Map([...scored, ...always].map((c: any) => [c.id, c])).values()];
+  const out = await claude([{ type: "text", text: `Pick the best Etsy category for this vintage item and write its Etsy tags.
+Item: ${JSON.stringify({ title, type: it.type, maker: it.maker, line_or_pattern: it.line_or_pattern, material: it.material, era: it.era, color: it.color })}
+Categories (id | path):
+${cands.map((c: any) => `${c.id} | ${c.path}`).join("\n")}
+tags: exactly 13 Etsy tags for THIS item that shoppers search (maker, pattern, item type, material, era/decade, color, style, gift ideas like "christmas decor"). Each lowercase, 20 characters or fewer, only letters, numbers, spaces, apostrophes and hyphens. No repeats.
+Respond ONLY JSON: {"taxonomy_id":0,"tags":[""]}` }], model, 800);
+  const tid = Number(out.taxonomy_id);
+  const pick = cands.find((c: any) => c.id === tid);
+  const tags: string[] = [];
+  for (const raw of [...(out.tags || []), "vintage", "vintage find", "retro decor", "collectible", "gift idea", "old fashioned", "vintage gift", "home decor", "nostalgic gift", "estate find", "vintage style", "keepsake", "antique style"]) {
+    const t = String(raw || "").toLowerCase().trim().replace(/\s+/g, " ");
+    if (t && !tags.includes(t) && t.length <= 20 && /^[a-z0-9 '\-]+$/.test(t)) tags.push(t);
+    if (tags.length === 13) break;
+  }
+  return pick ? { taxonomy_id: pick.id, path: pick.path, tags } : null;
+}
+
 // ---------------- step 1: book or item? ----------------
 async function checkOne(sql: any, d: any, model: string) {
   const urls = (Array.isArray(d.photos) ? d.photos : []).map((p: any) => String(p.url || "")).filter((u: string) => /^https:\/\//.test(u)).slice(0, 12);
@@ -308,15 +348,22 @@ Respond ONLY JSON: {"keep":[1,2],"fair_list":0,"fair_why":"","band":"standard"}`
   if (missingReq.length) fails.push("eBay needs these item specifics: " + missingReq.join(", "));
   if (!cat.id) fails.push("No eBay category found — tell Claude what the item is");
   const yr = Number((String(it.era || "").match(/(1[5-9]\d\d|20\d\d)/) || [])[1]) || 0;
-  const etsyRec = { rec: !!o.etsy_rec && !!yr && yr <= new Date().getFullYear() - 20, why: String(o.etsy_why || "").slice(0, 200) || (yr ? "" : "No confirmed era — Etsy needs 20+ years old."),
+  const vintage = !!yr && yr <= new Date().getFullYear() - 20;
+  const etsyRec = { rec: !!o.etsy_rec && vintage, why: String(o.etsy_why || "").slice(0, 200) || (yr ? (vintage ? "" : `${yr} is too new for Etsy (needs 20+ years).`) : "No confirmed era — Etsy needs 20+ years old."),
     year: yr || null, at: new Date().toISOString() };
+  // vintage items get their Etsy category, 13 tags and when-made ready, so the Etsy switch in Drafts just works
+  let etsy: any = null;
+  if (vintage) {
+    try { const e = await etsyPick(sql, ident, title || String(ident.title || ""), conf.judge_model || model); if (e) etsy = { ...e, when_made: whenMade(yr), year: yr, section: "Vintage Collectibles" }; }
+    catch (e) { etsy = { error: String((e as Error).message || e).slice(0, 200) }; }
+  }
   const ebayAll = found.map((c) => c.price).sort((a, b) => a - b);
   const pricing = { ...pr, kind: "item", market: { ebay: { n: kept.length, low: pr.low ?? null, high: pr.high ?? null, sold: soldTot, found: found.length,
         all_low: ebayAll[0] ?? null, all_high: ebayAll[ebayAll.length - 1] ?? null }, at: new Date().toISOString() },
     fair_why: String(judge.fair_why || ""), grade, queries: [q, q2].filter(Boolean),
     used: kept.map((c) => ({ ch: "eBay", seller: c.seller, cond: c.cond, price: c.price, ship: c.ship, sold: c.sold, title: c.title.slice(0, 70), url: c.url })),
     item: { category_id: cat.id, category_name: cat.name, cond_id: 3000, specifics: o.specifics || {}, aspects_required: aspects.filter((x: any) => x.required).map((x: any) => x.name),
-      ship: "Calculated Package · USPS Ground Advantage", category_choices: cats.suggestions.slice(0, 5) },
+      ship: "Calculated Package · USPS Ground Advantage", category_choices: cats.suggestions.slice(0, 5), etsy },
     ebay_title: title, b1, b2, checks_failed: fails, model, at: new Date().toISOString() };
   if (dry) return { ok: true, dry: true, draft: d.id, pricing, etsyRec, secs: Math.round((Date.now() - t0) / 1000) };
   await sql`update pipeline.drafts set pricing = ${sql.json(pricing)}, etsy_rec = ${sql.json(etsyRec)}, priced_at = now(),
