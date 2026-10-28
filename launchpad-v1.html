@@ -173,10 +173,10 @@ function showError(e) {
 }
 function say(text, bad) { note = { bad: !!bad, text }; render(); }
 
-const CH = [["ebay", "eBay"], ["abe", "AbeBooks"], ["etsy", "Etsy"], ["amazon", "Amazon"]];
+const CH = [["ebay", "eBay Books"], ["ebay_other", "eBay Other"], ["abe", "AbeBooks"], ["etsy", "Etsy"], ["amazon", "Amazon"]];
 function nightJobs() {
   const j = (st && st.night && st.night.jobs) || {};
-  const ids = { ebay: [j.ebay], abe: j.abe || [], etsy: [j.etsy], amazon: [j.amazon] };
+  const ids = { ebay: [j.ebay], ebay_other: [j.ebay_other], abe: j.abe || [], etsy: [j.etsy], amazon: [j.amazon] };
   const out = {};
   for (const [c] of CH) out[c] = (ids[c] || []).filter(Boolean).map((id) => jobs.find((x) => x.id === Number(id))).filter(Boolean);
   return out;
@@ -264,7 +264,7 @@ async function alertTap(id) {
 // ---------- 📬 To ship: every sale the cloud caught (checked every 5 minutes), AbeBooks first - "flag me that we have a abe book sale so we dont miss it" ----------
 function shipCard() {
   if (!toShip.length) return "";
-  const names = { ebay: "eBay", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
+  const names = { ebay: "eBay", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
   const list = [...toShip].sort((a, b) => (a.channel === "abe" ? 0 : 1) - (b.channel === "abe" ? 0 : 1));
   const abe = list.filter((x) => x.channel === "abe").length;
   return `<section class="card ask" aria-label="To ship">
@@ -403,7 +403,7 @@ function historyCard() {
   const head = `<h2>🚀 Blast offs</h2>`;
   if (!hist) return `<section class="card" aria-label="Blast offs">${head}<p class="muted" style="margin:0">Loading…</p></section>`;
   if (!hist.length) return `<section class="card" aria-label="Blast offs">${head}<p class="muted" style="margin:0">No blast offs yet.</p></section>`;
-  const names = { ebay: "eBay", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
+  const names = { ebay: "eBay", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
   const rows = hist.map((x) => {
     const v = (x.verify || {}).channels || {}, lv = x.live || {};
     const probs = Object.values(v).reduce((a, c) => a + (c.problems || []).length, 0);
@@ -438,7 +438,7 @@ function historyCard() {
   return `<section class="card" aria-label="Blast offs">${head}${rows}<p class="muted" style="margin:0;font-size:.86rem">Every night is kept here. The stores keep being checked in the cloud even when this page is closed.</p></section>`;
 }
 function histText(x) {
-  const names = { ebay: "eBay", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" }, v = (x.verify || {}).channels || {}, lv = x.live || {};
+  const names = { ebay: "eBay", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" }, v = (x.verify || {}).channels || {}, lv = x.live || {};
   const L = [`Launch Pad night ${x.night} (${x.day}) — ${x.books} books, ${x.first} to ${x.last}, ${money(x.total)}`];
   for (const c of ["ebay", "abe", "etsy", "amazon"]) {
     const a = v[c]; if (!a) continue;
@@ -484,7 +484,8 @@ function buildCard(n, building) {
   const cnt = (c) => nj[c].reduce((a, j) => a + (j.items || []).length, 0);
   return `<section class="card" aria-label="Build progress"><h2>${building ? "Building tonight's files…" : "Files built"}</h2>
     <div class="bars">${row("Details", metaPct, building ? (m ? `${m[1]} of ${m[2]}` : "starting") : "✓ written")}
-    ${row("eBay", built("ebay"), nj.ebay.length ? `${cnt("ebay")} ready ✓` : "waiting")}
+    ${row("eBay Books", built("ebay"), nj.ebay.length ? `${cnt("ebay")} ready ✓` : "waiting")}
+    ${nj.ebay_other.length ? row("eBay Other", built("ebay_other"), `${cnt("ebay_other")} ready ✓`) : ""}
     ${row("AbeBooks", built("abe"), nj.abe.length ? `${nj.abe.length} files ready ✓` : "waiting")}
     ${row("Etsy", built("etsy"), nj.etsy.length ? `${cnt("etsy")} ready ✓` : building ? "waiting" : "none tonight")}
     ${row("Amazon", built("amazon"), nj.amazon.length ? `${cnt("amazon")} ready ✓` : building ? "waiting" : "none tonight")}</div>
