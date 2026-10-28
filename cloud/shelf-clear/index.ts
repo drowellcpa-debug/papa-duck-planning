@@ -1,4 +1,4 @@
-// Papa Duck — Edge Function "shelf-clear" (2026-10-28). The weekly board on the Launch Pad.
+// Papa Duck — Edge Function "shelf-clear" (2026-10-28; v2 adds Sell back books: off every store, Airtable Status "Buyback", Shelf "<Vendor> Box N"). The weekly board on the Launch Pad.
 // Papa Duck: "when I mark them off, on the boxes, like checkers they will show cleared" ... "dont move anything officially until I ok it with you"
 // Checking a book off IS his OK for that one book. Then, in the cloud:
 //   FBA book    -> eBay ended, AbeBooks deleted, Etsy off. (The Amazon FBA offer made ahead stays - it is the book now;
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
           if (back.state === "active") throw new Error("still active");
           return `off Etsy (${back.state})`;
         });
-        if (p.kind === "donate") {
+        if (p.kind === "donate" || p.kind === "buyback") {
           await step("amazon", async () => {
             const path = `/listings/2021-08-01/items/${K.amazon.seller_id}/${encodeURIComponent(p.pd)}`;
             const g = await amz("GET", path, { marketplaceIds: MKT });
@@ -157,8 +157,12 @@ Deno.serve(async (req) => {
           });
           if (!bad) await step("airtable", async () => {
             if (!recs[0]) return "none (not in Inventory)";
-            await at("PATCH", "", { typecast: true, records: [{ id: recs[0].id, fields: { [F.STATUS]: "Donated", [F.QTY]: 0, [F.SHELF]: "Donated" } }] });
-            return "updated: Donated";
+            const vshort = String(p.vendor || "").replace(/ - Sell Your Books$/, "");
+            const fields = p.kind === "buyback"
+              ? { [F.STATUS]: "Buyback", [F.QTY]: 0, [F.SHELF]: `${vshort} Box ${p.box}` }
+              : { [F.STATUS]: "Donated", [F.QTY]: 0, [F.SHELF]: "Donated" };
+            await at("PATCH", "", { typecast: true, records: [{ id: recs[0].id, fields }] });
+            return p.kind === "buyback" ? `updated: Buyback (${vshort} Box ${p.box})` : "updated: Donated";
           });
         } else log.amazon = "FBA offer kept (Airtable written by the FBA worker)";
         const tries = Number(p.attempts) + 1;
