@@ -27,6 +27,8 @@ header.top { background: var(--head); color: var(--head-ink); padding: 14px max(
 .brandline { display: flex; align-items: center; gap: 12px; min-width: 0 }
 .brandline h1 { margin: 0; font-size: 1.45rem }
 .sub { margin: 0; font-size: .92rem; color: var(--head-muted) }
+.sbadge { display:inline-block; font-weight:800; font-size:.78rem; letter-spacing:.02em; padding:1px 8px; border-radius:999px; color:#fff; background:#5b6b63; vertical-align:1px }
+.sbadge.ebay, .sbadge.ebay_other { background:#2f6fd6 } .sbadge.etsy { background:#d4571c } .sbadge.amazon { background:#232f3e } .sbadge.abe { background:#b3261e }
 .shiplist { display:grid; gap:6px; margin:10px 0 }
 .shiprow { display:grid; grid-template-columns: 5.6em 1fr 8.5em; gap:10px; align-items:center; border:1px solid var(--line); border-radius:10px; padding:8px 10px }
 .shiprow.abe { border:2px solid var(--yellow); background:var(--yellow-bg) }
@@ -281,13 +283,13 @@ function shipCard() {
   // one row: PD | title + store/price/order | Shipped button, in fixed columns so the buttons line up
   const row = (x) => `<div class="shiprow${x.channel === "abe" ? " abe" : ""}">
       <b class="mono">${esc(x.pd || "—")}</b>
-      <span class="st">${esc(x.title || "")}<br><span class="muted">${x.channel === "abe" ? "📦 " : ""}${names[x.channel] || esc(x.channel)} · ${money(x.price)} · ${esc(x.date || "")}${x.order ? " · order " + esc(x.order) : ""}</span></span>
+      <span class="st">${esc(x.title || "")}<br><span class="muted"><span class="sbadge ${esc(x.channel)}">${names[x.channel] || esc(x.channel)}</span> ${money(x.price)} · ${esc(x.date || "")}${x.order ? " · order " + esc(x.order) : ""}</span></span>
       <button class="${shipArm === x.key ? "" : "ghost"}" data-ship="${esc(x.key)}">${shipArm === x.key ? "Tap again" : "✓ Shipped"}</button></div>`;
   let body = "";
   if (shipSort === "store") {
     const chans = [...new Set(toShip.map((x) => x.channel))].sort((a, b) => (order.indexOf(a) + 1 || 9) - (order.indexOf(b) + 1 || 9));
     body = chans.map((c) => { const l = toShip.filter((x) => x.channel === c).sort(byPd);
-      return `<div class="shiphead">${c === "abe" ? "📦 " : ""}${names[c] || esc(c)} · ${l.length}</div>` + l.map(row).join(""); }).join("");
+      return `<div class="shiphead"><span class="sbadge ${esc(c)}">${names[c] || esc(c)}</span> ${l.length} to ship</div>` + l.map(row).join(""); }).join("");
   } else body = [...toShip].sort(byPd).map(row).join("");
   return `<section class="card ask" aria-label="To ship">
     <h2>📬 To ship · ${toShip.length} sale${toShip.length === 1 ? "" : "s"}${abe ? ` · <span style="color:var(--yellow-ink)">${abe} AbeBooks</span>` : ""}</h2>
