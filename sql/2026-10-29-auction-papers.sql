@@ -1,3 +1,7 @@
 -- 2026-10-29 Auction papers: pipeline.auction_papers + pipeline.auction_lots (cost = bid + premium + tax share, used_by PD list).
 -- Loaded: Auctioning USA "October Collectors Auction" 178642-5706187 ($122.07, 10 lots) and Side Hustle "OCTOBER 2026 AUCTION" 181121-5681101 ($189.75, 28 lots).
 -- Readable copy: project doc claude/papa-duck-auction-papers-2026-10.md. Next: items-worker matches a scanned item to its lot (description facts + cost).
+-- Also loaded: NW Auction Block "Autumn Variety Auction" 149136-5706112 ($290.30, 17 lots), Big Al's Sale 205 invoice 30498 ($34.50, 1 lot),
+-- Side Hustle "SEPT 2026 AUCTION" 174506-5681101 ($47.15, 7 lots).
+-- pipeline.auction_link(draft, lot): used_by + split lot cost across its items into answers.station.cost (only when his cost is 0 / auction-filled).
+-- items-worker v4: auctionMatch() in the CHECK step (his "lot NN" note wins), conflicts -> questions, auction facts -> write-up.
