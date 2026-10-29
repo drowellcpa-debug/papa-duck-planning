@@ -51,6 +51,9 @@ main { display: flex; flex-direction: column; gap: 16px; min-width: 0 }
 .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
 button { font: inherit; font-weight: 700; font-size: 1rem; border-radius: 8px; padding: 10px 16px; border: 2px solid var(--brand); background: var(--brand); color: var(--brand-ink); cursor: pointer; min-height: 44px }
 button.ghost { background: transparent; color: var(--brand) }
+button.lily { width: 100%; background: #2e7d32; border-color: #2e7d32; color: #fff; font-size: 1.05rem; min-height: 52px }
+a.btn { display: inline-flex; align-items: center; font-weight: 700; border-radius: 8px; padding: 10px 16px; border: 2px solid var(--brand); background: var(--brand); color: var(--brand-ink); text-decoration: none; min-height: 44px }
+.notice input { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--muted); background: transparent; color: inherit }
 button.danger { background: transparent; color: var(--red); border-color: var(--red) }
 button.quiet { background: transparent; color: var(--muted); border-color: var(--muted) }
 button:disabled { opacity: .45; cursor: default }
@@ -155,6 +158,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
 let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false, note = null, showPd = false;
 let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false, hist = null, histSel = null, histAt = 0;
+let fship = null, lilyForm = null, lilyArm = null, lilyBusy = false;
 let alerts = [], alertArm = null, toShip = [], shipArm = null, week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null, boxHistOpen = false, showIsbn = "", bbListOpen = false;
 const chatTurns = [];
 const $ = (id) => document.getElementById(id);
@@ -382,12 +386,80 @@ function weekCard() {
     ? "Tap 🖨 Print on a book twice to print one sticker, or use Print all. Nothing changes until a sticker prints. Printing is your OK: that book comes off eBay, AbeBooks and Etsy, and Airtable marks it in the FBA box. If it sells on eBay first, it's a normal sale and drops off this board. Books marked 📝 Drafts are ones you sent to FBA from Drafts; they go to Amazon by themselves and print the same way. Two boxes are always kept ready."
     : "Tap a book twice to check it off. That's your OK: it comes off eBay, AbeBooks, Etsy and Amazon, and Airtable marks it Donated. When every square is cleared, the next 20 show up by themselves.";
   return `<section class="card" aria-label="This week">
-    <h2>📦 This week</h2>${tabs}${head}
+    <h2>📦 This week</h2>${lilyPad()}${tabs}${head}
     <div class="board">${list.map(sq).join("") || '<p class="muted">Getting the next books ready…</p>'}</div>
     ${probTxt ? `<div class="notice bad" style="font-weight:400"><b>Needs a look:</b><br>${probTxt}</div>` : ""}
     <p class="muted" style="margin:0;font-size:.88rem">${foot}</p>
     ${isFba ? boxHistory(w.history || []) : ""}
   </section>`;
+}
+// 🐸 "ready to jump on another lily pad" (Papa Duck 2026-10-28): every sticker in a box printed -> send the box to Amazon from here.
+// Weight + box size -> the cloud asks Amazon (fba-inbound) -> he taps one warehouse (that tap is his OK to be charged) -> UPS label.
+function lilyDims() { try { const d = JSON.parse(localStorage.getItem("lp_box_dims") || "null"); if (d && d.l) return d; } catch (e) {} return { l: 18, w: 14, h: 12 }; }
+function lilyPad() {
+  const f = fship; if (!f) return "";
+  const ready = f.ready || [], ships = (f.ships || []).filter((s) => s.state !== "done" || (s.label_at && Date.now() - new Date(s.label_at).getTime() < 3 * 86400e3));
+  if (!ready.length && !ships.length) return "";
+  const STEP = { start: "1 of 4 · telling Amazon what's inside", plan: "2 of 4 · creating the shipment", packing: "3 of 4 · box weight and size",
+    placement: "4 of 4 · getting warehouse and UPS prices", confirm: "booking UPS", label: "making your box label" };
+  const parts = [];
+  for (const r of ready) {
+    if (lilyForm === r.box) {
+      const d = lilyDims();
+      parts.push(`<div class="notice" style="font-weight:400"><b>🐸 Box #${esc(r.box)} · ${r.books} books</b> (about ${Number(r.lb || 0).toFixed(1)} lb by our numbers)
+        <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
+          <label>Weight (lb) <input id="lily-lb" inputmode="decimal" style="width:5em" placeholder="${Number(r.lb || 0).toFixed(1)}"></label>
+          <label>Box L <input id="lily-l" inputmode="decimal" style="width:3.5em" value="${esc(d.l)}"></label>
+          <label>W <input id="lily-w" inputmode="decimal" style="width:3.5em" value="${esc(d.w)}"></label>
+          <label>H <input id="lily-h" inputmode="decimal" style="width:3.5em" value="${esc(d.h)}"></label></div>
+        <div class="row" style="margin-top:8px"><button id="lily-go" data-box="${esc(r.box)}" ${lilyBusy ? "disabled" : ""}>Get Amazon's prices</button>
+          <button class="ghost" id="lily-cancel">Not yet</button></div>
+        <p class="muted" style="margin:6px 0 0;font-size:.86rem">Weigh the packed box with the flaps closed. Nothing is charged until you pick a warehouse.</p></div>`);
+    } else parts.push(`<button class="lily" data-lily="${esc(r.box)}">🐸 Ready to jump to the next lily pad · ship Box #${esc(r.box)} (${r.books} books)</button>`);
+  }
+  for (const s of ships) {
+    const refused = (s.refused || []).length ? `<p style="margin:6px 0 0;font-size:.9rem">⚠️ Amazon left out: ${(s.refused || []).map((x) => `<b>${esc(x.pd)}</b> (${esc(x.why)})`).join("; ")} — take ${s.refused.length === 1 ? "it" : "them"} out of the box and set aside. Claude will sort ${s.refused.length === 1 ? "it" : "them"} out.</p>` : "";
+    if (STEP[s.state]) parts.push(`<div class="notice" style="font-weight:400">⏳ <b>Box #${esc(s.box)}</b> · ${esc(STEP[s.state])}… <span class="muted">(about a minute per step)</span>${refused}</div>`);
+    else if (s.state === "choose") {
+      const opts = s.options || [];
+      parts.push(`<div class="notice" style="font-weight:400"><b>🐸 Box #${esc(s.box)} · ${s.books} books · pick where it goes</b>
+        <p style="margin:4px 0 8px;font-size:.9rem">Tap one twice. That's your OK: Amazon books the UPS pickup label and takes the total out of your sales.</p>
+        ${opts.map((o, i) => { const armed = lilyArm === s.box + ":" + o.placement;
+          return `<button class="${i ? "ghost" : ""}" data-lilypick="${esc(s.box)}" data-pl="${esc(o.placement)}" style="display:block;width:100%;text-align:left;margin:4px 0">
+            ${armed ? "Tap again to book " : ""}${i ? "" : "⭐ "}<b>${esc(o.city)}, ${esc(o.st)}</b> · <b>${money(o.total)}</b>
+            <span class="muted">(Amazon fee ${money(o.fee)} + UPS ${money(o.ups)})</span></button>`; }).join("")}${refused}</div>`);
+    } else if (s.state === "error") {
+      parts.push(`<div class="notice bad" style="font-weight:400"><b>Box #${esc(s.box)} hit a snag:</b> ${esc(s.error || "")}
+        <div class="row" style="margin-top:6px"><button data-lilyretry="${esc(s.box)}">Try again</button></div>${refused}</div>`);
+    } else if (s.state === "done") {
+      const t = (s.tracking || []).map((x) => esc(x.tracking)).join(", "), o = (s.options || []).find((x) => x.placement === s.chosen) || {};
+      parts.push(`<div class="notice" style="font-weight:400">✅ <b>Box #${esc(s.box)} is booked</b> · ${s.books} books → ${esc(o.city || "")}${o.st ? ", " + esc(o.st) : ""}${o.total ? " · " + money(o.total) : ""}
+        <div class="row" style="margin-top:6px;flex-wrap:wrap">${s.label_url ? `<a class="btn" href="${esc(s.label_url)}" target="_blank" rel="noopener">🖨 Open box label (4×6)</a>` : `<button data-lilylabel="${esc(s.box)}">🖨 Get the box label</button>`}
+          <span class="muted" style="font-size:.9rem">UPS ${t} · shipment ${esc(s.confirmation_id || "")}</span></div>
+        <p class="muted" style="margin:6px 0 0;font-size:.86rem">Print it on the LabelRange. Two labels: UPS + FBA box label, side by side on top, off the seams. Drop at UPS (not the post office).</p>${refused}</div>`);
+    }
+  }
+  return `<div style="display:grid;gap:8px;margin-bottom:10px">${parts.join("")}</div>`;
+}
+async function lilyCall(sqlText) {
+  lilyBusy = true; render();
+  try { const r = await call(sqlText); if (r) fship = r; note = null; } catch (e) { showError(e); }
+  lilyBusy = false; render();
+}
+async function lilyGo(btn) {
+  const n = (id) => Number(String(($(id) || {}).value || "").replace(/[^0-9.]/g, ""));
+  const box = Number(btn.dataset.box), lb = n("lily-lb"), l = n("lily-l"), w = n("lily-w"), h = n("lily-h");
+  if (!(lb > 0 && lb <= 50)) return say("Type the box weight in pounds (50 or less).", true);
+  if (!(l > 0 && w > 0 && h > 0) || Math.max(l, w, h) > 25) return say("Type the box size in inches (each side 25 or less).", true);
+  try { localStorage.setItem("lp_box_dims", JSON.stringify({ l, w, h })); } catch (e) {}
+  lilyForm = null;
+  await lilyCall(`select pipeline.fba_ship_start(${box}, ${lb}, ${l}, ${w}, ${h}) as r`);
+}
+async function lilyPick(b) {
+  const key = b.dataset.lilypick + ":" + b.dataset.pl;
+  if (lilyArm !== key) { lilyArm = key; setTimeout(() => { if (lilyArm === key) { lilyArm = null; render(); } }, 6000); return render(); }
+  lilyArm = null;
+  await lilyCall(`select pipeline.fba_ship_choose(${Number(b.dataset.lilypick)}, ${lit(b.dataset.pl)}) as r`);
 }
 // every box ever made, newest first: Box # · books · printed · verified off the other stores · weight · value · shipped
 function boxHistory(h) {
@@ -695,6 +767,12 @@ function wire() {
   document.querySelectorAll("[data-shipsort]").forEach((b) => b.onclick = () => { shipSort = b.dataset.shipsort; try { localStorage.setItem("lp_ship_sort", shipSort); } catch (e) {} render(); });
   const wi = $("wisbn"); if (wi) wi.onclick = copyIsbns;
   const wp = $("wprint"); if (wp) wp.onclick = () => weekPrint(wp);
+  document.querySelectorAll("[data-lily]").forEach((b) => b.onclick = () => { lilyForm = Number(b.dataset.lily); render(); const i = $("lily-lb"); if (i) i.focus(); });
+  const lc = $("lily-cancel"); if (lc) lc.onclick = () => { lilyForm = null; render(); };
+  const lg = $("lily-go"); if (lg) lg.onclick = () => lilyGo(lg);
+  document.querySelectorAll("[data-lilypick]").forEach((b) => b.onclick = () => lilyPick(b));
+  document.querySelectorAll("[data-lilyretry]").forEach((b) => b.onclick = () => lilyCall(`select pipeline.fba_ship_retry(${Number(b.dataset.lilyretry)}) as r`));
+  document.querySelectorAll("[data-lilylabel]").forEach((b) => b.onclick = () => lilyCall(`select pipeline.fba_ship_label(${Number(b.dataset.lilylabel)}) as r`));
 }
 async function startNight() {
   const b = $("startbtn"); b.disabled = true; b.textContent = "Gathering tonight's books…";
@@ -815,12 +893,13 @@ async function refresh(force) {
         (select result from pipeline.launch_verify v, nn where v.night_id = nn.id) as v,
         (select pipeline.launch_gaps(nn.id) from nn) as g,
         (select jsonb_agg(jsonb_build_object('ch', c.channel, 'pd', c.pd, 'st', c.state, 'd', c.detail, 'at', c.checked_at) order by c.pd) from pipeline.launch_live_check c, nn where c.night_id = nn.id) as lc,
-        pipeline.week_board() as w, pipeline.to_ship() as ts, pipeline.alerts_open() as al`), 25000);
+        pipeline.week_board() as w, pipeline.to_ship() as ts, pipeline.alerts_open() as al, pipeline.fba_ship_state() as fs`), 25000);
     lastOk = Date.now();
     st = (rows[0] && rows[0].s) || null; jobs = (rows[0] && rows[0].j) || [];
     if (rows[0] && rows[0].w) week = rows[0].w;
     if (rows[0] && rows[0].ts) toShip = rows[0].ts;
     if (rows[0] && rows[0].al) alerts = rows[0].al;
+    if (rows[0] && rows[0].fs) fship = rows[0].fs;
     if (st && !st.night) st = null;
     if (!verifying && rows[0] && rows[0].v) verify = rows[0].v;
     gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];

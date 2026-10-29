@@ -14,3 +14,8 @@ begin
   return r::jsonb;
 end $$;
 -- pipeline.fba_inbound_spd(plan, placement): pages transportationOptions, returns only AMAZON_PARTNERED_CARRIER quotes.
+
+-- v3 (22:00): Lily pad on the Launch Pad. Table pipeline.fba_ship (state machine start->plan->packing->placement->choose->confirm->label->done|error),
+-- fba_ship_start(box,lb,l,w,h) / fba_ship_choose(box,placement) [his 2-tap OK = charge] / fba_ship_label(box) / fba_ship_retry(box) / fba_ship_state(),
+-- fba_ship_kick() (net.http_post work), cron pd-fba-ship every minute while a box is working, backup.config fba_ship_from = his ship-from address.
+-- Amazon-refused books are dropped and listed (refused). Box 1 recorded as done; fba_boxes 1 shipped/closed.
