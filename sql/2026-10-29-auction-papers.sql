@@ -1,0 +1,3 @@
+-- 2026-10-29 Auction papers: pipeline.auction_papers + pipeline.auction_lots (cost = bid + premium + tax share, used_by PD list).
+-- Loaded: Auctioning USA "October Collectors Auction" 178642-5706187 ($122.07, 10 lots) and Side Hustle "OCTOBER 2026 AUCTION" 181121-5681101 ($189.75, 28 lots).
+-- Readable copy: project doc claude/papa-duck-auction-papers-2026-10.md. Next: items-worker matches a scanned item to its lot (description facts + cost).
