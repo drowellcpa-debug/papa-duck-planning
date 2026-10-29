@@ -336,7 +336,7 @@ function weekCard() {
       else if (bg) state = `${Number(x.copies) > 1 ? x.copies + " × " : ""}${money(x.offer)}${Number(x.keep) ? " · keep " + x.keep : ""}`;
       if (bg && x.cleared && x.clear_state !== "problem") state = Number(x.keep) ? `✓ packed · ${x.keep} still listed` : "✓ packed · off all stores";
     }
-    const inner = `<span class="pdn">${esc(x.pd)}</span><span class="tt">${esc(x.title || "")}</span>${isFba && x.printed ? storeChecks(x) : ""}
+    const inner = `<span class="pdn">${esc(x.pd)}${x.src === "drafts" ? ' <span style="font-size:.75rem;font-weight:400">📝 Drafts</span>' : ""}</span><span class="tt">${esc(x.title || "")}</span>${isFba && x.printed && x.src !== "drafts" ? storeChecks(x) : ""}
         <span class="meta"><span>${Number(x.lb || 0).toFixed(1)} lb</span><span>${esc(state)}</span></span>`;
     // FBA: the square is a card with its own printer button (one book at a time); tap the printer, then tap "Print it" to commit
     if (isFba) return `<div class="sq ${cls}" role="group" aria-label="${esc(x.pd + " " + (x.title || "") + ". " + state)}">
@@ -379,7 +379,7 @@ function weekCard() {
     : esc(x.error || "Amazon had a problem with the sticker"))).join("<br>");
   const foot = bg ? "Tap a book twice when it's packed. That's your OK: a single copy comes off eBay, AbeBooks, Etsy and Amazon and Airtable marks it Buyback; for several copies only the extras go and the listing stays up with the copy you keep. New offers from your oldest books keep landing here by themselves."
     : isFba
-    ? "Tap 🖨 Print on a book twice to print one sticker, or use Print all. Nothing changes until a sticker prints. Printing is your OK: that book comes off eBay, AbeBooks and Etsy, and Airtable marks it in the FBA box. If it sells on eBay first, it's a normal sale and drops off this board. Two boxes are always kept ready."
+    ? "Tap 🖨 Print on a book twice to print one sticker, or use Print all. Nothing changes until a sticker prints. Printing is your OK: that book comes off eBay, AbeBooks and Etsy, and Airtable marks it in the FBA box. If it sells on eBay first, it's a normal sale and drops off this board. Books marked 📝 Drafts are ones you sent to FBA from Drafts; they go to Amazon by themselves and print the same way. Two boxes are always kept ready."
     : "Tap a book twice to check it off. That's your OK: it comes off eBay, AbeBooks, Etsy and Amazon, and Airtable marks it Donated. When every square is cleared, the next 20 show up by themselves.";
   return `<section class="card" aria-label="This week">
     <h2>📦 This week</h2>${tabs}${head}
@@ -412,7 +412,9 @@ async function copyIsbns() {
 async function weekTap(id) {
   if (weekArm !== id) { weekArm = id; clearTimeout(weekArmT); weekArmT = setTimeout(() => { weekArm = null; render(); }, 6000); return render(); }
   weekArm = null;
-  try { const r = await call(`select pipeline.week_check(${Number(id)}) as r`); if (r) week = r; note = null; } catch (e) { showError(e); }
+  // negative id = a book sent to FBA from Drafts (its fba_items id); it is Amazon-only, so printing just prints
+  const sqlTap = id < 0 ? `select pipeline.week_print_draft(${-Number(id)}) as r` : `select pipeline.week_check(${Number(id)}) as r`;
+  try { const r = await call(sqlTap); if (r) week = r; note = null; } catch (e) { showError(e); }
   render();
 }
 async function weekPrint(btn) {
