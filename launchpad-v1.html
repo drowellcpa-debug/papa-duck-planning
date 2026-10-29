@@ -124,6 +124,11 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 .sq.ready { border-color: var(--yellow) }
 .sq .prt { width: 100%; min-height: 36px; margin-top: 4px; padding: 4px 8px; font-size: .95rem; background: var(--panel); color: var(--ink); border: 2px solid var(--yellow) }
 .sq .prt.go { background: var(--yellow); color: #3d2f00 }
+.sqwrap { display: flex; flex-direction: column; gap: 4px }
+.sqwrap > .sq { flex: 1 }
+.keepb { min-height: 32px; padding: 2px 8px; font-size: .85rem; font-weight: 600; background: transparent; color: var(--muted); border: 1px dashed var(--muted) }
+.sq .keepb { width: 100%; margin-top: 4px }
+.keepb.go { background: var(--panel); color: var(--ink); border: 2px solid var(--brand) }
 .sq.ready .pdn { padding-right: 34px }
 .sq .hop { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; animation: hop 1.1s ease-in-out infinite; transform-origin: 50% 100% }
 @keyframes hop { 0%, 100% { transform: translateY(0) scale(1, 1) } 12% { transform: translateY(0) scale(1.1, .85) }
@@ -158,6 +163,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
 let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false, note = null, showPd = false;
 let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false, hist = null, histSel = null, histAt = 0;
+let keepArm = null;
 let fship = null, lilyForm = null, lilyArm = null, lilyBusy = false;
 let alerts = [], alertArm = null, toShip = [], shipArm = null, week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null, boxHistOpen = false, showIsbn = "", bbListOpen = false;
 const chatTurns = [];
@@ -342,10 +348,15 @@ function weekCard() {
     }
     const inner = `<span class="pdn">${esc(x.pd)}${x.src === "drafts" ? ' <span style="font-size:.75rem;font-weight:400">📝 Drafts</span>' : ""}</span><span class="tt">${esc(x.title || "")}</span>${isFba && x.printed && x.src !== "drafts" ? storeChecks(x) : ""}
         <span class="meta"><span>${Number(x.lb || 0).toFixed(1)} lb</span><span>${esc(state)}</span></span>`;
+    // Keep (Papa Duck 2026-10-29): leaves the board, stays listed exactly as it is, the next book fills the spot. Two taps.
+    const kArm = keepArm === x.id;
+    const canKeep = x.id > 0 && (isFba ? (!x.printed && !x.print_pending) : (!x.checked && !x.cleared));
+    const keepBtn = canKeep ? `<button class="keepb${kArm ? " go" : ""}" data-wkeep="${x.id}" aria-label="Keep ${esc(x.pd)} listed and take it off this board">${kArm ? "Tap again: keep it listed" : "🔒 Keep"}</button>` : "";
     // FBA: the square is a card with its own printer button (one book at a time); tap the printer, then tap "Print it" to commit
     if (isFba) return `<div class="sq ${cls}" role="group" aria-label="${esc(x.pd + " " + (x.title || "") + ". " + state)}">
-        ${cls.startsWith("ready") ? DUCK : ""}${inner}${cls.startsWith("ready") ? (armed ? `<button class="prt go" data-wsq="${x.id}">🖨 Tap again to print</button>` : `<button class="prt" data-wsq="${x.id}" aria-label="Print the sticker for ${esc(x.pd)}">🖨 Print</button>`) : ""}</div>`;
-    return `<button class="sq ${cls}" data-wsq="${x.id}" ${tap ? "" : "disabled"} aria-label="${esc(x.pd + " " + (x.title || "") + ". " + (state || "Tap to check off"))}">${inner}</button>`;
+        ${cls.startsWith("ready") ? DUCK : ""}${inner}${cls.startsWith("ready") ? (armed ? `<button class="prt go" data-wsq="${x.id}">🖨 Tap again to print</button>` : `<button class="prt" data-wsq="${x.id}" aria-label="Print the sticker for ${esc(x.pd)}">🖨 Print</button>`) : ""}${keepBtn}</div>`;
+    const btn = `<button class="sq ${cls}" data-wsq="${x.id}" ${tap ? "" : "disabled"} aria-label="${esc(x.pd + " " + (x.title || "") + ". " + (state || "Tap to check off"))}">${inner}</button>`;
+    return keepBtn ? `<div class="sqwrap">${btn}${keepBtn}</div>` : btn;
   };
   // one mark per store: ✓ verified off / ⏳ working / ✗ failed (eBay and Etsy are read back after ending; AbeBooks confirms the delete)
   const storeChecks = (x) => { const c = x.clear || {}, m = (v) => !v ? "⏳" : /FAILED/.test(v) ? "✗" : "✓";
@@ -381,10 +392,10 @@ function weekCard() {
   const probTxt = probs.map((x) => `${esc(x.pd)}: ` + (x.clear_state === "problem"
     ? Object.entries(x.clear || {}).filter(([, v]) => /FAILED/.test(v)).map(([k, v]) => `${k} ${esc(v)}`).join("; ")
     : esc(x.error || "Amazon had a problem with the sticker"))).join("<br>");
-  const foot = bg ? "Tap a book twice when it's packed. That's your OK: a single copy comes off eBay, AbeBooks, Etsy and Amazon and Airtable marks it Buyback; for several copies only the extras go and the listing stays up with the copy you keep. New offers from your oldest books keep landing here by themselves."
+  const foot = bg ? "Tap a book twice when it's packed. That's your OK: a single copy comes off eBay, AbeBooks, Etsy and Amazon and Airtable marks it Buyback; for several copies only the extras go and the listing stays up with the copy you keep. New offers from your oldest books keep landing here by themselves. 🔒 Keep (two taps) leaves a book listed just as it is and the next one takes its spot."
     : isFba
-    ? "Tap 🖨 Print on a book twice to print one sticker, or use Print all. Nothing changes until a sticker prints. Printing is your OK: that book comes off eBay, AbeBooks and Etsy, and Airtable marks it in the FBA box. If it sells on eBay first, it's a normal sale and drops off this board. Books marked 📝 Drafts are ones you sent to FBA from Drafts; they go to Amazon by themselves and print the same way. Two boxes are always kept ready."
-    : "Tap a book twice to check it off. That's your OK: it comes off eBay, AbeBooks, Etsy and Amazon, and Airtable marks it Donated. When every square is cleared, the next 20 show up by themselves.";
+    ? "Tap 🖨 Print on a book twice to print one sticker, or use Print all. Nothing changes until a sticker prints. Printing is your OK: that book comes off eBay, AbeBooks and Etsy, and Airtable marks it in the FBA box. If it sells on eBay first, it's a normal sale and drops off this board. Books marked 📝 Drafts are ones you sent to FBA from Drafts; they go to Amazon by themselves and print the same way. Two boxes are always kept ready. 🔒 Keep (two taps, before the sticker prints) leaves a book listed just as it is and the next book takes its spot."
+    : "Tap a book twice to check it off. That's your OK: it comes off eBay, AbeBooks, Etsy and Amazon, and Airtable marks it Donated. When every square is cleared, the next 20 show up by themselves. 🔒 Keep (two taps) leaves a book listed just as it is and the next one takes its spot.";
   return `<section class="card" aria-label="This week">
     <h2>📦 This week</h2>${lilyPad()}${tabs}${head}
     <div class="board">${list.map(sq).join("") || '<p class="muted">Getting the next books ready…</p>'}</div>
@@ -487,6 +498,12 @@ async function weekTap(id) {
   // negative id = a book sent to FBA from Drafts (its fba_items id); it is Amazon-only, so printing just prints
   const sqlTap = id < 0 ? `select pipeline.week_print_draft(${-Number(id)}) as r` : `select pipeline.week_check(${Number(id)}) as r`;
   try { const r = await call(sqlTap); if (r) week = r; note = null; } catch (e) { showError(e); }
+  render();
+}
+async function keepTap(id) {
+  if (keepArm !== id) { keepArm = id; weekArm = null; setTimeout(() => { if (keepArm === id) { keepArm = null; render(); } }, 6000); return render(); }
+  keepArm = null;
+  try { const r = await call(`select pipeline.week_keep(${Number(id)}) as r`); if (r) week = r; say("🔒 Kept. It stays listed just as it is, and the next book fills its spot.", false); } catch (e) { showError(e); }
   render();
 }
 async function weekPrint(btn) {
@@ -760,6 +777,7 @@ function wire() {
   document.querySelectorAll("[data-wtab]").forEach((b) => b.onclick = () => { weekTab = b.dataset.wtab; weekArm = null; render();
     if (b.dataset.wscroll) { const s = document.querySelector('section[aria-label="This week"]'); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); } });
   document.querySelectorAll("[data-wsq]").forEach((b) => b.onclick = () => weekTap(+b.dataset.wsq));
+  document.querySelectorAll("[data-wkeep]").forEach((b) => b.onclick = () => keepTap(+b.dataset.wkeep));
   const bh = $("boxhist"); if (bh) bh.ontoggle = () => { boxHistOpen = bh.open; };
   const bl = $("bblist"); if (bl) bl.ontoggle = () => { bbListOpen = bl.open; };
   document.querySelectorAll("[data-alert]").forEach((b) => b.onclick = () => alertTap(+b.dataset.alert));

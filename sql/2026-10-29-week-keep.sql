@@ -1,0 +1,6 @@
+-- 2026-10-29 Keep button (Launch Pad v24). Papa Duck: "if I decide that I want to keep it listed the way it is I need to be able to say keep
+-- and it goes off the board and another potential fills its spot" + "same with FBA, if the label is ready but I have a change of mind".
+-- Table pipeline.week_keep(pd, kind, kept_at); week_still_listed() now false for a book kept in the last 90 days (all 4 pickers use it).
+-- week_keep(pick_id): not checked / sticker not printed -> skipped_at, clear_state 'kept'; FBA prep offer -> 'removing' (empty Amazon offer deleted);
+-- refill: donate week_donate_refill(batch) (one book, same board), buyback week_fill_buyback(), fba week_topup_fba().
+-- Nothing touches eBay / AbeBooks / Etsy / Airtable on Keep.
