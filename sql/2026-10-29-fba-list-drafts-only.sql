@@ -1,0 +1,2 @@
+-- 2026-10-29 pipeline.fba_list() (Drafts page FBA list) now shows only books sent to FBA from Drafts (fba_items.pick_id is null).
+-- Launch Pad weekly-board books (made ahead, prep) no longer appear on the Drafts page; they are printed from the Launch Pad box.
