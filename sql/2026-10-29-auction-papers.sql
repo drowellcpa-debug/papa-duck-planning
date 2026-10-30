@@ -5,3 +5,8 @@
 -- Side Hustle "SEPT 2026 AUCTION" 174506-5681101 ($47.15, 7 lots).
 -- pipeline.auction_link(draft, lot): used_by + split lot cost across its items into answers.station.cost (only when his cost is 0 / auction-filled).
 -- items-worker v4: auctionMatch() in the CHECK step (his "lot NN" note wins), conflicts -> questions, auction facts -> write-up.
+
+-- 6. Big Al's Auction (Vancouver WA) - Sale 207 "Late October Warehouse Blowout Auction" - invoice 30963 (10/29/2026, unpaid when saved)
+--    Bids $32.50 + 15% premium $4.88, no tax = $37.38
+--    lot 217 Mercedes-Benz Racing Cars Book 1971 Karl Ludvigsen  bid 15.00  cost 17.25
+--    lot 521 Vintage Children's Books & Record - Disney+          bid 17.50  cost 20.13
