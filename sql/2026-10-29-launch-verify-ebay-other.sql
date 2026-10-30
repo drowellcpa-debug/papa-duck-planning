@@ -1,0 +1,1 @@
+-- 2026-10-29 launch_verify: added channel ebay_other (job n.jobs->>'ebay_other', same eBay checks). Launch Pad v25 confirmation card shows it.

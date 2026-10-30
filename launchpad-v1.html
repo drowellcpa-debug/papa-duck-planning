@@ -637,29 +637,29 @@ function gapCard(realGaps) {
 
 // ---------- confirmation: listed + Airtable fully updated, read back from Airtable itself ----------
 function verifyCard() {
-  const v = verify, names = { ebay: "eBay", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
+  const v = verify, names = { ebay: "eBay Books", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" }, CHS = ["ebay", "ebay_other", "abe", "etsy", "amazon"];
   const head = `<div class="row" style="justify-content:space-between"><h2>✅ Confirmation · listed and in Airtable</h2>
     <button class="ghost" id="verifybtn" ${verifying ? "disabled" : ""}>${verifying ? "Checking…" : "Check again"}</button></div>`;
   if (!v || !v.ok || !v.channels) return `<section class="card" aria-label="Confirmation">${head}<p class="muted" style="margin:0">${v && v.error ? esc(v.error) : "Not checked yet. It checks by itself each time a step finishes."}</p></section>`;
-  const rows = ["ebay", "abe", "etsy", "amazon"].filter((c) => v.channels[c]).map((c) => {
+  const rows = CHS.filter((c) => v.channels[c]).map((c) => {
     const x = v.channels[c], all = x.listed === x.total, clean = all && !x.problems.length;
     const listed = x.listed === 0 ? `<span class="muted">Not sent yet</span>` : `<span class="${all ? "ok" : ""}">${all ? "✅" : "⏳"} ${x.listed} of ${x.total}</span>`;
     const at = x.listed === 0 ? `<span class="muted">—</span>` : `<span class="${clean ? "ok" : ""}">${clean ? "✅" : x.problems.length ? "⚠️" : "⏳"} ${x.airtable} of ${x.listed}</span>`;
     return [c, listed + at];
   });
   const cells = Object.fromEntries(rows);
-  const probs = ["ebay", "abe", "etsy", "amazon"].flatMap((c) => (v.channels[c] ? v.channels[c].problems : []).map((p) => `${names[c]}: ${p}`));
+  const probs = CHS.flatMap((c) => (v.channels[c] ? v.channels[c].problems : []).map((p) => `${names[c]}: ${p}`));
   const t = new Date(v.checked_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   // live-on-the-store column: eBay + Etsy are read back by the sender at send time; AbeBooks photos + Amazon status come from launch-check
   const liveCell = (c) => {
     const x = v.channels[c]; if (!x || !x.listed) return `<span class="muted">—</span>`;
-    if (c === "ebay" || c === "etsy") return `<span class="ok">✅ ${x.listed} live</span>`;
+    if (c === "ebay" || c === "ebay_other" || c === "etsy") return `<span class="ok">✅ ${x.listed} live</span>`;
     const L = live.filter((r) => r.ch === c), ok = L.filter((r) => r.st === "ok").length;
     if (!L.length) return `<span class="muted">${liveBusy ? "checking…" : "not checked yet"}</span>`;
     const bad = L.filter((r) => r.st === "problem").length;
     return `<span class="${ok === x.listed ? "ok" : ""}">${ok === x.listed ? "✅" : bad ? "⚠️" : "⏳"} ${ok} of ${x.listed}${c === "abe" ? " with photos" : " buyable"}</span>`;
   };
-  const liveRows = ["ebay", "abe", "etsy", "amazon"].filter((c) => v.channels[c]).map((c) => `<span><b>${names[c]}</b></span>` + cells[c] + liveCell(c)).join("");
+  const liveRows = CHS.filter((c) => v.channels[c]).map((c) => `<span><b>${names[c]}</b></span>` + cells[c] + liveCell(c)).join("");
   const waitAbe = live.filter((r) => r.ch === "abe" && r.st !== "ok"), waitAmz = live.filter((r) => r.ch === "amazon" && r.st !== "ok");
   const lastLive = live.length ? new Date(live.reduce((a, r) => r.at > a ? r.at : a, "")).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
   const liveNote = (waitAbe.length || waitAmz.length) ? `<div class="notice" style="font-weight:400;border:2px solid var(--yellow);background:var(--yellow-bg)">
@@ -675,12 +675,12 @@ function verifyCard() {
     ${showSum ? `<textarea class="pdlist" id="sumbox" rows="8" readonly aria-label="Tonight's summary">${esc(nightSummary())}</textarea>` : ""}</section>`;
 }
 function nightSummary() {
-  const n = st.night, v = verify || { channels: {} }, nj = nightJobs(), names = { ebay: "eBay", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
+  const n = st.night, v = verify || { channels: {} }, nj = nightJobs(), names = { ebay: "eBay Books", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
   const L = [`Launch Pad night ${n.night} — ${n.pds.length} books, ${n.pds[0]} to ${n.pds[n.pds.length - 1]}, ${money(st.total)}`];
-  for (const c of ["ebay", "abe", "etsy", "amazon"]) {
+  for (const c of ["ebay", "ebay_other", "abe", "etsy", "amazon"]) {
     const x = v.channels[c]; if (!x) continue;
     const lv = live.filter((r) => r.ch === c), ok = lv.filter((r) => r.st === "ok").length;
-    L.push(`${names[c]}: sent ${x.listed}/${x.total} · Airtable ${x.airtable}/${x.listed}` + (c === "abe" || c === "amazon" ? ` · live ${ok}/${x.listed}` : "") + ` · jobs ${nj[c].map((j) => j.id).join(",")}`);
+    L.push(`${names[c]}: sent ${x.listed}/${x.total} · Airtable ${x.airtable}/${x.listed}` + (c === "abe" || c === "amazon" ? ` · live ${ok}/${x.listed}` : "") + ` · jobs ${(nj[c] || []).map((j) => j.id).join(",")}`);
   }
   const ans = (st.questions || []).filter((q) => q.answer).map((q) => `${q.pd} ${q.kind}: ${q.answer.choice}${q.answer.price ? " $" + q.answer.price : ""}`);
   if (ans.length) L.push("Answers: " + ans.join("; "));
