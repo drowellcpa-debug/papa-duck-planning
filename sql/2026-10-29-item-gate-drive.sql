@@ -1,0 +1,5 @@
+-- 2026-10-29 drafts_item_gate: Drive scans (source 'scan') get the non-book check too, and an "author" no longer blocks it
+-- (games list designers as authors). Condition: no ISBN + format not paperback/hardcover/spiral. The check returns real books to the pricer.
+-- drafts-worker v10: Scan folders of ANY date are checked when their P folders got photos in the last 4 days.
+-- First run: Scan 092926 PM P1/P2 photos (shot 10/29) moved to Scan 102926 PM -> draft 750 Enchanted Forest (lot 117, Side Hustle Oct) and
+-- 751 Break Thru (lot 96) - both matched to auction lots automatically.
