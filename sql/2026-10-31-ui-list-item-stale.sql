@@ -1,0 +1,1 @@
+-- 2026-10-31 pipeline.ui_list: 'price_stale' now reports (price_stale or item_stale) so non-book items show 'Claude is writing it' in Drafts
