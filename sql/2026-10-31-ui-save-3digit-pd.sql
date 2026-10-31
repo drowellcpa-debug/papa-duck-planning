@@ -1,0 +1,2 @@
+-- 2026-10-31 pipeline.ui_save: right after newpd := upper(...), added
+--   newpd := regexp_replace(newpd, '^PD-?(?=\d)', '');   -- PD-161 = 161 (3-digit non-book PDs were refused)
