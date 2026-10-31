@@ -1,0 +1,2 @@
+-- 2026-10-31 pipeline.drafts_item_gate: when a draft first becomes ident.kind='item' and its location is Garage, location := 'Office'
+--   (Papa Duck: games and porcelain are stored in the office). He can still change it by hand afterwards.
