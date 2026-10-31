@@ -1,0 +1,127 @@
+
+Your books are all in-stock and ready for you to pick up at the store.
+
+Our address is:
+19146 S. Molalla Avenue Suite D (far left side of the building)
+Oregon City, OR 97045
+
+Our current hours are 10am-5pm Tuesday-Friday and 10am-4pm Saturday.
+
+Thanks!
+Julie Harth
+Exodus Books
+
+
+Invoice Number:	180646
+Invoice Date:	10/16/2026 4:10:49 PM
+Invoice Type:	E-mail
+Current Status:	Awaiting Pickup
+Contact Information
+Name:	Dawayne Rowell
+E-mail:	papaduckhomeschool@gmail.com
+Organization Information
+No organization information.
+Billing Address
+No billing address.
+Shipping Address
+No shipping address.
+Item	Title	Qty	Price	Amount
+20321	Hey, Andrew! Teach Me Some Greek! - Reader	2	$0.01	$0.02
+15781	USED: Hey, Andrew! Teach Me Some Greek! 2 - "Full Set"	1	$0.04	$0.04
+20312	USED: Hey, Andrew! Teach Me Some Greek! 2 - Workbook	1	$0.01	$0.01
+15783	USED: Hey, Andrew! Teach Me Some Greek! 4 - "Full Set"	1	$0.04	$0.04
+20306	Hey, Andrew! Teach Me Some Greek! 4 - Quizzes/Exams	1	$0.01	$0.01
+20324	Hey, Andrew! Teach Me Some Greek! 5-6 - Pronunciation CD	1	$0.01	$0.01
+20324	USED: Hey, Andrew! Teach Me Some Greek! 5-6 - Pronunciation CD	1	$0.01	$0.01
+33570	Hey, Andrew! Teach Me Some Greek! 7 - "Answers Only" Answer Key	1	$0.01	$0.01
+20293	USED: Hey, Andrew! Teach Me Some Greek! 7 - "Full Text" Answer Key	1	$0.01	$0.01
+22689	USED: Latin's Not So Tough! 1 - "Full Text" Answer Key	1	$0.01	$0.01
+20460	Latin's Not So Tough! 2 - "Full Text" Answer Key	2	$0.01	$0.02
+33004	Latin's Not So Tough! 3 - "Answers-only" Key	3	$0.01	$0.03
+33004	USED: Latin's Not So Tough! 3 - "Answers-only" Key	2	$0.01	$0.02
+20463	Latin's Not So Tough! 3 - "Full-Text" Answer Key	1	$0.01	$0.01
+20463	USED: Latin's Not So Tough! 3 - "Full-Text" Answer Key	2	$0.01	$0.02
+20465	USED: Latin's Not So Tough! 3 - Quizzes/Exams	2	$0.01	$0.02
+20465	Latin's Not So Tough! 3 - Quizzes/Exams	1	$0.01	$0.01
+20466	USED: Latin's Not So Tough! 3 - Worktext	1	$0.01	$0.01
+33031	USED: Latin's Not So Tough! 4 - "Answers Only" Key	4	$0.01	$0.04
+33031	Latin's Not So Tough! 4 - "Answers Only" Key	2	$0.01	$0.02
+24887	Latin's Not So Tough! 4 - "Full Text" Answer Key	1	$0.01	$0.01
+24887	USED: Latin's Not So Tough! 4 - "Full Text" Answer Key	1	$0.01	$0.01
+24888	USED: Latin's Not So Tough! 4 - Quizzes & Exams	2	$0.01	$0.02
+24888	Latin's Not So Tough! 4 - Quizzes & Exams	2	$0.01	$0.02
+24886	Latin's Not So Tough! 4 - Worktext	1	$0.01	$0.01
+24886	USED: Latin's Not So Tough! 4 - Worktext	2	$0.01	$0.02
+14306	USED: Latin's Not So Tough! 4-5 - Pronunciation CD	1	$0.01	$0.01
+14306	Latin's Not So Tough! 4-5 - Pronunciation CD	2	$0.01	$0.02
+33573	Latin's Not So Tough! 5 - "Answers Only" Answer Key	2	$0.01	$0.02
+33573	USED: Latin's Not So Tough! 5 - "Answers Only" Answer Key	1	$0.01	$0.01
+24892	USED: Latin's Not So Tough! 5 - "Full Text" Answer Key	3	$0.01	$0.03
+24892	Latin's Not So Tough! 5 - "Full Text" Answer Key	1	$0.01	$0.01
+24893	Latin's Not So Tough! 5 - Quizzes & Exams	2	$0.01	$0.02
+24893	USED: Latin's Not So Tough! 5 - Quizzes & Exams	3	$0.01	$0.03
+24891	USED: Latin's Not So Tough! 5 - Worktext	2	$0.01	$0.02
+24891	Latin's Not So Tough! 5 - Worktext	1	$0.01	$0.01
+33574	Latin's Not So Tough! 6 - "Answers Only" Answer Key	1	$0.01	$0.01
+24896	Latin's Not So Tough! 6 - "Full Text" Answer Key	1	$0.01	$0.01
+24896	USED: Latin's Not So Tough! 6 - "Full Text" Answer Key	2	$0.01	$0.02
+24898	USED: Latin's Not So Tough! 6 - Flashcards	2	$0.01	$0.02
+24897	USED: Latin's Not So Tough! 6 - Quizzes & Exams	2	$0.01	$0.02
+24897	Latin's Not So Tough! 6 - Quizzes & Exams	3	$0.01	$0.03
+24895	Latin's Not So Tough! 6 - Worktext	2	$0.01	$0.02
+24895	USED: Latin's Not So Tough! 6 - Worktext	2	$0.01	$0.02
+1	USED: General Used Books	1	$2.16	$2.16
+42614	USED: Latin Prep Workbook 1A	5	$0.01	$0.05
+42620	USED: Latin Prep Book 2	7	$0.01	$0.07
+42615	USED: Latin Prep Workbook 1B	14	$0.01	$0.14
+7055	Latin for Children Primer B - Answer Key (old)	2	$0.01	$0.02
+7055	USED: Latin for Children Primer B - Answer Key (old)	2	$0.01	$0.02
+54739	USED: Bible Truths 5 - Student Worktext (old)	20	$0.25	$5.00
+44634	USED: Algebra 1 - Student Activities (old)	20	$1.00	$20.00
+44630	USED: Algebra 1 - Student Textbook (old)	10	$1.00	$10.00
+15074	USED: Crossroads (old)	5	$0.25	$1.25
+37785	USED: Of America 2 (old)	6	$0.25	$1.50
+16995	USED: Pilgrim Boy (old)	7	$0.25	$1.75
+15075	USED: Footprints (old)	3	$0.25	$0.75
+17004	USED: Worlds of Wonder (old)	3	$0.25	$0.75
+37783	USED: Voyage of Discovery (old)	7	$0.25	$1.75
+37781	USED: Mountain Pathways (old)	2	$0.25	$0.50
+29983	USED: Beyond the Horizon (old)	3	$0.25	$0.75
+30038	USED: Adventures in Nature (old)	3	$0.25	$0.75
+60320	USED: Bible Truths 6 - Student Worktext (old)	8	$0.25	$2.00
+Tax:	$0.00
+Grand Total:	$50.00
+Amount Due:	$50.00
+
+
+
+Exodus Books, 19146 Molalla Ave, Oregon City, OR 97045
+hello@exodusbooks.com
+(503) 655-1951
+
+Drowell CPA <drowellcpa@gmail.com>
+12:43 PM (7 hours ago)
+to Exodus
+
+Thanks julie I will see you Saturday 
+
+Exodus Orders
+12:58 PM (7 hours ago)
+to me
+
+Julie will not be working this Saturday, but I will confab with her to figure out what's what.
+
+Rachel
+
+ 
+
+From: "Drowell CPA" <drowellcpa@gmail.com>
+Sent: 10/30/26 12:44 PM
+To: "Exodus Books" <orders@exodusbooks.com>
+Subject: Re: Your Order is Ready to Pick Up
+
+Drowell CPA <drowellcpa@gmail.com>
+5:54 PM (2 hours ago)
+to orders
+
+Super.. thanks see you tomorrow 
