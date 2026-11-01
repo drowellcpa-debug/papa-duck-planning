@@ -1,0 +1,1 @@
+-- 2026-10-31: NW Auction Block lots 95/100 descriptions got Papa Duck's in-hand facts appended (fish-scale, not Seagull; 7 3/4 in = lot 100)
