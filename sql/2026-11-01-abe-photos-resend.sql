@@ -1,0 +1,5 @@
+-- 2026-11-01 Papa Duck: "Abe books said some listings dont have pictures. When you read my emails and see this can you automatically fix it"
+-- pipeline.abe_photos_resend(p_hours int default 72): re-queues the PHOTO upload (not the data file) for every book in AbeBooks jobs
+-- finished in the last p_hours, sets those jobs running and kicks send-worker. Ran once by hand 2026-11-01 (jobs 90+91, 21 books).
+-- The hourly email watch (scheduled task trig_01532433mnT51RWKMxpBcURH) now calls it when an "AbeBooks Image Upload Error Report"
+-- email arrives (once per email via alerts.dedupe 'gmail:<id>') and posts a 'handled' alert.
