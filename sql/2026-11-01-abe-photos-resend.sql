@@ -3,3 +3,7 @@
 -- finished in the last p_hours, sets those jobs running and kicks send-worker. Ran once by hand 2026-11-01 (jobs 90+91, 21 books).
 -- The hourly email watch (scheduled task trig_01532433mnT51RWKMxpBcURH) now calls it when an "AbeBooks Image Upload Error Report"
 -- email arrives (once per email via alerts.dedupe 'gmail:<id>') and posts a 'handled' alert.
+-- + pipeline.abe_photos_resend_pds(text[]) (specific books), pipeline.abe_photo_audit() (launch-check {recheck:true} for every
+--   AbeBooks night of the last 7 days), cron pd-abe-photo-audit '13 3,17 * * *'. launch-check v4 re-sends photos for books still on
+--   AbeBooks' stock picture 2h+ after upload (once a day), and raises an issue alert if still none 8h after a re-send.
+-- 2026-11-01 test: night 18 recheck = 21/21 photos showing.
