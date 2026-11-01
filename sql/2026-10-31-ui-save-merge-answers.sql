@@ -1,0 +1,2 @@
+-- 2026-10-31 pipeline.ui_save: answers are MERGED (old || new) instead of replaced, and station.qty only changes through p.qty
+--   (a save from a page that had not reloaded wiped PD-0178's quantity 2 and made him re-answer questions)
