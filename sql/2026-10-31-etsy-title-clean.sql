@@ -1,0 +1,3 @@
+-- 2026-10-31: Etsy refused 3 titles (PD-0173 all caps, PD-0176 two &, PD-0203 ~ ¾ #). Fixed by hand and re-sent (all live),
+-- then added pipeline.etsy_title_clean(text) + BEFORE INSERT trigger trg_send_items_etsy_title on pipeline.send_items (etsy jobs only):
+--   fractions -> decimals, dashes/quotes normalized, ~ # ^ $ etc removed, & % : only once, max 3 words starting with 2 capitals, 140 chars.
