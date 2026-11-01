@@ -1,0 +1,4 @@
+-- 2026-10-31 evening
+-- pipeline.drafts_item_gate: isbn check now '(isbn = '''' or lower(format) = ''other'')' - board games carry a barcode/ISBN on the box and were sent to the book pricer
+-- alter table pipeline.price_review alter column pd drop not null;  (book pricer failed on Drive scans with no PD yet)
+-- drafts 781 (P100 Armchair QB), 783 (P98 Enchanted Forest), 784 (P89 Hunt for Red October) re-routed to the item path
