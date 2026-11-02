@@ -267,13 +267,19 @@ const DUCK = `<svg class="hop" viewBox="0 0 32 32" aria-hidden="true"><circle cx
 // ---------- ⚠️ To deal with: anything the cloud or the hourly email check found ("if there is any issues to deal with put it on there as well") ----------
 function alertCard() {
   if (!alerts.length) return "";
-  const need = alerts.filter((a) => a.kind !== "handled").length;
-  return `<section class="card${need ? " ask" : ""}" aria-label="To deal with">
-    <h2>⚠️ To deal with · ${need ? need + " need you" : "all handled"}${alerts.length - need ? ` · ${alerts.length - need} handled for you` : ""}</h2>
-    ${alerts.map((a) => `<div class="row" style="justify-content:space-between;border:${a.kind === "handled" ? "1px solid var(--line)" : "2px solid var(--red)"};background:${a.kind === "handled" ? "transparent" : "var(--red-bg)"};border-radius:10px;padding:8px 12px">
-        <span style="flex:1;min-width:200px"><b>${a.kind === "handled" ? "✅ " : a.kind === "question" ? "❓ " : "⚠️ "}${esc(a.title)}</b><br><span style="font-size:.92rem">${esc(a.detail || "")}</span>
+  // urgency levels (Papa Duck 2026-11-02): 🚨 URGENT · ⚠️ needs you (not urgent) · ℹ️ FYI · ✅ handled for you
+  const lvl = (k) => k === "urgent" ? 0 : (k === "issue" || k === "question") ? 1 : 2;
+  const urg = alerts.filter((a) => lvl(a.kind) === 0).length, need = alerts.filter((a) => lvl(a.kind) === 1).length, fyi = alerts.length - urg - need;
+  const look = (a) => lvl(a.kind) === 0 ? { b: "3px solid var(--red)", bg: "var(--red-bg)", tag: "🚨 URGENT · " }
+    : lvl(a.kind) === 1 ? { b: "2px solid var(--yellow)", bg: "var(--yellow-bg)", tag: a.kind === "question" ? "❓ Needs you · " : "⚠️ Needs you · " }
+    : { b: "1px solid var(--line)", bg: "transparent", tag: a.kind === "handled" ? "✅ Handled · " : "ℹ️ FYI · " };
+  const parts = [urg ? `<span style="color:var(--red)">🚨 ${urg} urgent</span>` : "", need ? `⚠️ ${need} need you` : "", fyi ? `<span class="muted">ℹ️ ${fyi} FYI</span>` : ""].filter(Boolean);
+  return `<section class="card${urg || need ? " ask" : ""}" aria-label="To deal with"${urg ? ' style="border-color:var(--red)"' : ""}>
+    <h2>⚠️ To deal with · ${parts.join(" · ") || "all clear"}</h2>
+    ${alerts.map((a) => { const L = look(a); return `<div class="row" style="justify-content:space-between;border:${L.b};background:${L.bg};border-radius:10px;padding:8px 12px">
+        <span style="flex:1;min-width:200px"><b>${L.tag}${esc(a.title)}</b><br><span style="font-size:.92rem">${esc(a.detail || "")}</span>
           <br><span class="muted" style="font-size:.85rem">${esc(a.source)} · ${new Date(a.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${a.link ? ` · <a href="${esc(a.link)}" target="_blank" rel="noopener">open</a>` : ""}</span></span>
-        <button class="${alertArm === a.id ? "" : "ghost"}" data-alert="${a.id}">${alertArm === a.id ? "Tap again: done" : a.kind === "handled" ? "Got it" : "✓ Done"}</button></div>`).join("")}
+        <button class="${alertArm === a.id ? "" : "ghost"}" data-alert="${a.id}">${alertArm === a.id ? "Tap again: done" : lvl(a.kind) === 2 ? "Got it" : "✓ Done"}</button></div>`; }).join("")}
   </section>`;
 }
 async function alertTap(id) {
