@@ -1,0 +1,2 @@
+-- 2026-11-01 pipeline.drafts_unstick(): a draft with a title, no pricing and nothing pending for 15+ min is restarted
+--   (non-book 'Other' -> item check, item -> item_stale, book -> price_stale). cron pd-drafts-unstick */10. Trigger: P68 Moon Glow Saucer stuck 80 min.
