@@ -294,7 +294,8 @@ function shipCard() {
   const row = (x) => `<div class="shiprow${x.channel === "abe" ? " abe" : ""}">
       <b class="mono">${esc(x.pd || "—")}</b>
       <span class="st">${esc(x.title || "")}<br><span class="muted"><span class="sbadge ${esc(x.channel)}">${names[x.channel] || esc(x.channel)}</span> ${money(x.price)} · ${esc(x.date || "")}${x.order ? " · order " + esc(x.order) : ""}</span></span>
-      <button class="${shipArm === x.key ? "" : "ghost"}" data-ship="${esc(x.key)}">${shipArm === x.key ? "Tap again" : "✓ Shipped"}</button></div>`;
+      <span style="display:grid;gap:4px"><button class="${shipArm === x.key ? "" : "ghost"}" data-ship="${esc(x.key)}">${shipArm === x.key ? "Tap again" : "✓ Shipped"}</button>
+        <button class="${cancelArm === x.key ? "danger" : "quiet"}" data-shipcancel="${esc(x.key)}" style="min-height:34px;padding:2px 6px;font-size:.85rem">${cancelArm === x.key ? "Tap again: cancelled" : "✗ Cancelled"}</button></span></div>`;
   let body = "";
   if (shipSort === "store") {
     const chans = [...new Set(toShip.map((x) => x.channel))].sort((a, b) => (order.indexOf(a) + 1 || 9) - (order.indexOf(b) + 1 || 9));
@@ -307,7 +308,15 @@ function shipCard() {
       <button class="${shipSort === "pd" ? "" : "ghost"}" data-shipsort="pd" aria-pressed="${shipSort === "pd"}">By PD # (pulling)</button>
       <button class="${shipSort === "store" ? "" : "ghost"}" data-shipsort="store" aria-pressed="${shipSort === "store"}">By store (shipping)</button></div>
     <div class="shiplist">${body}</div>
-    <p class="muted" style="margin:0;font-size:.86rem">The cloud already took each book off your other stores and logged it in Airtable. Tap ✓ Shipped twice once it's in the mail.</p></section>`;
+    <p class="muted" style="margin:0;font-size:.86rem">The cloud already took each book off your other stores and logged it in Airtable. Tap ✓ Shipped twice once it's in the mail. If the buyer cancelled, tap ✗ Cancelled twice: it comes off this list and is not shipped.</p></section>`;
+}
+// ✗ Cancelled (Papa Duck 2026-11-02: "I need the ability to indicate not to ship that once cancelled")
+let cancelArm = null;
+async function cancelTap(key) {
+  if (cancelArm !== key) { cancelArm = key; shipArm = null; setTimeout(() => { if (cancelArm === key) { cancelArm = null; render(); } }, 6000); return render(); }
+  cancelArm = null;
+  try { const r = await call(`select pipeline.mark_cancelled(${lit(key)}) as r`); if (r) toShip = r; say("Marked cancelled. It's off the To ship list. Nothing to mail.", false); } catch (e) { showError(e); }
+  render();
 }
 async function shipTap(key) {
   if (shipArm !== key) { shipArm = key; setTimeout(() => { if (shipArm === key) { shipArm = null; render(); } }, 6000); return render(); }
@@ -782,6 +791,7 @@ function wire() {
   const bl = $("bblist"); if (bl) bl.ontoggle = () => { bbListOpen = bl.open; };
   document.querySelectorAll("[data-alert]").forEach((b) => b.onclick = () => alertTap(+b.dataset.alert));
   document.querySelectorAll("[data-ship]").forEach((b) => b.onclick = () => shipTap(b.dataset.ship));
+  document.querySelectorAll("[data-shipcancel]").forEach((b) => b.onclick = () => cancelTap(b.dataset.shipcancel));
   document.querySelectorAll("[data-shipsort]").forEach((b) => b.onclick = () => { shipSort = b.dataset.shipsort; try { localStorage.setItem("lp_ship_sort", shipSort); } catch (e) {} render(); });
   const wi = $("wisbn"); if (wi) wi.onclick = copyIsbns;
   const wp = $("wprint"); if (wp) wp.onclick = () => weekPrint(wp);
@@ -944,3 +954,5 @@ $("askform").onsubmit = ask;
   refresh(true);
 })();
 </script>
+
+

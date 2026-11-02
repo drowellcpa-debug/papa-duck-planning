@@ -14,6 +14,8 @@
 //             v5 (2026-10-31): priced to SELL - Claude's fair_list is the best price that will sell in ~30 days (knows the quantity),
 //             and with only 1-2 eBay matches the lower of the rule price and that call is used (was the higher).
 //             Unanswered damage questions are left out of the write-up - never "not assessed" / "buyer should inquire".
+//             v7d: pricing is always for ONE piece (sets/lots never in the average) unless he answers "As a set"; the sell-through price caps a high average.
+//             v7c: "set" in his own words = one set listing at quantity 1; otherwise qty>1 gets the "This listing is for ONE ..." note.
 //             v7 (2026-11-02): quantity = identical pieces sold one at a time - the write-up always describes ONE piece, never "set of N".
 //             v6 (2026-10-31): after the auction match, a second look at the photos WITH the auction paper (auction wins on maker/pattern/form).
 // Test: {"dry": draft_id} runs step 2 on one draft and returns the result without saving.
@@ -185,6 +187,21 @@ function validate(b1: string, b2: string, title: string, grade: string): string[
   if (title.length > 80) f.push(`eBay title is ${title.length} characters (max 80)`);
   return f;
 }
+// v7c (2026-11-02) Papa Duck: "make that automatic for non book items unless I explicitly indicate set and quantity is left at 1".
+// He says "set" in his own words (tell box or Station note) -> ONE listing for the whole set, described as a set, quantity 1.
+// Otherwise more than one in stock = identical pieces sold one at a time, with the "This listing is for ONE ..." note.
+// Papa Duck: "always ask the question" -> every non-book item gets SET_Q; his click decides.
+const SET_Q = "How is this sold?";
+const SET_OPTS = ["One at a time (quantity = how many I have)", "As a set (quantity 1)"];
+function isSetSale(d: any): boolean {
+  const qs = Array.isArray(d.questions) ? d.questions : [];
+  const k = qs.findIndex((q: any) => q && q.q === SET_Q);
+  const a = k >= 0 ? String((d.answers || {})[String(k)] || "") : "";
+  if (a) return a.toLowerCase().startsWith("as a set");
+  const st = (d.answers && d.answers.station) || {};
+  const words = [(d.answers || {}).tell, st.note, st.notes].filter(Boolean).join(" ");
+  return /\b(as a set|sold together|keep together|as a pair)\b/i.test(words);
+}
 function writePrompt(d: any, grade: string, cat: any, aspects: any[], fix: string[]): string {
   const id = d.ident || {};
   const qa = (d.questions || []).map((q: any, i: number) => ({ q: q.q, a: (d.answers || {})[String(i)] || "(not answered yet)" }));
@@ -194,7 +211,7 @@ function writePrompt(d: any, grade: string, cat: any, aspects: any[], fix: strin
 THE ITEM IN HAND (identified from photos; Papa Duck may have corrected fields):
 ${JSON.stringify({ ...id, grade_in_hand: grade, weight_lb: d.weight_lb }, null, 1)}
 
-QUANTITY: ${Number(((d.answers || {}).station || {}).qty) || 1} identical piece(s) in stock. Papa Duck sells pieces ONE AT A TIME (2026-11-02, PD-0249 went out as "Set of 5" and a buyer paid one plate's price for five). Write the listing about ONE single piece: the title names one piece ("Dinner Plate", never "Plates", "Set of 5", "Lot"); Block 1 and Block 2 describe that one piece ("this plate", never "all five", "both", "each of the", "set of"). Do not write the stock count yourself - a fixed note "This listing is for ONE ... more available, use the Quantity box" is added automatically. Never mention the auction lot size (\"from a lot of six\"). Only if a single listing truly is one multi-piece object (a salt AND pepper shaker pair, a cup WITH its saucer, a teapot with its lid, a boxed game) describe it as that set.
+${isSetSale(d) ? "SOLD AS A SET: Papa Duck says this listing is ONE SET sold together (his own words below). Describe the whole set: name every piece and the count in the title and write-up; quantity is 1.\n\n" : ""}QUANTITY: ${isSetSale(d) ? 1 : (Number(((d.answers || {}).station || {}).qty) || 1)} identical piece(s) in stock. ${isSetSale(d) ? "(set: ignore the one-piece rules that follow)" : ""} Papa Duck sells pieces ONE AT A TIME (2026-11-02, PD-0249 went out as "Set of 5" and a buyer paid one plate's price for five). Write the listing about ONE single piece: the title names one piece ("Dinner Plate", never "Plates", "Set of 5", "Lot"); Block 1 and Block 2 describe that one piece ("this plate", never "all five", "both", "each of the", "set of"). Do not write the stock count yourself - a fixed note "This listing is for ONE ... more available, use the Quantity box" is added automatically. Never mention the auction lot size (\"from a lot of six\"). Only if a single listing truly is one multi-piece object (a salt AND pepper shaker pair, a cup WITH its saucer, a teapot with its lid, a boxed game) describe it as that set.
 
 PAPA DUCK'S ANSWERS (facts from the man holding it; every flaw he reports goes in Block 1 AND the Condition list; if a damage question is unanswered, say NOTHING about that flaw either way - never write "not assessed", "not confirmed", "if any" or "buyer should inquire"; Papa Duck 2026-10-31: take that off):
 ${JSON.stringify(qa, null, 1)}
@@ -334,6 +351,7 @@ Return the corrected identification in the same JSON format, plus "still_conflic
     flags.push(`🏷 Auction lot ${au.lot} (${au.house} · ${au.auction}): "${au.title}" — lot cost $${au.lot_cost.toFixed(2)}, split across the items from this lot.`);
     for (const c of au.conflicts) qs.unshift({ q: `The auction paper and the photos disagree: ${c} Which is right?`, options: ["Auction paper is right", "Photos are right", "Not sure"] });
   }
+  qs.unshift({ q: SET_Q, options: SET_OPTS });
   qs.push({ q: "Anything the photos can't show?", options: ["None", "Chip or crack", "Repair / glue", "Missing piece", "Other"] });
   await sql`update pipeline.drafts set ident = ${sql.json(merged)}, flags = ${sql.json(flags)}, questions = ${sql.json(qs)},
       channel = ${out.do_not_list ? "dont_list" : "ebay"}, weight_lb = coalesce(weight_lb, ${Number(out.weight_lb) || null}),
@@ -351,6 +369,7 @@ async function priceOne(sql: any, d: any, conf: any, dry: boolean) {
   const model = conf.claude_model || "claude-sonnet-4-6";
   const tok = await ebayToken();
   const it = ident.item || {};
+  const setSale = isSetSale(d);
   const q = String(ident.search || [it.maker, it.line_or_pattern, it.type].filter(Boolean).join(" ") || ident.title || "").replace(/[^\w\s'-]/g, " ").replace(/\s+/g, " ").trim();
   const q2 = String(ident.title || "").replace(/[^\w\s'-]/g, " ").replace(/\s+/g, " ").trim();
   const res = await Promise.all([...new Set([q, q2].filter(Boolean))].map((x) => browse(tok, x).catch(() => [])));
@@ -364,13 +383,16 @@ async function priceOne(sql: any, d: any, conf: any, dry: boolean) {
   const qa = (d.questions || []).map((qq: any, i: number) => ({ q: qq.q, a: (d.answers || {})[String(i)] || "" }));
   const judge = await claude([{ type: "text", text: `Papa Duck is pricing this used item (not a book):
 ${JSON.stringify({ title: ident.title, item: it, grade, condition_notes: ident.condition_notes, answers: qa, qty: Number(((d.answers || {}).station || {}).qty) || 1 })}
+${setSale ? "SOLD AS ONE SET: price the WHOLE set as one listing (quantity 1). Compare against sets/lots of a similar count; for singles, multiply by the piece count and take a set discount." : "PRICE ONE SINGLE PIECE. Papa Duck sells identical pieces ONE AT A TIME (quantity = how many he has), so fair_list is the price of ONE piece. Keep only single-piece listings; drop every set, lot, pair or multi-piece listing (e.g. \"Set of 4\", \"(10)\", \"2 of\", \"8pc\", \"with gravy boat\")."}
 Listings for sale now on eBay (i, price, shipping, condition, title):
 ${found.map((c) => `${c.i}\t$${c.price.toFixed(2)}\t${c.ship == null ? "ship ?" : c.ship ? "+$" + c.ship.toFixed(2) : "free ship"}\t${c.cond}\t${c.title}`).join("\n") || "(none found)"}
 Keep ONLY listings that are the SAME item: same maker and line/pattern/model, same kind of piece, comparable size and count. Drop different pieces or patterns, lots/sets when ours is single (or singles when ours is a set), reproductions vs originals, parts/broken listings, new-in-box when ours is used without a box.
 fair_list: the BEST PRICE THAT WILL ACTUALLY SELL ours within about 30 days, given its condition and how many we have (qty) - Papa Duck: "always give me the best price that will sell". Not the top of the market: a lone high asking price is not proof it sells; common pieces belong near the cheaper kept listings (if nothing matches, price it from the closest similar items and what this sells for used, and start fair_why with "No direct match:"). band: durable (collectible that holds value) | standard | perishable (common, slow).
 Respond ONLY JSON: {"keep":[1,2],"fair_list":0,"fair_why":"","band":"standard"}` }], conf.judge_model || model, 1200);
   const keepSet = new Set((judge.keep || []).map(Number));
-  const kept = found.filter((c) => keepSet.has(c.i)).slice(0, 30);
+  // v7d (2026-11-02, PD-0249/0236/0248 priced off sets): single-piece items never average in a set or lot, whatever the judge kept
+  const MULTI_T = /(set of|lot of|\bpair\b|\(\s*\d+\s*\)|^\s*\d+\s|\b\d+\s?(pc|pcs|piece|pieces)\b|\b(2|3|4|5|6|7|8|9|10|11|12|two|three|four|five|six|eight|ten|twelve) (of|plates|cups|saucers|bowls|mugs|glasses)\b|\bwith\b.*\b(gravy|platter)\b|\band\b.*\b(gravy boat|platter)\b)/i;
+  const kept = found.filter((c) => keepSet.has(c.i) && (setSale || !MULTI_T.test(c.title))).slice(0, 30);
   await soldCounts(tok, kept);
   // his rule (CG): average DELIVERED price of the matching listings - $0.50, never under $9.99; Claude's call when nothing matches
   const minList = Number(conf.min_list_drafts) || 9.99;
@@ -387,6 +409,8 @@ Respond ONLY JSON: {"keep":[1,2],"fair_list":0,"fair_why":"","band":"standard"}`
     note = `${kept.length} matching on eBay, delivered $${deliv[0].toFixed(2)}–$${deliv[deliv.length - 1].toFixed(2)}, average $${avg.toFixed(2)}${soldTot ? `, ${soldTot} sold off those listings` : ""} -> list $${list.toFixed(2)}.`;
     // v5 (2026-10-31, PD-0161 teacup listed at $30.99 off ONE eBay asking price): thin data never pushes the price UP - with 1-2 matches
     // the price is the LOWER of the rule price and Claude's sell-through call. Papa Duck: "always give me the best price that will sell".
+    // v7d: "best price that will sell" is a ceiling whenever the rule price runs well above it (any number of matches)
+    if (fair > 0 && list > fair * 1.35 && kept.length > 2) { list = up99(Math.max(fair, minList)); basis = "best price that will sell (matching listings ran high)"; note += ` Matching listings ran high — priced to sell at $${list.toFixed(2)}.`; }
     if (kept.length <= 2 && fair > 0 && fair < list) { list = up99(Math.max(fair, minList)); basis = "best price that will sell (only " + kept.length + " match)"; note += ` Thin data — priced to sell at $${list.toFixed(2)}.`; }
   } else if (fair > 0) {
     list = up99(Math.max(fair, minList)); basis = "Claude's call (no direct eBay match)";
@@ -409,7 +433,7 @@ Respond ONLY JSON: {"keep":[1,2],"fair_list":0,"fair_why":"","band":"standard"}`
     b1 = String(o.b1 || "").trim(); title = String(o.ebay_title || "").trim(); b2 = buildB2(o, grade);
     fails = validate(b1, b2, title, grade);
     // v7: more than one in stock = sold one piece at a time; never let a "set of 5" listing out again (PD-0249, 2026-11-02)
-    if ((Number(((d.answers || {}).station || {}).qty) || 1) > 1) {
+    if (!isSetSale(d) && (Number(((d.answers || {}).station || {}).qty) || 1) > 1) {
       const all = (title + " " + b1 + " " + b2.replace(/<[^>]+>/g, " ")).toLowerCase();
       const MULTI = /(set of|lot of|\ball (two|three|four|five|six|seven|eight|nine|ten)\b|each of the|\b(two|three|four|five|six|seven|eight|nine|ten|\d+) (matching )?(plates|saucers|cups|bowls|pieces|mugs|glasses|figurines)\b)/;
       const m = all.match(MULTI);
@@ -421,7 +445,8 @@ Respond ONLY JSON: {"keep":[1,2],"fair_list":0,"fair_why":"","band":"standard"}`
   }
   // v7b (2026-11-02) Papa Duck: "this description needs to be clear 1 plate sold, more available, just indicate quantity"
   const qtyNow = Number(((d.answers || {}).station || {}).qty) || 1;
-  if (qtyNow > 1) {
+  if (isSetSale(d) && qtyNow > 1) fails.push(`You said this is a SET, but the quantity is ${qtyNow} - a set listing should be quantity 1`);
+  if (!isSetSale(d) && qtyNow > 1) {
     const noun = String(o.one_piece || it.type || "piece").toLowerCase().replace(/[^a-z0-9 &'-]/g, "").trim() || "piece";
     b1 = `${b1} This listing is for one ${noun}; more are available.`;
     b2 = b2.replace(/(<\/h2>)/, `$1<p style="background:#FFF4D6;border-left:5px solid #E0A800;padding:10px 12px;font-size:1.05em"><b>\u{1F522} This listing is for ONE ${esc(noun)}.</b> More are available \u2014 use the Quantity box to choose how many you would like.</p>`);
