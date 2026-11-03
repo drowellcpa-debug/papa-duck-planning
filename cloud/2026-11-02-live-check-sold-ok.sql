@@ -1,0 +1,3 @@
+-- Papa Duck 2026-11-02 (old nights stuck "waiting on a store"): a book that sold on another store and was taken off AbeBooks counts as ok
+-- (trigger trg_live_check_sold_ok + trg_sales_done_live_ok), and nights up to 14 days old with a book still waiting are re-checked hourly
+-- (launch_check_cron). Full SQL: migration live_check_sold_is_ok.

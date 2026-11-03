@@ -93,8 +93,9 @@ label.price input { width: 7em }
 .notice { border-radius: 10px; padding: 10px 14px; font-weight: 700 }
 .notice.bad { background: var(--red-bg); color: var(--ink); border: 2px solid var(--red) }
 .notice.good { background: var(--panel); border: 2px solid var(--green) }
-aside.duck { position: sticky; top: 12px; max-height: calc(100vh - 24px); display: flex; flex-direction: column }
-.chat { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; min-height: 160px; max-height: 60vh }
+.rcol { display: flex; flex-direction: column; gap: 16px; min-width: 0 }
+aside.duck { max-height: 70vh; display: flex; flex-direction: column }
+.chat { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; min-height: 140px; max-height: 45vh }
 .msg { margin: 0; padding: 9px 12px; border-radius: 12px; max-width: 92%; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .97rem }
 .msg.me { align-self: flex-end; background: var(--brand); color: var(--brand-ink); border-bottom-right-radius: 4px }
 .msg.duck { background: var(--bg); border-bottom-left-radius: 4px }
@@ -147,6 +148,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 </header>
 <div class="wrap">
   <main id="main"><p class="empty">Loading tonight's blast off…</p></main>
+  <div class="rcol">
   <aside class="card duck" aria-label="Ask Grandpa Duck">
     <h2>Ask Grandpa Duck</h2>
     <div class="chat" id="chat" aria-live="polite"><p class="msg duck">Hi Papa Duck. Ask me anything about tonight's books, a photo that turned red, or why a book went where it did.</p></div>
@@ -157,6 +159,8 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
     </form>
     <p class="muted" id="duckhint" style="margin:0;font-size:.85rem"></p>
   </aside>
+  <div id="salesbox"></div>
+  </div>
 </div>
 
 <script>
@@ -212,6 +216,7 @@ function jobState(list) {
 
 // ---------- render ----------
 function render() {
+  { const sb = $("salesbox"); if (sb) sb.innerHTML = salesCard(); }
   const box = $("main");
   if (box.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;  // don't wipe what he is typing
   const n = st && st.night;
@@ -219,7 +224,7 @@ function render() {
   if (!n) {
     $("nightline").textContent = "No blast off waiting";
     box.innerHTML = h + `<section class="card"><h2>Nothing waiting yet</h2><p class="muted" style="margin:0">When tonight's books are ready, press the button. I gather everything in Sent, ask you anything I need, then build the files.</p>
-      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + salesCard() + alertCard() + shipCard() + weekCard() + historyCard();
+      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + alertCard() + shipCard() + weekCard() + historyCard();
     wire(); return;
   }
   const qs = st.questions || [], rc = st.reconsider || [];
@@ -254,7 +259,7 @@ function render() {
   // 4) send, one step at a time
   if (n.status === "ready_to_send") h += sendCard() + verifyCard();
   if (n.status === "dry_built") h += `<section class="card"><h2>Test run finished</h2><p style="margin:0">The test files were built and checked. Nothing was sent.</p></section>`;
-  h += salesCard() + alertCard() + shipCard() + weekCard() + historyCard();
+  h += alertCard() + shipCard() + weekCard() + historyCard();
   box.innerHTML = h;
   wire();
 }
@@ -275,19 +280,20 @@ function salesCard() {
   let bars = (salesView === "year" ? (S.year || []).filter((x) => !S.since || x.m >= S.since.slice(0, 7) + "-01") : (S.month || []))
     .map((x) => ({ k: x.d || x.m, lab: x.d ? String(+x.d.slice(8)) : mName(x.m, { month: "short" }), n: x.n, t: Number(x.total || 0), now: (x.d || "") === S.today || (x.m || "").slice(0, 7) === String(S.today).slice(0, 7) && salesView === "year" }));
   const max = Math.max(1, ...bars.map((b) => b.t));
-  const chart = `<div style="display:flex;align-items:flex-end;gap:${salesView === "year" ? 14 : 3}px;height:150px;padding:18px 0 0;border-bottom:2px solid var(--line);overflow-x:auto" role="img" aria-label="Sales by ${salesView === "year" ? "month" : "day"}">
-    ${bars.map((b) => `<div title="${esc(b.k)}: ${money(b.t)} · ${b.n} sale${b.n === 1 ? "" : "s"}" style="flex:1 0 ${salesView === "year" ? 46 : 14}px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;position:relative">
-        ${b.t && (salesView === "year" || bars.length <= 16 || b.t === max || b.now) ? `<span style="font-size:.72rem;white-space:nowrap;position:absolute;top:${Math.max(0, 100 - b.t / max * 100) - 0}%;transform:translateY(-110%)">${money(b.t).replace(".00", "")}</span>` : ""}
-        <i style="display:block;width:100%;max-width:${salesView === "year" ? 60 : 26}px;height:${Math.max(b.t ? 3 : 1, b.t / max * 100)}%;background:${b.now ? "var(--yellow)" : "var(--green)"};border-radius:4px 4px 0 0"></i></div>`).join("")}</div>
-    <div style="display:flex;gap:${salesView === "year" ? 14 : 3}px;overflow-x:hidden">${bars.map((b) => `<span style="flex:1 0 ${salesView === "year" ? 46 : 14}px;text-align:center;font-size:.72rem;color:var(--muted)">${esc(b.lab)}</span>`).join("")}</div>`;
+  const yr = salesView === "year", gap = yr ? 6 : 2, w = yr ? "0 0 38px" : "1 1 0";
+  const chart = `<div style="display:flex;align-items:flex-end;gap:${gap}px;height:140px;padding:18px 0 0;border-bottom:2px solid var(--line)" role="img" aria-label="Sales by ${yr ? "month" : "day"}">
+    ${bars.map((b) => `<div title="${esc(b.k)}: ${money(b.t)} · ${b.n} sale${b.n === 1 ? "" : "s"}" style="flex:${w};min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;position:relative">
+        ${b.t && (yr || b.t === max || b.now) ? `<span style="font-size:.7rem;white-space:nowrap;position:absolute;top:${100 - b.t / max * 100}%;transform:translateY(-110%)">${money(b.t).replace(/\.\d\d$/, "")}</span>` : ""}
+        <i style="display:block;width:100%;max-width:${yr ? 38 : 16}px;height:${Math.max(b.t ? 3 : 1, b.t / max * 100)}%;background:${b.now ? "var(--yellow)" : "var(--green)"};border-radius:3px 3px 0 0"></i></div>`).join("")}</div>
+    <div style="display:flex;gap:${gap}px">${bars.map((b, i) => `<span style="flex:${w};min-width:0;text-align:center;font-size:.68rem;color:var(--muted)">${yr || i % 5 === 0 || b.now ? esc(b.lab) : ""}</span>`).join("")}</div>`;
   const mLabel = mName(S.today, { month: "long" });
   return `<section class="card" aria-label="Sales">
     <div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="display:flex;align-items:center;gap:10px"><span aria-hidden="true" style="display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--green);color:var(--green-ink);font-size:1.6rem;font-weight:800;line-height:1">$</span>Sales today · ${money(D.total)}</h2>
       <span class="muted" style="font-size:.95rem">${D.n || 0} sale${D.n === 1 ? "" : "s"}${D.net != null && D.n ? ` · about ${money(D.net)} after fees` : ""}</span></div>
     ${by ? `<p style="margin:0;font-size:.95rem">${by}</p>` : ""}
     <div class="row" style="gap:12px;font-size:1rem"><span><b>${esc(mLabel)}:</b> ${money(S.mtd)}</span><span><b>Year to date:</b> ${money(S.ytd)}</span></div>
-    <div class="row" role="tablist" style="gap:6px"><button class="${salesView === "month" ? "" : "ghost"}" data-sview="month" aria-pressed="${salesView === "month"}">This month by day</button>
-      <button class="${salesView === "year" ? "" : "ghost"}" data-sview="year" aria-pressed="${salesView === "year"}">This year by month</button></div>
+    <div class="row" role="tablist" style="gap:6px"><button class="${salesView === "month" ? "" : "ghost"}" data-sview="month" aria-pressed="${salesView === "month"}" style="min-height:36px;padding:4px 12px;font-size:.92rem">📅 This month</button>
+      <button class="${salesView === "year" ? "" : "ghost"}" data-sview="year" aria-pressed="${salesView === "year"}" style="min-height:36px;padding:4px 12px;font-size:.92rem">📆 This year</button></div>
     ${chart}
     <p class="muted" style="margin:0;font-size:.82rem">Every sale the cloud caught on eBay, Etsy, AbeBooks and Amazon since ${S.since ? mName(S.since, { month: "short", day: "numeric" }) : "the Launch Pad started"}. Cancelled sales are left out. Prices are what the buyer paid for the item.</p>
   </section>`;
@@ -360,7 +366,7 @@ function shipCard() {
       return `<div class="shiphead"><span class="sbadge ${esc(c)}">${names[c] || esc(c)}</span> ${l.length} to ship</div>` + l.map(row).join(""); }).join("");
   } else body = [...toShip].sort(byPd).map(row).join("");
   return `<section class="card ask" aria-label="To ship">
-    <h2>📬 To ship · ${toShip.length} sale${toShip.length === 1 ? "" : "s"}${abe ? ` · <span style="color:var(--yellow-ink)">${abe} AbeBooks</span>` : ""}</h2>
+    <h2>📬 To ship · ${toShip.length} sale${toShip.length === 1 ? "" : "s"}${sales && sales.day ? ` · <span style="color:var(--green-text)">$ today ${money(sales.day.total)}</span>` : ""}${abe ? ` · <span style="color:var(--yellow-ink)">${abe} AbeBooks</span>` : ""}</h2>
     <div class="row" role="group" aria-label="Sort the ship list" style="gap:6px">
       <button class="${shipSort === "pd" ? "" : "ghost"}" data-shipsort="pd" aria-pressed="${shipSort === "pd"}">By PD # (pulling)</button>
       <button class="${shipSort === "store" ? "" : "ghost"}" data-shipsort="store" aria-pressed="${shipSort === "store"}">By store (shipping)</button></div>
