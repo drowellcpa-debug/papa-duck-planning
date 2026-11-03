@@ -147,7 +147,8 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
   <div class="conn" id="conn"><svg class="lclock" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line class="hand" id="lhand" x1="12" y1="12" x2="12" y2="4" stroke="#F2C230" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg><span id="connt">Connecting to Supabase…</span></div>
 </header>
 <div class="wrap">
-  <main id="main"><p class="empty">Loading tonight's blast off…</p></main>
+  <div style="display:flex;flex-direction:column;gap:18px;min-width:0"><main id="main"><p class="empty">Loading tonight's blast off…</p></main>
+  <div id="bdbox"></div></div>
   <div class="rcol">
   <aside class="card duck" aria-label="Ask Grandpa Duck">
     <h2>Ask Grandpa Duck</h2>
@@ -160,7 +161,6 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
     <p class="muted" id="duckhint" style="margin:0;font-size:.85rem"></p>
   </aside>
   <div id="salesbox"></div>
-  <div id="bdbox"></div>
   </div>
 </div>
 
@@ -310,37 +310,58 @@ async function loadBd(force) {
   try { const r = await q("select bd.board() as b"); bd = (r[0] && r[0].b) || null; } catch (e) { console.log("[bd]", e); }
   renderBd();
 }
-function bdRow(x, btns) {
-  const amz = `<a href="https://www.amazon.com/dp/${esc(x.asin)}" target="_blank" rel="noopener">Amazon</a>`;
-  const line = x.status === "listed" ? `Listed${x.pd ? " as " + esc(x.pd) : ""} at ${money(x.list_price)}`
-    : (x.status === "bought" || x.status === "holding") ? `Paid ${money(x.cost)}${x.pd ? " · " + esc(x.pd) + " on the Hold Shelf" : " · scan it in and pick Hold Shelf"} · sell about ${money(x.sell_target)}`
-    : `Used now ${x.used != null ? money(x.used) : "?"} · buy at ${money(x.buy_target)} or less · sells about ${money(x.sell_target)}${x.season ? " (" + esc(x.season) + ")" : ""}${x.profit != null ? " · profit ~" + money(x.profit).replace(/\.\d\d$/, "") : ""}`;
-  const form = bdBuy === x.asin ? `<div class="row" style="gap:6px;margin-top:6px"><label class="price">I paid $<input type="text" inputmode="decimal" id="bdcost" placeholder="${Number(x.used || 0).toFixed(2)}"></label>
-      <button data-bdsave="${esc(x.asin)}">Save</button><button class="ghost" data-bdcancel="1">Cancel</button></div>` : "";
-  return `<li style="padding:8px 0;border-top:1px solid var(--line);list-style:none"><b>${esc(String(x.title || x.asin).slice(0, 70))}</b>
-    <div class="muted" style="font-size:.88rem">${line} · ${amz}</div>${btns ? `<div class="row" style="gap:6px;margin-top:4px">${btns}</div>` : ""}${form}</li>`;
+// 2026-11-03 Papa Duck: "show me more of a grid style with the purchase prices it works better for my eyes" + eBay/AbeBooks copies by grade, best grade on top
+let bdOpen = {};
+function bdNet(x) { return Number(x.sell_target || 0) * (1 - Number(bd.fee_pct ?? 0.15)) - Number(bd.fee_flat ?? 1.8); }
+function bdOffers(x) {
+  const net = bdNet(x);
+  const rows = [...(x.offers || []), ...(x.used != null ? [{ src: "Amazon", g: "Used (lowest)", gr: -1, p: x.used, s: null, t: x.used, u: "https://www.amazon.com/dp/" + x.asin + "?condition=used", sel: "", n: "Lowest used on Amazon, grade varies" }] : [])];
+  if (!rows.length) return `<p class="muted" style="margin:6px 0">No copies found on eBay or AbeBooks yet.</p>`;
+  const gc = (g) => /new/i.test(g) ? "var(--green)" : /very good/i.test(g) ? "#2f7d4f" : /^good/i.test(g) ? "var(--ink)" : "var(--muted)";
+  return `<div style="overflow-x:auto;margin:6px 0 4px"><table class="bdt" style="width:100%;border-collapse:collapse;font-size:.88rem">
+    <thead><tr><th>Grade</th><th>Where</th><th>Seller</th><th class="n">Price</th><th class="n">Ship</th><th class="n">Total</th><th class="n">Profit</th><th></th></tr></thead><tbody>
+    ${rows.map((o) => { const pr = net - Number(o.t), ok = Number(o.t) <= Number(x.buy_target);
+      return `<tr title="${esc(o.n || "")}" style="${ok ? "background:var(--green-bg,#e6f4ea)" : ""}"><td style="color:${gc(o.g)};font-weight:700;white-space:nowrap">${esc(o.g)}</td><td>${esc(o.src)}</td>
+        <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.sel || "")}</td><td class="n">${money(o.p)}</td><td class="n">${o.s == null ? "?" : Number(o.s) ? money(o.s) : "free"}</td>
+        <td class="n"><b>${money(o.t)}</b></td><td class="n" style="color:${pr >= 50 ? "var(--green)" : pr < 0 ? "var(--red)" : "var(--ink)"};font-weight:700">${money(pr).replace(/\.\d\d$/, "")}</td>
+        <td><a href="${esc(o.u)}" target="_blank" rel="noopener">open ↗</a></td></tr>`; }).join("")}</tbody></table></div>`;
 }
 function bdCard() {
   if (!bd) return "";
   const R = bd.rows || [], grp = (k) => R.filter((x) => (x.status === "listed" ? "listed" : x.bucket) === k);
-  const btn = (x) => `<button style="min-height:34px;padding:3px 10px;font-size:.88rem" data-bdbought="${esc(x.asin)}">🛒 I bought it</button><button class="ghost" style="min-height:34px;padding:3px 10px;font-size:.88rem" data-bddrop="${esc(x.asin)}">Stop watching</button>`;
-  const sec = (icon, name, list, b, note) => list.length ? `<h3 style="margin:10px 0 0;font-size:1rem">${icon} ${name} (${list.length})</h3>${note ? `<p class="muted" style="margin:2px 0;font-size:.85rem">${note}</p>` : ""}<ul style="margin:0;padding:0">${list.map((x) => bdRow(x, b ? b(x) : "")).join("")}</ul>` : "";
   const buy = grp("buy"), close = grp("close"), listNow = grp("list now"), hold = grp("holding"), listed = grp("listed"), watch = grp("watching");
-  const when = bd.checked_at ? new Date(bd.checked_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "not yet";
+  const best = (x) => { const amz = x.used != null ? Number(x.used) : Infinity, ob = x.best_total != null ? Number(x.best_total) : Infinity;
+    return ob < amz ? { t: ob, w: `${esc(x.best_grade || "")} · ${esc(x.best_source)}` } : amz < Infinity ? { t: amz, w: "Amazon used" } : null; };
+  const row = (x, owned) => { const b = best(x), pr = b ? bdNet(x) - b.t : null, open = !!bdOpen[x.asin];
+    const btns = owned ? "" : `<button class="bdb" data-bdbought="${esc(x.asin)}">🛒 Bought</button><button class="bdb ghost" data-bddrop="${esc(x.asin)}" title="Stop watching">✕</button>`;
+    const mid = owned ? `<td colspan="2">${x.status === "listed" ? `Listed ${esc(x.pd || "")} at ${money(x.list_price)}` : `Paid ${money(x.cost)}${x.pd ? " · " + esc(x.pd) : " · scan it in, pick Hold Shelf"}`}</td>`
+      : `<td class="n"><b>${b ? money(b.t) : "—"}</b><div class="muted" style="font-size:.76rem;white-space:nowrap">${b ? b.w : ""}</div></td><td class="n">${money(x.buy_target)}</td>`;
+    const form = bdBuy === x.asin ? `<tr><td colspan="7"><div class="row" style="gap:6px"><label class="price">I paid $<input type="text" inputmode="decimal" id="bdcost" placeholder="${b ? b.t.toFixed(2) : ""}"></label>
+      <button data-bdsave="${esc(x.asin)}">Save</button><button class="ghost" data-bdcancel="1">Cancel</button></div></td></tr>` : "";
+    return `<tr class="bdr"><td><button class="quiet" data-bdopen="${esc(x.asin)}" aria-expanded="${open}" style="border:0;padding:0;text-align:left;color:var(--ink);font-weight:700;min-height:0">${open ? "▾" : "▸"} ${esc(String(x.title || x.asin).slice(0, 60))}</button></td>
+      ${mid}<td class="n">${money(x.sell_target)}<div class="muted" style="font-size:.76rem;white-space:nowrap">${esc((x.season || "").replace("Back to school", "BTS"))}</div></td>
+      <td class="n" style="font-weight:800;color:${pr != null && pr >= 50 ? "var(--green)" : pr != null && pr < 0 ? "var(--red)" : "var(--ink)"}">${pr != null && !owned ? money(pr).replace(/\.\d\d$/, "") : ""}</td><td style="white-space:nowrap">${btns}</td></tr>
+      ${open ? `<tr><td colspan="7" style="padding:0 0 8px 18px">${bdOffers(x)}</td></tr>` : ""}${form}`;
+  };
+  const sec = (icon, name, list, owned, note) => list.length ? `<tr class="bdh"><td colspan="7">${icon} <b>${name}</b> (${list.length})${note ? ` <span class="muted" style="font-weight:400">· ${note}</span>` : ""}</td></tr>${list.map((x) => row(x, owned)).join("")}` : "";
+  const when = (t) => t ? new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "not yet";
+  const wsort = watch.slice().sort((a, b) => { const f = (x) => { const bb = best(x); return bb ? (bb.t - x.buy_target) / (x.buy_target || 1) : 9; }; return f(a) - f(b); });
   return `<section class="card" aria-label="Bargain Duck">
+    <style>.bdg{width:100%;border-collapse:collapse;font-size:.92rem}.bdg th,.bdt th{text-align:left;font-size:.78rem;color:var(--muted);font-weight:600;padding:4px 6px;border-bottom:2px solid var(--line)}
+      .bdg td,.bdt td{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top}.bdg .n,.bdt .n{text-align:right;white-space:nowrap}.bdh td{background:var(--panel);padding-top:10px;border-bottom:2px solid var(--line)}
+      .bdb{min-height:30px;padding:2px 8px;font-size:.8rem;margin-left:4px}</style>
     <div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="display:flex;align-items:center;gap:10px"><span aria-hidden="true" style="font-size:1.8rem;line-height:1">🦆</span>Bargain Duck</h2>
-      <span class="muted" style="font-size:.85rem">Keepa checked ${esc(when)}</span></div>
+      <span class="muted" style="font-size:.82rem">Amazon ${esc(when(bd.checked_at))} · eBay/AbeBooks ${esc(when(bd.offers_at))}</span></div>
     ${bdMsg ? `<div class="notice good" role="status">${esc(bdMsg)}</div>` : ""}
-    ${!buy.length && !close.length ? `<p style="margin:0">Nothing in the buy zone today. I check every morning.</p>` : ""}
-    ${sec("🟢", "Buy now", buy, btn, "Used price is low enough to make $50+ after Amazon's fees.")}
-    ${sec("🟡", "Getting close", close, btn)}
-    ${sec("🚀", "Time to list", listNow, null, "Its selling season is here. Hold Shelf books go into the next blast off on their own.")}
-    ${sec("📦", "On the Hold Shelf", hold)}
-    ${sec("✅", "Listed from the Hold Shelf", listed)}
-    ${watch.length ? `<details id="bdwatch" ${bdWatchOpen ? "open" : ""} style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">👀 Watching (${watch.length})</summary><ul style="margin:0;padding:0">${watch.slice().sort((a, b) => (a.used - a.buy_target) / (a.buy_target || 1) - (b.used - b.buy_target) / (b.buy_target || 1)).map((x) => bdRow(x, btn(x))).join("")}</ul></details>` : ""}
-    <div class="row" style="gap:6px;margin-top:10px;flex-wrap:nowrap"><label for="bdadd" class="muted" style="position:absolute;left:-9999px">ISBN to watch</label>
+    <div style="overflow-x:auto"><table class="bdg"><thead><tr><th>Book (tap to see every copy)</th><th class="n">Cheapest good copy</th><th class="n">Buy at or under</th><th class="n">Sells for</th><th class="n">Profit</th><th></th></tr></thead><tbody>
+      ${!buy.length && !close.length ? `<tr><td colspan="7">Nothing in the buy zone today. I check every morning.</td></tr>` : ""}
+      ${sec("🟢", "Buy now", buy, false)}${sec("🟡", "Getting close", close, false)}${sec("🚀", "Time to list", listNow, true, "goes into the next blast off on its own")}
+      ${sec("📦", "On the Hold Shelf", hold, true)}${sec("✅", "Listed from the Hold Shelf", listed, true)}
+      ${watch.length ? `<tr class="bdh"><td colspan="7"><button class="quiet" data-bdwatch="1" style="border:0;padding:0;color:var(--ink);min-height:0">${bdWatchOpen ? "▾" : "▸"} 👀 <b>Watching</b> (${watch.length})</button></td></tr>${bdWatchOpen ? wsort.map((x) => row(x, false)).join("") : ""}` : ""}
+    </tbody></table></div>
+    <div class="row" style="gap:6px;margin-top:10px;flex-wrap:nowrap;max-width:460px"><label for="bdadd" class="muted" style="position:absolute;left:-9999px">ISBN to watch</label>
       <input id="bdadd" type="text" inputmode="numeric" placeholder="Add a book: ISBN" style="flex:1;min-width:0"><button id="bdaddbtn">Watch it</button></div>
-    <p class="muted" style="margin:0;font-size:.82rem">Only books that can clear $50 profit after Amazon's fees, priced from what they really sold for last back-to-school or January. Bought one? Tap 🛒, then scan it in and pick <b>Hold Shelf</b>. I'll list it on Dec 1 or Jun 1.</p>
+    <p class="muted" style="margin:0;font-size:.8rem">Cheapest good copy = Good grade or better on eBay or AbeBooks (shipping included), or Amazon's lowest used. Profit = what it sold for last season, minus Amazon's 15% + $1.80, minus the copy's price. Green rows in a book's list are at or under the buy price. Bought one? Tap 🛒, then scan it in and pick <b>Hold Shelf</b>. I list it Dec 1 or Jun 1.</p>
   </section>`;
 }
 function renderBd() {
@@ -352,7 +373,8 @@ function renderBd() {
   el.querySelectorAll("[data-bdsave]").forEach((b) => b.onclick = () => bdAct(`select bd.bought('${b.dataset.bdsave.replace(/[^0-9A-Z]/g, "")}', ${Number(($("bdcost") || {}).value) || "null"})`, "Saved. Scan it in and pick Hold Shelf when you list it."));
   el.querySelectorAll("[data-bddrop]").forEach((b) => b.onclick = () => bdAct(`select bd.drop_book('${b.dataset.bddrop.replace(/[^0-9A-Z]/g, "")}')`, "OK, I stopped watching that one."));
   const ab = $("bdaddbtn"); if (ab) ab.onclick = () => { const v = (($("bdadd") || {}).value || "").toUpperCase().replace(/[^0-9X]/g, ""); if (v.length >= 10) bdAct(`select bd.add_book('${v}')`, "Looking it up on Keepa. It will show here in a minute.", 45000); };
-  const dw = $("bdwatch"); if (dw) dw.ontoggle = () => { bdWatchOpen = dw.open; };
+  el.querySelectorAll("[data-bdopen]").forEach((b) => b.onclick = () => { bdOpen[b.dataset.bdopen] = !bdOpen[b.dataset.bdopen]; renderBd(); });
+  el.querySelectorAll("[data-bdwatch]").forEach((b) => b.onclick = () => { bdWatchOpen = !bdWatchOpen; renderBd(); });
 }
 async function bdAct(sql, msg, later) {
   bdBuy = null;
