@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
         else if (used <= buy * (1 + (S.close_pct ?? 0.2))) bucket = "close";
         const [prev] = await sql`select bucket, bucket_since from bd.check where asin = ${w.asin}`;
         const since = prev && prev.bucket === bucket ? prev.bucket_since : today;
-        if (bucket === "buy" && (!prev || prev.bucket !== "buy")) newBuys.push(`${w.title.slice(0, 60)} - used $${used!.toFixed(2)}, buy at $${buy!.toFixed(2)} or less, about $${profit!.toFixed(0)} profit`);
+        if (bucket === "buy" && (!prev || prev.bucket !== "buy") && w.amz_ok !== false) newBuys.push(`${w.title.slice(0, 60)} - used $${used!.toFixed(2)}, buy at $${buy!.toFixed(2)} or less, about $${profit!.toFixed(0)} profit`);
         const img = String(p.imagesCSV || "").split(",")[0];
         await sql`insert into bd.check (asin, title_keepa, used, new, amazon, used_avg90, used_avg365, used_low365, used_high365, sell_target, buy_target, profit, roi, bucket,
             rank, sales90, image, bucket_since, checked_at, season, season_sales)

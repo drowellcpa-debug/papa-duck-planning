@@ -303,7 +303,7 @@ function salesCard() {
 }
 // ---------- 🦆 Bargain Duck (Papa Duck 2026-11-03): "instead of the email have it go to our launch pad ... for our new buy or watch"
 // Its own bd.* tables + its own query, so it can never slow down or break the blast off part of this page.
-let bd = null, bdAt = 0, bdBuy = null, bdWatchOpen = false, bdMsg = "";
+let bd = null, bdAt = 0, bdBuy = null, bdWatchOpen = false, bdRestrOpen = false, bdMsg = "";
 async function loadBd(force) {
   if (!force && Date.now() - bdAt < 120000) return;
   bdAt = Date.now();
@@ -313,23 +313,34 @@ async function loadBd(force) {
 // 2026-11-03 Papa Duck: "show me more of a grid style with the purchase prices it works better for my eyes" + eBay/AbeBooks copies by grade, best grade on top
 let bdOpen = {};
 function bdNet(x) { return Number(x.sell_target || 0) * (1 - Number(bd.fee_pct ?? 0.15)) - Number(bd.fee_flat ?? 1.8); }
+// 2026-11-03 Papa Duck: "check them for me so I know that the editions are correct ... that is a big pain point"
+function edChk(o) {
+  const n = String(o.n || "");
+  if (o.src === "Amazon") return `<span style="color:var(--green)">✓ same listing</span>`;
+  if (o.src === "AbeBooks") return `<span style="color:var(--green)">✓ ISBN search</span>`;
+  if (n.startsWith("✓")) return `<span style="color:var(--green)">✓ ISBN matches</span>`;
+  if (/^⚠ no ISBN/.test(n)) return `<span style="color:#9a6700" title="${esc(n)}">⚠ no ISBN, ask seller</span>`;
+  if (/^⚠ ships from/.test(n)) return `<span style="color:#9a6700" title="${esc(n)}">⚠ overseas seller</span>`;
+  return `<span class="muted">not opened</span>`;
+}
 function bdOffers(x) {
   const net = bdNet(x);
   const rows = [...(x.offers || []), ...(x.used != null ? [{ src: "Amazon", g: "Used (lowest)", gr: -1, p: x.used, s: null, t: x.used, u: "https://www.amazon.com/dp/" + x.asin + "?condition=used", sel: "", n: "Lowest used on Amazon, grade varies" }] : [])];
   if (!rows.length) return `<p class="muted" style="margin:6px 0">No copies found on eBay or AbeBooks yet.</p>`;
   const gc = (g) => /new/i.test(g) ? "var(--green)" : /very good/i.test(g) ? "#2f7d4f" : /^good/i.test(g) ? "var(--ink)" : "var(--muted)";
   return `<div style="overflow-x:auto;margin:6px 0 4px"><table class="bdt" style="width:100%;border-collapse:collapse;font-size:.88rem">
-    <thead><tr><th>Grade</th><th>Where</th><th>Seller</th><th class="n">Price</th><th class="n">Ship</th><th class="n">Total</th><th class="n">Profit</th><th></th></tr></thead><tbody>
+    <thead><tr><th>Grade</th><th>Edition check</th><th>Where</th><th>Seller</th><th class="n">Price</th><th class="n">Ship</th><th class="n">Total</th><th class="n">Profit</th><th></th></tr></thead><tbody>
     ${rows.map((o) => { const pr = net - Number(o.t), ok = Number(o.t) <= Number(x.buy_target);
-      return `<tr title="${esc(o.n || "")}" style="${ok ? "background:var(--green-bg,#e6f4ea)" : ""}"><td style="color:${gc(o.g)};font-weight:700;white-space:nowrap">${esc(o.g)}</td><td>${esc(o.src)}</td>
+      return `<tr title="${esc(o.n || "")}" style="${ok ? "background:var(--green-bg,#e6f4ea)" : ""}"><td style="color:${gc(o.g)};font-weight:700;white-space:nowrap">${esc(o.g)}</td><td style="white-space:nowrap">${edChk(o)}</td><td>${esc(o.src)}</td>
         <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.sel || "")}</td><td class="n">${money(o.p)}</td><td class="n">${o.s == null ? "?" : Number(o.s) ? money(o.s) : "free"}</td>
         <td class="n"><b>${money(o.t)}</b></td><td class="n" style="color:${pr >= 50 ? "var(--green)" : pr < 0 ? "var(--red)" : "var(--ink)"};font-weight:700">${money(pr).replace(/\.\d\d$/, "")}</td>
         <td><a href="${esc(o.u)}" target="_blank" rel="noopener">open ↗</a></td></tr>`; }).join("")}</tbody></table></div>`;
 }
 function bdCard() {
   if (!bd) return "";
-  const R = bd.rows || [], grp = (k) => R.filter((x) => (x.status === "listed" ? "listed" : x.bucket) === k);
-  const buy = grp("buy"), close = grp("close"), listNow = grp("list now"), hold = grp("holding"), listed = grp("listed"), watch = grp("watching");
+  // 2026-11-03 Papa Duck: "also verify that I am not restricted on them" - Amazon's restriction check per book; restricted ones are never a buy
+  const R = bd.rows || [], kind = (x) => x.status === "listed" ? "listed" : (x.status === "watching" && x.amz_ok === false) ? "restricted" : x.bucket, grp = (k) => R.filter((x) => kind(x) === k);
+  const buy = grp("buy"), close = grp("close"), listNow = grp("list now"), hold = grp("holding"), listed = grp("listed"), watch = grp("watching"), restricted = grp("restricted");
   const best = (x) => { const amz = x.used != null ? Number(x.used) : Infinity, ob = x.best_total != null ? Number(x.best_total) : Infinity;
     return ob < amz ? { t: ob, w: `${esc(x.best_grade || "")} · ${esc(x.best_source)}` } : amz < Infinity ? { t: amz, w: "Amazon used" } : null; };
   const row = (x, owned) => { const b = best(x), pr = b ? bdNet(x) - b.t : null, open = !!bdOpen[x.asin];
@@ -338,7 +349,8 @@ function bdCard() {
       : `<td class="n"><b>${b ? money(b.t) : "—"}</b><div class="muted" style="font-size:.76rem;white-space:nowrap">${b ? b.w : ""}</div></td><td class="n">${money(x.buy_target)}</td>`;
     const form = bdBuy === x.asin ? `<tr><td colspan="7"><div class="row" style="gap:6px"><label class="price">I paid $<input type="text" inputmode="decimal" id="bdcost" placeholder="${b ? b.t.toFixed(2) : ""}"></label>
       <button data-bdsave="${esc(x.asin)}">Save</button><button class="ghost" data-bdcancel="1">Cancel</button></div></td></tr>` : "";
-    return `<tr class="bdr"><td><button class="quiet" data-bdopen="${esc(x.asin)}" aria-expanded="${open}" style="border:0;padding:0;text-align:left;color:var(--ink);font-weight:700;min-height:0">${open ? "▾" : "▸"} ${esc(String(x.title || x.asin).slice(0, 60))}</button></td>
+    return `<tr class="bdr"><td><button class="quiet" data-bdopen="${esc(x.asin)}" aria-expanded="${open}" style="border:0;padding:0;text-align:left;color:var(--ink);font-weight:700;min-height:0">${open ? "▾" : "▸"} ${esc(String(x.title || x.asin).slice(0, 60))}</button>
+      <div style="font-size:.76rem">${x.amz_ok === true ? `<span style="color:var(--green)">✓ OK to sell on Amazon</span>` : x.amz_ok === false ? `<span style="color:var(--red)" title="${esc(x.amz_reason || "")}">🔒 ${/accepting applications/.test(x.amz_reason || "") ? "Amazon won't let you sell this one" : "Amazon needs approval (brand)"}</span>` : `<span class="muted">Amazon check pending</span>`}</div></td>
       ${mid}<td class="n">${money(x.sell_target)}<div class="muted" style="font-size:.76rem;white-space:nowrap">${esc((x.season || "").replace("Back to school", "BTS"))}</div></td>
       <td class="n" style="font-weight:800;color:${pr != null && pr >= 50 ? "var(--green)" : pr != null && pr < 0 ? "var(--red)" : "var(--ink)"}">${pr != null && !owned ? money(pr).replace(/\.\d\d$/, "") : ""}</td><td style="white-space:nowrap">${btns}</td></tr>
       ${open ? `<tr><td colspan="7" style="padding:0 0 8px 18px">${bdOffers(x)}</td></tr>` : ""}${form}`;
@@ -357,11 +369,12 @@ function bdCard() {
       ${!buy.length && !close.length ? `<tr><td colspan="7">Nothing in the buy zone today. I check every morning.</td></tr>` : ""}
       ${sec("🟢", "Buy now", buy, false)}${sec("🟡", "Getting close", close, false)}${sec("🚀", "Time to list", listNow, true, "goes into the next blast off on its own")}
       ${sec("📦", "On the Hold Shelf", hold, true)}${sec("✅", "Listed from the Hold Shelf", listed, true)}
+      ${restricted.length ? `<tr class="bdh"><td colspan="7"><button class="quiet" data-bdrestr="1" style="border:0;padding:0;color:var(--ink);min-height:0">${bdRestrOpen ? "▾" : "▸"} 🔒 <b>Restricted on Amazon</b> (${restricted.length}) <span class="muted" style="font-weight:400">· not counted as buys</span></button></td></tr>${bdRestrOpen ? restricted.map((x) => row(x, false)).join("") : ""}` : ""}
       ${watch.length ? `<tr class="bdh"><td colspan="7"><button class="quiet" data-bdwatch="1" style="border:0;padding:0;color:var(--ink);min-height:0">${bdWatchOpen ? "▾" : "▸"} 👀 <b>Watching</b> (${watch.length})</button></td></tr>${bdWatchOpen ? wsort.map((x) => row(x, false)).join("") : ""}` : ""}
     </tbody></table></div>
     <div class="row" style="gap:6px;margin-top:10px;flex-wrap:nowrap;max-width:460px"><label for="bdadd" class="muted" style="position:absolute;left:-9999px">ISBN to watch</label>
       <input id="bdadd" type="text" inputmode="numeric" placeholder="Add a book: ISBN" style="flex:1;min-width:0"><button id="bdaddbtn">Watch it</button></div>
-    <p class="muted" style="margin:0;font-size:.8rem">Cheapest good copy = Good grade or better on eBay or AbeBooks (shipping included), or Amazon's lowest used. Profit = what it sold for last season, minus Amazon's 15% + $1.80, minus the copy's price. Green rows in a book's list are at or under the buy price. Bought one? Tap 🛒, then scan it in and pick <b>Hold Shelf</b>. I list it Dec 1 or Jun 1.</p>
+    <p class="muted" style="margin:0;font-size:.8rem">Cheapest good copy = Good grade or better on eBay or AbeBooks (shipping included), or Amazon's lowest used. Profit = what it sold for last season, minus Amazon's 15% + $1.80, minus the copy's price. Green rows in a book's list are at or under the buy price. "✓ ISBN matches" means I opened the eBay listing and its ISBN is the exact edition; wrong editions are left out. Bought one? Tap 🛒, then scan it in and pick <b>Hold Shelf</b>. I list it Dec 1 or Jun 1.</p>
   </section>`;
 }
 function renderBd() {
@@ -375,6 +388,7 @@ function renderBd() {
   const ab = $("bdaddbtn"); if (ab) ab.onclick = () => { const v = (($("bdadd") || {}).value || "").toUpperCase().replace(/[^0-9X]/g, ""); if (v.length >= 10) bdAct(`select bd.add_book('${v}')`, "Looking it up on Keepa. It will show here in a minute.", 45000); };
   el.querySelectorAll("[data-bdopen]").forEach((b) => b.onclick = () => { bdOpen[b.dataset.bdopen] = !bdOpen[b.dataset.bdopen]; renderBd(); });
   el.querySelectorAll("[data-bdwatch]").forEach((b) => b.onclick = () => { bdWatchOpen = !bdWatchOpen; renderBd(); });
+  el.querySelectorAll("[data-bdrestr]").forEach((b) => b.onclick = () => { bdRestrOpen = !bdRestrOpen; renderBd(); });
 }
 async function bdAct(sql, msg, later) {
   bdBuy = null;
