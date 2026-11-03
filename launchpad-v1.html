@@ -170,6 +170,7 @@ let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false,
 let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false, hist = null, histSel = null, histAt = 0;
 let keepArm = null;
 let fship = null, lilyForm = null, lilyArm = null, lilyBusy = false;
+let weekOpen = {}; // 2026-11-03 Papa Duck: "I want to not see the ducks dancing unless I open up the box"
 let alerts = [], alertArm = null, toShip = [], shipArm = null, week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null, boxHistOpen = false, showIsbn = "", bbListOpen = false;
 const chatTurns = [];
 const $ = (id) => document.getElementById(id);
@@ -564,9 +565,11 @@ function weekCard() {
     : "Tap a book twice to check it off. That's your OK: it comes off eBay, AbeBooks, Etsy and Amazon, and Airtable marks it Donated. When every square is cleared, the next 20 show up by themselves. 🔒 Keep (two taps) leaves a book listed just as it is and the next one takes its spot.";
   return `<section class="card" aria-label="This week">
     <h2>📦 This week</h2>${lilyPad()}${tabs}${head}
-    <div class="board">${list.map(sq).join("") || '<p class="muted">Getting the next books ready…</p>'}</div>
+    ${weekOpen[weekTab] ? `<button class="ghost" data-wopen="${esc(weekTab)}" style="min-height:36px;padding:3px 12px;justify-self:start">Close the box ▴</button>
+    <div class="board">${list.map(sq).join("") || '<p class="muted">Getting the next books ready…</p>'}</div>`
+      : `<button class="ghost" data-wopen="${esc(weekTab)}" style="min-height:40px;padding:4px 14px;justify-self:start">📖 Open the box · ${list.length} book${list.length === 1 ? "" : "s"} ▾</button>`}
     ${probTxt ? `<div class="notice bad" style="font-weight:400"><b>Needs a look:</b><br>${probTxt}</div>` : ""}
-    <p class="muted" style="margin:0;font-size:.88rem">${foot}</p>
+    ${weekOpen[weekTab] ? `<p class="muted" style="margin:0;font-size:.88rem">${foot}</p>` : ""}
     ${isFba ? boxHistory(w.history || []) : ""}
   </section>`;
 }
@@ -940,6 +943,7 @@ function wire() {
   const s2 = $("startbtn"); if (s2) s2.onclick = startNight;
   document.querySelectorAll("[data-hist]").forEach((b) => b.onclick = () => { const id = +b.dataset.hist; histSel = histSel === id ? null : id; render(); });
   const go2 = $("gapok"); if (go2) go2.onclick = () => { gapOk = true; render(); };
+  document.querySelectorAll("[data-wopen]").forEach((b) => b.onclick = () => { weekOpen[b.dataset.wopen] = !weekOpen[b.dataset.wopen]; render(); });
   document.querySelectorAll("[data-wtab]").forEach((b) => b.onclick = () => { weekTab = b.dataset.wtab; weekArm = null; render();
     if (b.dataset.wscroll) { const s = document.querySelector('section[aria-label="This week"]'); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); } });
   document.querySelectorAll("[data-wsq]").forEach((b) => b.onclick = () => weekTap(+b.dataset.wsq));
