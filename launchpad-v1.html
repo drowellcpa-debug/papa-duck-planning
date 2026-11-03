@@ -224,7 +224,7 @@ function render() {
   if (!n) {
     $("nightline").textContent = "No blast off waiting";
     box.innerHTML = h + `<section class="card"><h2>Nothing waiting yet</h2><p class="muted" style="margin:0">When tonight's books are ready, press the button. I gather everything in Sent, ask you anything I need, then build the files.</p>
-      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + alertCard() + shipCard() + weekCard() + historyCard();
+      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + alertCard() + shipCard() + fbaTrackCard() + weekCard() + historyCard();
     wire(); return;
   }
   const qs = st.questions || [], rc = st.reconsider || [];
@@ -259,7 +259,7 @@ function render() {
   // 4) send, one step at a time
   if (n.status === "ready_to_send") h += sendCard() + verifyCard();
   if (n.status === "dry_built") h += `<section class="card"><h2>Test run finished</h2><p style="margin:0">The test files were built and checked. Nothing was sent.</p></section>`;
-  h += alertCard() + shipCard() + weekCard() + historyCard();
+  h += alertCard() + shipCard() + fbaTrackCard() + weekCard() + historyCard();
   box.innerHTML = h;
   wire();
 }
@@ -297,6 +297,36 @@ function salesCard() {
     ${chart}
     <p class="muted" style="margin:0;font-size:.82rem">Every sale the cloud caught on eBay, Etsy, AbeBooks and Amazon since ${S.since ? mName(S.since, { month: "short", day: "numeric" }) : "the Launch Pad started"}. Cancelled sales are left out. Prices are what the buyer paid for the item.</p>
   </section>`;
+}
+// ---------- 🚚 FBA boxes at Amazon (Papa Duck 2026-11-02): "know the status of my fba boxes sent in and when books are ready to sale"
+// fba-track reads Amazon every 2 hours: the box's trip (Shipped -> On the way -> Delivered -> Checked in -> Receiving -> Ready) and each book.
+let fbaTrack = [], fbaOpen = {};
+function fbaTrackCard() {
+  if (!fbaTrack || !fbaTrack.length) return "";
+  const STEPS = ["Shipped", "On the way", "Delivered", "Checked in", "Receiving", "Done"];
+  const dt = (t) => t ? new Date(t).toLocaleDateString([], { month: "short", day: "numeric" }) : "";
+  const bookLabel = (b, stage) => ({ ready: ["✅", "Ready to sell"], sold: ["💵", "Sold on Amazon"], damaged: ["⚠️", "Damaged at Amazon"], missing: ["⚠️", "Missing"],
+    "being processed": ["⏳", "Being shelved"], received: ["📥", "Received"], "waiting to be received": ["📦", "At Amazon, not opened yet"] }[b.st]
+    || (stage >= 2 ? ["📦", "At Amazon, not opened yet"] : ["🚚", "On the way"]));
+  const box = (t) => {
+    const st = Math.min(5, Number(t.stage) || 0), all = (t.books || []).length, open = !!fbaOpen[t.box];
+    const steps = STEPS.map((n, i) => `<div style="flex:1;text-align:center;min-width:0"><div style="height:8px;border-radius:4px;background:${i <= st ? (i === st && st < 5 ? "var(--yellow)" : "var(--green)") : "var(--gray)"}"></div>
+        <div style="font-size:.72rem;margin-top:3px;${i === st ? "font-weight:800" : "color:var(--muted)"}">${n}</div></div>`).join("");
+    const tr = (t.tracking || [])[0];
+    const head = t.problem ? `<span style="color:var(--red);font-weight:800">⚠️ ${t.problem} missing or damaged</span>`
+      : t.ready === all && all ? `<span class="ok">✅ All ${all} books ready to sell</span>` : `<b>${t.ready} of ${all}</b> ready to sell`;
+    return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:8px">
+      <div class="row" style="justify-content:space-between"><b>📦 Box #${esc(t.box)} → ${esc(t.where || "Amazon")}</b><span>${head}</span></div>
+      <div style="display:flex;gap:4px">${steps}</div>
+      <div class="muted" style="font-size:.86rem">Sent ${dt(t.sent)}${t.delivered ? " · at Amazon by " + dt(t.delivered) : ""} · ${esc(t.shipment || "")}${tr ? ` · UPS <a href="https://www.ups.com/track?tracknum=${esc(tr.tracking)}" target="_blank" rel="noopener">${esc(tr.tracking)}</a>` : ""} · checked ${t.checked ? new Date(t.checked).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}</div>
+      <button class="ghost" data-fbabox="${esc(t.box)}" style="min-height:36px;padding:4px 12px;justify-self:start">${open ? "Hide the books" : `Show the ${all} books`}</button>
+      ${open ? `<div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;font-size:.9rem">${(t.books || []).map((b) => { const [ic, lab] = bookLabel(b, st);
+        return `<span class="mono">${esc(b.pd)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.title || "")}</span><span>${ic} ${lab}</span>`; }).join("")}</div>` : ""}
+    </div>`;
+  };
+  return `<section class="card" aria-label="FBA boxes at Amazon"><h2>🚚 FBA boxes at Amazon · ${fbaTrack.length}</h2>
+    ${fbaTrack.map(box).join("")}
+    <p class="muted" style="margin:0;font-size:.82rem">Checked with Amazon every 2 hours. After Amazon gets a box it is usually 3 to 10 days until every book is ready to sell. You'll get a note when a box arrives and when all its books are live, and a ⚠️ if Amazon loses or damages one.</p></section>`;
 }
 // ---------- ⚠️ To deal with: anything the cloud or the hourly email check found ("if there is any issues to deal with put it on there as well") ----------
 function alertCard() {
@@ -854,6 +884,7 @@ function wire() {
   const bl = $("bblist"); if (bl) bl.ontoggle = () => { bbListOpen = bl.open; };
   document.querySelectorAll("[data-alert]").forEach((b) => b.onclick = () => alertTap(+b.dataset.alert));
   document.querySelectorAll("[data-ship]").forEach((b) => b.onclick = () => shipTap(b.dataset.ship));
+  document.querySelectorAll("[data-fbabox]").forEach((b) => b.onclick = () => { fbaOpen[b.dataset.fbabox] = !fbaOpen[b.dataset.fbabox]; render(); });
   document.querySelectorAll("[data-sview]").forEach((b) => b.onclick = () => { salesView = b.dataset.sview; try { localStorage.setItem("lp_sales_view", salesView); } catch (e) {} render(); });
   document.querySelectorAll("[data-offer]").forEach((b) => b.onclick = () => offerTap(b));
   document.querySelectorAll("[data-shipcancel]").forEach((b) => b.onclick = () => cancelTap(b.dataset.shipcancel));
@@ -986,12 +1017,13 @@ async function refresh(force) {
         (select result from pipeline.launch_verify v, nn where v.night_id = nn.id) as v,
         (select pipeline.launch_gaps(nn.id) from nn) as g,
         (select jsonb_agg(jsonb_build_object('ch', c.channel, 'pd', c.pd, 'st', c.state, 'd', c.detail, 'at', c.checked_at) order by c.pd) from pipeline.launch_live_check c, nn where c.night_id = nn.id) as lc,
-        pipeline.week_board() as w, pipeline.to_ship() as ts, pipeline.alerts_open() as al, pipeline.sales_board() as sb, pipeline.fba_ship_state() as fs`), 25000);
+        pipeline.week_board() as w, pipeline.to_ship() as ts, pipeline.alerts_open() as al, pipeline.sales_board() as sb, pipeline.fba_track_board() as ft, pipeline.fba_ship_state() as fs`), 25000);
     lastOk = Date.now();
     st = (rows[0] && rows[0].s) || null; jobs = (rows[0] && rows[0].j) || [];
     if (rows[0] && rows[0].w) week = rows[0].w;
     if (rows[0] && rows[0].ts) toShip = rows[0].ts;
     if (rows[0] && rows[0].sb) sales = rows[0].sb;
+    if (rows[0] && rows[0].ft) fbaTrack = rows[0].ft;
     if (rows[0] && rows[0].al) alerts = rows[0].al;
     if (rows[0] && rows[0].fs) fship = rows[0].fs;
     if (st && !st.night) st = null;
