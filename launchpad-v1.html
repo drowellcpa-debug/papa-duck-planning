@@ -160,6 +160,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
     <p class="muted" id="duckhint" style="margin:0;font-size:.85rem"></p>
   </aside>
   <div id="salesbox"></div>
+  <div id="bdbox"></div>
   </div>
 </div>
 
@@ -217,6 +218,7 @@ function jobState(list) {
 // ---------- render ----------
 function render() {
   { const sb = $("salesbox"); if (sb) sb.innerHTML = salesCard(); }
+  try { renderBd(); } catch (e) { console.log("[bd]", e); }
   const box = $("main");
   if (box.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;  // don't wipe what he is typing
   const n = st && st.night;
@@ -297,6 +299,67 @@ function salesCard() {
     ${chart}
     <p class="muted" style="margin:0;font-size:.82rem">Every sale the cloud caught on eBay, Etsy, AbeBooks and Amazon since ${S.since ? mName(S.since, { month: "short", day: "numeric" }) : "the Launch Pad started"}. Cancelled sales are left out. Prices are what the buyer paid for the item.</p>
   </section>`;
+}
+// ---------- 🦆 Bargain Duck (Papa Duck 2026-11-03): "instead of the email have it go to our launch pad ... for our new buy or watch"
+// Its own bd.* tables + its own query, so it can never slow down or break the blast off part of this page.
+let bd = null, bdAt = 0, bdBuy = null, bdWatchOpen = false, bdMsg = "";
+async function loadBd(force) {
+  if (!force && Date.now() - bdAt < 120000) return;
+  bdAt = Date.now();
+  try { const r = await q("select bd.board() as b"); bd = (r[0] && r[0].b) || null; } catch (e) { console.log("[bd]", e); }
+  renderBd();
+}
+function bdRow(x, btns) {
+  const amz = `<a href="https://www.amazon.com/dp/${esc(x.asin)}" target="_blank" rel="noopener">Amazon</a>`;
+  const line = x.status === "listed" ? `Listed${x.pd ? " as " + esc(x.pd) : ""} at ${money(x.list_price)}`
+    : (x.status === "bought" || x.status === "holding") ? `Paid ${money(x.cost)}${x.pd ? " · " + esc(x.pd) + " on the Hold Shelf" : " · scan it in and pick Hold Shelf"} · sell about ${money(x.sell_target)}`
+    : `Used now ${x.used != null ? money(x.used) : "?"} · buy at ${money(x.buy_target)} or less · sells about ${money(x.sell_target)}${x.season ? " (" + esc(x.season) + ")" : ""}${x.profit != null ? " · profit ~" + money(x.profit).replace(/\.\d\d$/, "") : ""}`;
+  const form = bdBuy === x.asin ? `<div class="row" style="gap:6px;margin-top:6px"><label class="price">I paid $<input type="text" inputmode="decimal" id="bdcost" placeholder="${Number(x.used || 0).toFixed(2)}"></label>
+      <button data-bdsave="${esc(x.asin)}">Save</button><button class="ghost" data-bdcancel="1">Cancel</button></div>` : "";
+  return `<li style="padding:8px 0;border-top:1px solid var(--line);list-style:none"><b>${esc(String(x.title || x.asin).slice(0, 70))}</b>
+    <div class="muted" style="font-size:.88rem">${line} · ${amz}</div>${btns ? `<div class="row" style="gap:6px;margin-top:4px">${btns}</div>` : ""}${form}</li>`;
+}
+function bdCard() {
+  if (!bd) return "";
+  const R = bd.rows || [], grp = (k) => R.filter((x) => (x.status === "listed" ? "listed" : x.bucket) === k);
+  const btn = (x) => `<button style="min-height:34px;padding:3px 10px;font-size:.88rem" data-bdbought="${esc(x.asin)}">🛒 I bought it</button><button class="ghost" style="min-height:34px;padding:3px 10px;font-size:.88rem" data-bddrop="${esc(x.asin)}">Stop watching</button>`;
+  const sec = (icon, name, list, b, note) => list.length ? `<h3 style="margin:10px 0 0;font-size:1rem">${icon} ${name} (${list.length})</h3>${note ? `<p class="muted" style="margin:2px 0;font-size:.85rem">${note}</p>` : ""}<ul style="margin:0;padding:0">${list.map((x) => bdRow(x, b ? b(x) : "")).join("")}</ul>` : "";
+  const buy = grp("buy"), close = grp("close"), listNow = grp("list now"), hold = grp("holding"), listed = grp("listed"), watch = grp("watching");
+  const when = bd.checked_at ? new Date(bd.checked_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "not yet";
+  return `<section class="card" aria-label="Bargain Duck">
+    <div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="display:flex;align-items:center;gap:10px"><span aria-hidden="true" style="font-size:1.8rem;line-height:1">🦆</span>Bargain Duck</h2>
+      <span class="muted" style="font-size:.85rem">Keepa checked ${esc(when)}</span></div>
+    ${bdMsg ? `<div class="notice good" role="status">${esc(bdMsg)}</div>` : ""}
+    ${!buy.length && !close.length ? `<p style="margin:0">Nothing in the buy zone today. I check every morning.</p>` : ""}
+    ${sec("🟢", "Buy now", buy, btn, "Used price is low enough to make $50+ after Amazon's fees.")}
+    ${sec("🟡", "Getting close", close, btn)}
+    ${sec("🚀", "Time to list", listNow, null, "Its selling season is here. Hold Shelf books go into the next blast off on their own.")}
+    ${sec("📦", "On the Hold Shelf", hold)}
+    ${sec("✅", "Listed from the Hold Shelf", listed)}
+    ${watch.length ? `<details id="bdwatch" ${bdWatchOpen ? "open" : ""} style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">👀 Watching (${watch.length})</summary><ul style="margin:0;padding:0">${watch.slice().sort((a, b) => (a.used - a.buy_target) / (a.buy_target || 1) - (b.used - b.buy_target) / (b.buy_target || 1)).map((x) => bdRow(x, btn(x))).join("")}</ul></details>` : ""}
+    <div class="row" style="gap:6px;margin-top:10px;flex-wrap:nowrap"><label for="bdadd" class="muted" style="position:absolute;left:-9999px">ISBN to watch</label>
+      <input id="bdadd" type="text" inputmode="numeric" placeholder="Add a book: ISBN" style="flex:1;min-width:0"><button id="bdaddbtn">Watch it</button></div>
+    <p class="muted" style="margin:0;font-size:.82rem">Only books that can clear $50 profit after Amazon's fees, priced from what they really sold for last back-to-school or January. Bought one? Tap 🛒, then scan it in and pick <b>Hold Shelf</b>. I'll list it on Dec 1 or Jun 1.</p>
+  </section>`;
+}
+function renderBd() {
+  const el = $("bdbox"); if (!el) return;
+  if (el.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;  // don't wipe what he is typing
+  el.innerHTML = bdCard();
+  el.querySelectorAll("[data-bdbought]").forEach((b) => b.onclick = () => { bdBuy = b.dataset.bdbought; renderBd(); const i = $("bdcost"); if (i) i.focus(); });
+  el.querySelectorAll("[data-bdcancel]").forEach((b) => b.onclick = () => { bdBuy = null; renderBd(); });
+  el.querySelectorAll("[data-bdsave]").forEach((b) => b.onclick = () => bdAct(`select bd.bought('${b.dataset.bdsave.replace(/[^0-9A-Z]/g, "")}', ${Number(($("bdcost") || {}).value) || "null"})`, "Saved. Scan it in and pick Hold Shelf when you list it."));
+  el.querySelectorAll("[data-bddrop]").forEach((b) => b.onclick = () => bdAct(`select bd.drop_book('${b.dataset.bddrop.replace(/[^0-9A-Z]/g, "")}')`, "OK, I stopped watching that one."));
+  const ab = $("bdaddbtn"); if (ab) ab.onclick = () => { const v = (($("bdadd") || {}).value || "").toUpperCase().replace(/[^0-9X]/g, ""); if (v.length >= 10) bdAct(`select bd.add_book('${v}')`, "Looking it up on Keepa. It will show here in a minute.", 45000); };
+  const dw = $("bdwatch"); if (dw) dw.ontoggle = () => { bdWatchOpen = dw.open; };
+}
+async function bdAct(sql, msg, later) {
+  bdBuy = null;
+  try { await q(sql); bdMsg = msg; } catch (e) { bdMsg = "That didn't save. Try again."; }
+  if (document.activeElement) document.activeElement.blur();
+  await loadBd(true);
+  setTimeout(() => { bdMsg = ""; renderBd(); }, 8000);
+  if (later) setTimeout(() => loadBd(true), later);
 }
 // ---------- 🚚 FBA boxes at Amazon (Papa Duck 2026-11-02): "know the status of my fba boxes sent in and when books are ready to sale"
 // fba-track reads Amazon every 2 hours: the box's trip (Shipped -> On the way -> Delivered -> Checked in -> Receiving -> Ready) and each book.
@@ -1031,6 +1094,7 @@ async function refresh(force) {
     gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
     tickClock();
     if (!hist || Date.now() - histAt > 60000) { histAt = Date.now(); loadHist(); }
+    loadBd();
     render();
     autoVerify();
   } catch (e) { showError(e); }

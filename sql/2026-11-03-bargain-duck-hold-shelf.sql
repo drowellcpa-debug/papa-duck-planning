@@ -1,0 +1,9 @@
+-- Bargain Duck + Hold Shelf (2026-11-03). Old versions of every changed pipeline function are saved in bd.fn_backup.
+-- pipeline.on_hold(location, answers) = location 'Hold Shelf' and answers.bd.release <> 'yes'
+-- Added "and not pipeline.on_hold(location, answers)" to: launch_create (book pick), fba_from_blastoff, ui_blastoff (waiting count).
+-- drafts location check + ui_save now allow 'Hold Shelf'.
+-- bd.watch: + cost, bought_at, pd, draft_id, listed_at, list_price. Status: watching / bought / holding / listed / dropped.
+-- bd.isbn10(text), bd.board(), bd.bought(asin, cost), bd.drop_book(asin), bd.add_book(isbn) (calls bargain-duck {add}).
+-- cron pd-bargain-duck '7 14 * * *' (6:07 AM PT) - created INACTIVE until Papa Duck OKs it:
+--   select cron.alter_job((select jobid from cron.job where jobname='pd-bargain-duck'), active := true);
+-- Undo Hold Shelf: execute the defs saved in bd.fn_backup for launch_create, fba_from_blastoff, ui_blastoff, ui_save.
