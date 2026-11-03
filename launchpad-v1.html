@@ -373,23 +373,24 @@ function fbaTrackCard() {
     || (stage >= 2 ? ["📦", "At Amazon, not opened yet"] : ["🚚", "On the way"]));
   const box = (t) => {
     const st = Math.min(5, Number(t.stage) || 0), all = (t.books || []).length, open = !!fbaOpen[t.box];
-    const steps = STEPS.map((n, i) => `<div style="flex:1;text-align:center;min-width:0"><div style="height:8px;border-radius:4px;background:${i <= st ? (i === st && st < 5 ? "var(--yellow)" : "var(--green)") : "var(--gray)"}"></div>
-        <div style="font-size:.72rem;margin-top:3px;${i === st ? "font-weight:800" : "color:var(--muted)"}">${n}</div></div>`).join("");
+    // compact (Papa Duck 2026-11-03: "make them show condensed so that I dont have to scroll")
+    const bar = STEPS.map((n, i) => `<i title="${n}" style="flex:1;height:6px;border-radius:3px;background:${i <= st ? (i === st && st < 5 ? "var(--yellow)" : "var(--green)") : "var(--gray)"}"></i>`).join("");
     const tr = (t.tracking || [])[0];
-    const head = t.problem ? `<span style="color:var(--red);font-weight:800">⚠️ ${t.problem} missing or damaged</span>`
-      : t.ready === all && all ? `<span class="ok">✅ All ${all} books ready to sell</span>` : `<b>${t.ready} of ${all}</b> ready to sell`;
-    return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:8px">
-      <div class="row" style="justify-content:space-between"><b>📦 Box #${esc(t.box)} → ${esc(t.where || "Amazon")}</b><span>${head}</span></div>
-      <div style="display:flex;gap:4px">${steps}</div>
-      <div class="muted" style="font-size:.86rem">Sent ${dt(t.sent)}${t.delivered ? " · at Amazon by " + dt(t.delivered) : ""} · ${esc(t.shipment || "")}${tr ? ` · UPS <a href="https://www.ups.com/track?tracknum=${esc(tr.tracking)}" target="_blank" rel="noopener">${esc(tr.tracking)}</a>` : ""} · checked ${t.checked ? new Date(t.checked).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}</div>
-      <button class="ghost" data-fbabox="${esc(t.box)}" style="min-height:36px;padding:4px 12px;justify-self:start">${open ? "Hide the books" : `Show the ${all} books`}</button>
-      ${open ? `<div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;font-size:.9rem">${(t.books || []).map((b) => { const [ic, lab] = bookLabel(b, st);
-        return `<span class="mono">${esc(b.pd)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.title || "")}</span><span>${ic} ${lab}</span>`; }).join("")}</div>` : ""}
+    const head = t.problem ? `<span style="color:var(--red);font-weight:800">⚠️ ${t.problem} missing/damaged</span>`
+      : t.ready === all && all ? `<span class="ok">✅ All ${all} ready</span>` : `<b>${t.ready}/${all}</b> ready`;
+    const counts = {}; (t.books || []).forEach((b) => { const [ic, lab] = bookLabel(b, st); const k = ic + " " + lab; counts[k] = (counts[k] || 0) + 1; });
+    return `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 10px;display:grid;gap:4px">
+      <div class="row" style="justify-content:space-between;gap:6px;flex-wrap:nowrap;font-size:.92rem"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>📦 ${esc(t.where || "Amazon")}</b> · <b>${STEPS[st]}</b></span>
+        <span style="white-space:nowrap">${head} <button class="ghost" data-fbabox="${esc(t.box)}" aria-expanded="${open}" style="min-height:28px;padding:1px 8px;font-size:.8rem;margin-left:4px">${open ? "Hide ▴" : "Books ▾"}</button></span></div>
+      <div style="display:flex;gap:3px">${bar}</div>
+      <div class="muted" style="font-size:.76rem;line-height:1.3">${esc(t.box)} · sent ${dt(t.sent)}${t.delivered ? " · arrived " + dt(t.delivered) : ""}${tr ? ` · <a href="https://www.ups.com/track?tracknum=${esc(tr.tracking)}" target="_blank" rel="noopener">UPS</a>` : ""} · ${Object.entries(counts).map(([k, n]) => n + " " + esc(k.toLowerCase())).join(", ")}</div>
+      ${open ? `<div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 8px;font-size:.8rem;max-height:220px;overflow:auto;border-top:1px solid var(--line);padding-top:4px">${(t.books || []).map((b) => { const [ic, lab] = bookLabel(b, st);
+        return `<span class="mono">${esc(b.pd)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.title || "")}</span><span title="${lab}">${ic}</span>`; }).join("")}</div>` : ""}
     </div>`;
   };
-  return `<section class="card" aria-label="FBA boxes at Amazon"><h2>🚚 FBA boxes at Amazon · ${fbaTrack.length}</h2>
+  return `<section class="card" aria-label="FBA boxes at Amazon" style="gap:6px"><h2 style="font-size:1.1rem">🚚 FBA boxes · ${fbaTrack.length}</h2>
     ${fbaTrack.map(box).join("")}
-    <p class="muted" style="margin:0;font-size:.82rem">Checked with Amazon every 2 hours. After Amazon gets a box it is usually 3 to 10 days until every book is ready to sell. You'll get a note when a box arrives and when all its books are live, and a ⚠️ if Amazon loses or damages one.</p></section>`;
+    <p class="muted" style="margin:0;font-size:.74rem">Checked every 2 hours. Books are usually ready 3–10 days after Amazon gets the box.</p></section>`;
 }
 // ---------- ⚠️ To deal with: anything the cloud or the hourly email check found ("if there is any issues to deal with put it on there as well") ----------
 function alertCard() {
