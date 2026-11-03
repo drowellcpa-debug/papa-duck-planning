@@ -396,7 +396,7 @@ function shipCard() {
       return `<div class="shiphead"><span class="sbadge ${esc(c)}">${names[c] || esc(c)}</span> ${l.length} to ship</div>` + l.map(row).join(""); }).join("");
   } else body = [...toShip].sort(byPd).map(row).join("");
   return `<section class="card ask" aria-label="To ship">
-    <h2>📬 To ship · ${toShip.length} sale${toShip.length === 1 ? "" : "s"}${sales && sales.day ? ` · <span style="color:var(--green-text)">$ today ${money(sales.day.total)}</span>` : ""}${abe ? ` · <span style="color:var(--yellow-ink)">${abe} AbeBooks</span>` : ""}</h2>
+    <h2>📬 To ship · ${toShip.length} sale${toShip.length === 1 ? "" : "s"}${toShip.length ? ` · <span style="color:var(--green-text)">${money(toShip.reduce((a, x) => a + Number(x.price || 0), 0))}</span>` : ""}${abe ? ` · <span style="color:var(--yellow-ink)">${abe} AbeBooks</span>` : ""}</h2>
     <div class="row" role="group" aria-label="Sort the ship list" style="gap:6px">
       <button class="${shipSort === "pd" ? "" : "ghost"}" data-shipsort="pd" aria-pressed="${shipSort === "pd"}">By PD # (pulling)</button>
       <button class="${shipSort === "store" ? "" : "ghost"}" data-shipsort="store" aria-pressed="${shipSort === "store"}">By store (shipping)</button></div>
