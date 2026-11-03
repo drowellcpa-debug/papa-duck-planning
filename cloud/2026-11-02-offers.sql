@@ -1,0 +1,3 @@
+-- Papa Duck 2026-11-02: eBay offer advice (Accept / Counter once / Decline) + answer from the Launch Pad.
+-- Table pipeline.offers, function pipeline.offer_answer(bo, action, price), alerts_open() now carries 'offer'.
+-- Cron: pd-offer-advice */15 -> edge function offer-advice (sweep). See migration offers_advice_and_answer in Supabase for full SQL.
