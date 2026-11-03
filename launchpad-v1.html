@@ -170,7 +170,7 @@ let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false,
 let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false, hist = null, histSel = null, histAt = 0;
 let keepArm = null;
 let fship = null, lilyForm = null, lilyArm = null, lilyBusy = false;
-let weekOpen = {}; // 2026-11-03 Papa Duck: "I want to not see the ducks dancing unless I open up the box"
+let weekOpen = {}, histAllOpen = false; // 2026-11-03 Papa Duck: "I want to not see the ducks dancing unless I open up the box"
 let alerts = [], alertArm = null, toShip = [], shipArm = null, week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null, boxHistOpen = false, showIsbn = "", bbListOpen = false;
 const chatTurns = [];
 const $ = (id) => document.getElementById(id);
@@ -720,7 +720,10 @@ function historyCard() {
           ${isOpen ? "▾" : "▸"} <b>${esc(x.day)} · ${esc(x.time || "")}</b> <span class="muted">· ${x.books} books · ${esc(x.first)} to ${esc(x.last)} · ${money(x.total)}</span></button>
         ${badge}</div>${drill}</div>`;
   }).join("");
-  return `<section class="card" aria-label="Blast offs">${head}${rows}<p class="muted" style="margin:0;font-size:.86rem">Every night is kept here. The stores keep being checked in the cloud even when this page is closed.</p></section>`;
+  // 2026-11-03 Papa Duck: "same with blast offs" - closed until he opens it, with a one-line summary
+  const needs = hist.filter((x) => { const v = (x.verify || {}).channels || {}; return Object.values(v).some((c) => (c.problems || []).length); }).length;
+  const btn = `<button class="ghost" data-histall="1" style="min-height:40px;padding:4px 14px;justify-self:start">${histAllOpen ? "Close blast offs ▴" : `📖 Open blast offs · ${hist.length} night${hist.length === 1 ? "" : "s"}${needs ? ` · ⚠️ ${needs} to look at` : " · ✅ all good"} ▾`}</button>`;
+  return `<section class="card" aria-label="Blast offs">${head}${btn}${histAllOpen ? rows + `<p class="muted" style="margin:0;font-size:.86rem">Every night is kept here. The stores keep being checked in the cloud even when this page is closed.</p>` : ""}</section>`;
 }
 function histText(x) {
   const names = { ebay: "eBay", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" }, v = (x.verify || {}).channels || {}, lv = x.live || {};
@@ -943,6 +946,7 @@ function wire() {
   const s2 = $("startbtn"); if (s2) s2.onclick = startNight;
   document.querySelectorAll("[data-hist]").forEach((b) => b.onclick = () => { const id = +b.dataset.hist; histSel = histSel === id ? null : id; render(); });
   const go2 = $("gapok"); if (go2) go2.onclick = () => { gapOk = true; render(); };
+  document.querySelectorAll("[data-histall]").forEach((b) => b.onclick = () => { histAllOpen = !histAllOpen; render(); });
   document.querySelectorAll("[data-wopen]").forEach((b) => b.onclick = () => { weekOpen[b.dataset.wopen] = !weekOpen[b.dataset.wopen]; render(); });
   document.querySelectorAll("[data-wtab]").forEach((b) => b.onclick = () => { weekTab = b.dataset.wtab; weekArm = null; render();
     if (b.dataset.wscroll) { const s = document.querySelector('section[aria-label="This week"]'); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); } });
