@@ -1,0 +1,2 @@
+-- Papa Duck 2026-11-02: Sales card on the Launch Pad (today's total, this month by day, this year by month) - since the Launch Pad started (2026-10-07).
+-- pipeline.sales_board(): from pipeline.sales_done, cancelled sales (ship_marks kind 'cancelled') left out, Pacific days. Full SQL: migration sales_board.

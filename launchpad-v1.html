@@ -219,7 +219,7 @@ function render() {
   if (!n) {
     $("nightline").textContent = "No blast off waiting";
     box.innerHTML = h + `<section class="card"><h2>Nothing waiting yet</h2><p class="muted" style="margin:0">When tonight's books are ready, press the button. I gather everything in Sent, ask you anything I need, then build the files.</p>
-      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + alertCard() + shipCard() + weekCard() + historyCard();
+      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + salesCard() + alertCard() + shipCard() + weekCard() + historyCard();
     wire(); return;
   }
   const qs = st.questions || [], rc = st.reconsider || [];
@@ -254,7 +254,7 @@ function render() {
   // 4) send, one step at a time
   if (n.status === "ready_to_send") h += sendCard() + verifyCard();
   if (n.status === "dry_built") h += `<section class="card"><h2>Test run finished</h2><p style="margin:0">The test files were built and checked. Nothing was sent.</p></section>`;
-  h += alertCard() + shipCard() + weekCard() + historyCard();
+  h += salesCard() + alertCard() + shipCard() + weekCard() + historyCard();
   box.innerHTML = h;
   wire();
 }
@@ -264,6 +264,34 @@ function render() {
 // come up ready to go" · "I want fba ready before I even sit down so I can just print labels and pack the box".
 // Tap a square once = "tap again to clear"; second tap = his OK for that book (the cloud ends it on the other stores).
 const DUCK = `<svg class="hop" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="13" r="8" fill="#F2C230"/><path d="M22.5 13 L29 14.8 L22.5 16.6 Z" fill="#E07A2E"/><circle cx="18.5" cy="11.2" r="1.4" fill="#1D2420"/><path d="M6 23.5 C10 29.5 22 29.5 26 23.5 C22 21.5 10 21.5 6 23.5 Z" fill="#F2C230"/></svg>`;
+// ---------- 💵 Sales (Papa Duck 2026-11-02): "the total of sales for the day and then a bar chart for the month and year to date"
+// ("I would only start since you started the launch pad" - every sale the cloud caught since 2026-10-07; cancelled sales left out)
+let sales = null, salesView = (() => { try { return localStorage.getItem("lp_sales_view") || "month"; } catch (e) { return "month"; } })();
+function salesCard() {
+  const S = sales; if (!S) return "";
+  const D = S.day || {}, names = { ebay: "eBay", etsy: "Etsy", abe: "AbeBooks", amazon: "Amazon" };
+  const by = Object.entries(D.by || {}).sort((a, b) => b[1] - a[1]).map(([c, v]) => `<span class="sbadge ${esc(c)}">${names[c] || esc(c)}</span> ${money(v)}`).join(" &nbsp;");
+  const mName = (d, o) => new Date(d + "T12:00:00").toLocaleDateString([], o);
+  let bars = (salesView === "year" ? (S.year || []).filter((x) => !S.since || x.m >= S.since.slice(0, 7) + "-01") : (S.month || []))
+    .map((x) => ({ k: x.d || x.m, lab: x.d ? String(+x.d.slice(8)) : mName(x.m, { month: "short" }), n: x.n, t: Number(x.total || 0), now: (x.d || "") === S.today || (x.m || "").slice(0, 7) === String(S.today).slice(0, 7) && salesView === "year" }));
+  const max = Math.max(1, ...bars.map((b) => b.t));
+  const chart = `<div style="display:flex;align-items:flex-end;gap:${salesView === "year" ? 14 : 3}px;height:150px;padding:18px 0 0;border-bottom:2px solid var(--line);overflow-x:auto" role="img" aria-label="Sales by ${salesView === "year" ? "month" : "day"}">
+    ${bars.map((b) => `<div title="${esc(b.k)}: ${money(b.t)} · ${b.n} sale${b.n === 1 ? "" : "s"}" style="flex:1 0 ${salesView === "year" ? 46 : 14}px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;position:relative">
+        ${b.t && (salesView === "year" || bars.length <= 16 || b.t === max || b.now) ? `<span style="font-size:.72rem;white-space:nowrap;position:absolute;top:${Math.max(0, 100 - b.t / max * 100) - 0}%;transform:translateY(-110%)">${money(b.t).replace(".00", "")}</span>` : ""}
+        <i style="display:block;width:100%;max-width:${salesView === "year" ? 60 : 26}px;height:${Math.max(b.t ? 3 : 1, b.t / max * 100)}%;background:${b.now ? "var(--yellow)" : "var(--green)"};border-radius:4px 4px 0 0"></i></div>`).join("")}</div>
+    <div style="display:flex;gap:${salesView === "year" ? 14 : 3}px;overflow-x:hidden">${bars.map((b) => `<span style="flex:1 0 ${salesView === "year" ? 46 : 14}px;text-align:center;font-size:.72rem;color:var(--muted)">${esc(b.lab)}</span>`).join("")}</div>`;
+  const mLabel = mName(S.today, { month: "long" });
+  return `<section class="card" aria-label="Sales">
+    <div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="display:flex;align-items:center;gap:10px"><span aria-hidden="true" style="display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--green);color:var(--green-ink);font-size:1.6rem;font-weight:800;line-height:1">$</span>Sales today · ${money(D.total)}</h2>
+      <span class="muted" style="font-size:.95rem">${D.n || 0} sale${D.n === 1 ? "" : "s"}${D.net != null && D.n ? ` · about ${money(D.net)} after fees` : ""}</span></div>
+    ${by ? `<p style="margin:0;font-size:.95rem">${by}</p>` : ""}
+    <div class="row" style="gap:12px;font-size:1rem"><span><b>${esc(mLabel)}:</b> ${money(S.mtd)}</span><span><b>Year to date:</b> ${money(S.ytd)}</span></div>
+    <div class="row" role="tablist" style="gap:6px"><button class="${salesView === "month" ? "" : "ghost"}" data-sview="month" aria-pressed="${salesView === "month"}">This month by day</button>
+      <button class="${salesView === "year" ? "" : "ghost"}" data-sview="year" aria-pressed="${salesView === "year"}">This year by month</button></div>
+    ${chart}
+    <p class="muted" style="margin:0;font-size:.82rem">Every sale the cloud caught on eBay, Etsy, AbeBooks and Amazon since ${S.since ? mName(S.since, { month: "short", day: "numeric" }) : "the Launch Pad started"}. Cancelled sales are left out. Prices are what the buyer paid for the item.</p>
+  </section>`;
+}
 // ---------- ⚠️ To deal with: anything the cloud or the hourly email check found ("if there is any issues to deal with put it on there as well") ----------
 function alertCard() {
   if (!alerts.length) return "";
@@ -820,6 +848,7 @@ function wire() {
   const bl = $("bblist"); if (bl) bl.ontoggle = () => { bbListOpen = bl.open; };
   document.querySelectorAll("[data-alert]").forEach((b) => b.onclick = () => alertTap(+b.dataset.alert));
   document.querySelectorAll("[data-ship]").forEach((b) => b.onclick = () => shipTap(b.dataset.ship));
+  document.querySelectorAll("[data-sview]").forEach((b) => b.onclick = () => { salesView = b.dataset.sview; try { localStorage.setItem("lp_sales_view", salesView); } catch (e) {} render(); });
   document.querySelectorAll("[data-offer]").forEach((b) => b.onclick = () => offerTap(b));
   document.querySelectorAll("[data-shipcancel]").forEach((b) => b.onclick = () => cancelTap(b.dataset.shipcancel));
   document.querySelectorAll("[data-shipsort]").forEach((b) => b.onclick = () => { shipSort = b.dataset.shipsort; try { localStorage.setItem("lp_ship_sort", shipSort); } catch (e) {} render(); });
@@ -951,11 +980,12 @@ async function refresh(force) {
         (select result from pipeline.launch_verify v, nn where v.night_id = nn.id) as v,
         (select pipeline.launch_gaps(nn.id) from nn) as g,
         (select jsonb_agg(jsonb_build_object('ch', c.channel, 'pd', c.pd, 'st', c.state, 'd', c.detail, 'at', c.checked_at) order by c.pd) from pipeline.launch_live_check c, nn where c.night_id = nn.id) as lc,
-        pipeline.week_board() as w, pipeline.to_ship() as ts, pipeline.alerts_open() as al, pipeline.fba_ship_state() as fs`), 25000);
+        pipeline.week_board() as w, pipeline.to_ship() as ts, pipeline.alerts_open() as al, pipeline.sales_board() as sb, pipeline.fba_ship_state() as fs`), 25000);
     lastOk = Date.now();
     st = (rows[0] && rows[0].s) || null; jobs = (rows[0] && rows[0].j) || [];
     if (rows[0] && rows[0].w) week = rows[0].w;
     if (rows[0] && rows[0].ts) toShip = rows[0].ts;
+    if (rows[0] && rows[0].sb) sales = rows[0].sb;
     if (rows[0] && rows[0].al) alerts = rows[0].al;
     if (rows[0] && rows[0].fs) fship = rows[0].fs;
     if (st && !st.night) st = null;
