@@ -161,6 +161,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
     </form>
     <p class="muted" id="duckhint" style="margin:0;font-size:.85rem"></p>
   </aside>
+  <div id="todobox"></div>
   <div id="salesbox"></div>
   </div>
 </div>
@@ -222,6 +223,7 @@ function render() {
   { const sb = $("salesbox"); if (sb) sb.innerHTML = salesCard(); }
   try { renderBd(); } catch (e) { console.log("[bd]", e); }
   try { renderAudit(); } catch (e) { console.log("[audit]", e); }
+  try { renderTodo(); } catch (e) { console.log("[todo]", e); }
   const box = $("main");
   if (box.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;  // don't wipe what he is typing
   const n = st && st.night;
@@ -461,6 +463,42 @@ function renderAudit() {
   el.innerHTML = auditCard();
   el.querySelectorAll("[data-auopen]").forEach((b) => b.onclick = () => { auOpen = !auOpen; if (auOpen && !au) loadAudit(); else renderAudit(); });
   el.querySelectorAll("[data-autab]").forEach((b) => b.onclick = () => { auTab = b.dataset.autab; renderAudit(); });
+}
+// ---------- 📝 To-do (Papa Duck 2026-11-04): "put on a list any that we are uncertain and I will get you a recount, add that to papa duck pad
+// for me to verify for you, todo's and keep reminding me". Recount: he types the shelf count, recount-apply sets eBay/Etsy/Airtable (AbeBooks flagged).
+// A Launch Pad note reminds him every morning while any to-do is waiting (pipeline.todos_remind, 7:41 AM).
+let todos = null, todoAt = 0, todoMsg = "";
+async function loadTodo(force) {
+  if (!force && Date.now() - todoAt < 60000) return;
+  todoAt = Date.now();
+  try { const r = await q("select pipeline.todos_open() as t"); todos = (r[0] && r[0].t) || []; } catch (e) { console.log("[todo]", e); }
+  renderTodo();
+}
+function renderTodo() {
+  const el = $("todobox"); if (!el) return;
+  if (el.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
+  const T = todos || [];
+  if (!T.length) { el.innerHTML = ""; return; }
+  const waiting = T.filter((x) => x.answer == null).length;
+  el.innerHTML = `<section class="card ask" aria-label="To-do">
+    <h2 style="margin:0">📝 To-do · ${waiting ? `${waiting} waiting for you` : "working on it"}</h2>
+    ${todoMsg ? `<div class="notice good" role="status">${esc(todoMsg)}</div>` : ""}
+    <p class="muted" style="margin:0;font-size:.85rem">🔢 Recount: count the copies on the shelf, type the number, tap Save. I set eBay, Etsy and Airtable to it (and AbeBooks).</p>
+    <div style="display:grid;gap:6px;max-height:420px;overflow:auto">${T.map((x) => `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 8px">
+      <div style="font-size:.9rem"><b class="mono">${esc(x.pd || "")}</b> ${esc(String(x.title || "").slice(0, 60))}</div>
+      <div class="muted" style="font-size:.78rem">Airtable says ${esc(x.airtable)} · stores showed ${esc(x.stores || "")}</div>
+      ${x.answer == null ? `<div class="row" style="gap:6px;margin-top:4px;flex-wrap:nowrap"><label class="price">I have <input type="text" inputmode="numeric" id="rc-${x.id}" style="width:56px" placeholder="${esc(x.airtable)}"></label>
+        <button data-rcsave="${x.id}" style="min-height:32px;padding:2px 12px">Save</button></div>`
+        : `<div style="font-size:.8rem;margin-top:3px">✔ You counted <b>${esc(x.answer)}</b> · ${esc(x.applied || "")}</div>`}
+    </div>`).join("")}</div></section>`;
+  el.querySelectorAll("[data-rcsave]").forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.rcsave), v = (($("rc-" + id) || {}).value || "").trim();
+    if (!/^\d+$/.test(v)) { todoMsg = "Type a number (0 if none are on the shelf)."; renderTodo(); return; }
+    try { const r = await q(`select pipeline.todo_recount(${id}, ${Number(v)}) as t`); todos = (r[0] && r[0].t) || todos; todoMsg = "Saved - updating the stores now."; }
+    catch (e) { todoMsg = "That didn't save. Try again."; }
+    if (document.activeElement) document.activeElement.blur();
+    renderTodo(); setTimeout(() => { todoMsg = ""; loadTodo(true); }, 15000);
+  });
 }
 // ---------- 🚚 FBA boxes at Amazon (Papa Duck 2026-11-02): "know the status of my fba boxes sent in and when books are ready to sale"
 // fba-track reads Amazon every 2 hours: the box's trip (Shipped -> On the way -> Delivered -> Checked in -> Receiving -> Ready) and each book.
@@ -1203,7 +1241,7 @@ async function refresh(force) {
     gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
     tickClock();
     if (!hist || Date.now() - histAt > 60000) { histAt = Date.now(); loadHist(); }
-    loadBd();
+    loadBd(); loadTodo();
     render();
     autoVerify();
   } catch (e) { showError(e); }
