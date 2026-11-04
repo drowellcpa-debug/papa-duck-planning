@@ -1,0 +1,6 @@
+-- 2026-11-04 Papa Duck "Fixing for sure" (after PD-5041 vinyl went out Very Good with water/mold + no inner sleeve).
+-- Trigger pipeline.drafts_record_check (BEFORE INSERT OR UPDATE on pipeline.drafts): vinyl record drafts (ident.kind='item')
+-- get 3 in-hand questions; grade capped at Acceptable until answered; answers cap it (mold/heavy water or scratches/warp -> Acceptable,
+-- light stain or no inner sleeve -> Good, light marks -> Very Good). Uncapped grade kept in ident.grade_before_cap.
+-- Tested 2026-11-04 (rolled back): NEW:Acceptable  NOSLEEVE:Good  CLEAN:Very Good  MOLD:Acceptable  his pick Good:Good.
+-- Full function body: see Supabase migration "drafts_record_check".
