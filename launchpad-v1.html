@@ -422,6 +422,7 @@ function auditCard() {
   const A = au || {};
   const probs = (A.problems || []), unk = (A.unknown || []).filter((x) => x.pd), ue = A.unknown_ebay || [], sales = A.since_oct7 || [], old = A.old || [];
   const salesBad = sales.filter((x) => x.live_now && !x.still_ok);
+  const ext = A.ext_sales || [], qty = A.qty || [];
   const when = A.taken_at ? new Date(A.taken_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
   const head = au ? `${probs.length + salesBad.length ? `⚠️ ${probs.length} to fix` : "✅ nothing sold is still listed"} · checked ${esc(when)}` : "tap to open";
   const tab = (k, lab) => `<button role="tab" data-autab="${k}" aria-selected="${auTab === k}">${lab}</button>`;
@@ -439,6 +440,11 @@ function auditCard() {
   else if (auTab === "old") body = `<p style="margin:0">Sold before Oct 7 but never taken down. Closed out Nov 3–4 and checked again today.</p>` +
     tbl(["PD", "Book", "Sold", "Where", "Live today"], old.map((x) => `<tr><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td><td style="white-space:nowrap">${esc(x.sold_day || "")}</td><td>${esc(x.sold_on || "")}</td>
       <td>${x.live_now ? `<span style="color:var(--red)">⚠️ ${esc(x.live_now)}</span>` : `<span style="color:var(--green)">✅ off every store</span>`}</td></tr>`));
+  else if (auTab === "ext") body = `<p style="margin:0">Every AbeBooks, Etsy and Amazon sale since the start (store records + your AbeBooks order emails), checked live today.</p>` +
+    tbl(["Sold", "Where", "PD", "Book", "Live today"], ext.map((x) => `<tr><td style="white-space:nowrap">${esc(x.day)}</td><td>${esc(x.channel)}</td><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td>
+      <td>${x.live_now ? `✅ ${esc(x.live_now)} (more copies)` : `<span style="color:var(--green)">✅ off every store</span>`}</td></tr>`));
+  else if (auTab === "qty") body = `<p style="margin:0">Books you have several copies of, where a store shows MORE copies than Airtable says you have. A buyer could order a copy that isn't there.</p>` +
+    tbl(["PD", "Book", "Airtable", "Stores show"], qty.map((x) => `<tr><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td><td>${esc(x.airtable)}</td><td style="color:var(--red)">${esc(x.stores)}</td></tr>`));
   else body = `<p style="margin:0">For sale on a store but not in your Airtable inventory, so I can't tell if they sold elsewhere.</p>` +
     tbl(["Store", "SKU / item", "Book"], [...unk.map((x) => `<tr><td>${esc(x.stores)}</td><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td></tr>`),
       ...ue.map((x) => `<tr><td>eBay</td><td class="mono"><a href="https://www.ebay.com/itm/${esc(x.item)}" target="_blank" rel="noopener">${esc(x.item)}</a></td><td>${esc(x.title || "")}</td></tr>`)]);
@@ -447,7 +453,7 @@ function auditCard() {
     <div class="row" style="justify-content:space-between"><button class="quiet" data-auopen="1" style="border:0;padding:0;color:var(--ink);min-height:0;text-align:left"><h2 style="margin:0">${auOpen ? "▾" : "▸"} 🧾 Store audit</h2></button>
       <span class="muted" style="font-size:.85rem">${head}</span></div>
     ${auOpen ? `<p class="muted" style="margin:0;font-size:.85rem">Live right now: eBay ${live.eBay || 0} · AbeBooks ${live.AbeBooks || 0} · Etsy ${live.Etsy || 0} · Amazon ${live.Amazon || 0}</p>
-      <div class="tabs" role="tablist">${tab("problems", `⚠️ To fix (${probs.length + salesBad.length})`)}${tab("sales", `✅ Sales since Oct 7 (${sales.length})`)}${tab("old", `🧹 Old sales closed out (${old.length})`)}${tab("unknown", `❓ Not in Airtable (${unk.length + ue.length})`)}</div>${body}` : ""}
+      <div class="tabs" role="tablist">${tab("problems", `⚠️ To fix (${probs.length + salesBad.length})`)}${tab("sales", `✅ Sales since Oct 7 (${sales.length})`)}${tab("ext", `🛒 Abe/Etsy/Amazon sales (${ext.length})`)}${tab("old", `🧹 Old sales closed out (${old.length})`)}${tab("qty", `🔢 Copy counts (${qty.length})`)}${tab("unknown", `❓ Not in Airtable (${unk.length + ue.length})`)}</div>${body}` : ""}
   </section>`;
 }
 function renderAudit() {
