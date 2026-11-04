@@ -1,0 +1,7 @@
+-- Store audit (2026-11-04). Papa Duck: "audit every store and make sure that if it is there it is not sold elsewhere".
+-- Edge function store-audit snapshots live listings: audit.ebay (GetMyeBaySelling), audit.abe (public storefront vci=91371820,
+-- 30/page, search stops at 1,800 so it is walked in sort orders 0,1,2,3,4,17,18,20 with append=true), audit.etsy (API), audit.amazon (Listings API).
+-- audit.live (view) maps each to a PD (eBay item id / Etsy listing id via audit.at_map from Airtable).
+-- audit.report() / audit.report_full(): problems (live but sold), unknown (not in Airtable), since_oct7 (every sale + per-store result + live today), old (audit.old_closeout).
+-- First run 2026-11-04: eBay 2723, AbeBooks 2274, Etsy 505, Amazon 229 live. Problems: PD-1740/1895/1905 on AbeBooks + PD-2202/2205 duplicate eBay listings
+-- (sold Sept), PD-1002 Airtable says Sold but 2 copies still listed. 53 eBay listings have no PD and are not in Airtable.

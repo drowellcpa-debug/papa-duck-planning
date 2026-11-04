@@ -148,7 +148,8 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 </header>
 <div class="wrap">
   <div style="display:flex;flex-direction:column;gap:18px;min-width:0"><main id="main"><p class="empty">Loading tonight's blast off…</p></main>
-  <div id="bdbox"></div></div>
+  <div id="bdbox"></div>
+  <div id="auditbox"></div></div>
   <div class="rcol">
   <aside class="card duck" aria-label="Ask Grandpa Duck">
     <h2>Ask Grandpa Duck</h2>
@@ -220,6 +221,7 @@ function jobState(list) {
 function render() {
   { const sb = $("salesbox"); if (sb) sb.innerHTML = salesCard(); }
   try { renderBd(); } catch (e) { console.log("[bd]", e); }
+  try { renderAudit(); } catch (e) { console.log("[audit]", e); }
   const box = $("main");
   if (box.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;  // don't wipe what he is typing
   const n = st && st.night;
@@ -407,6 +409,52 @@ async function bdAct(sql, msg, later) {
   await loadBd(true);
   setTimeout(() => { bdMsg = ""; renderBd(); }, 8000);
   if (later) setTimeout(() => loadBd(true), later);
+}
+// ---------- 🧾 Store audit (Papa Duck 2026-11-04): "I want a list showing the confirmation when the item sold and verify it is off every store ...
+// do an audit of every store and make sure that if it is there it is not sold elsewhere and give me an audit list". Loads only when opened.
+let au = null, auOpen = false, auTab = "problems", auBusy = false;
+async function loadAudit() {
+  auBusy = true; renderAudit();
+  try { const r = await q("select audit.report_full() as a"); au = (r[0] && r[0].a) || null; } catch (e) { console.log("[audit]", e); }
+  auBusy = false; renderAudit();
+}
+function auditCard() {
+  const A = au || {};
+  const probs = (A.problems || []), unk = (A.unknown || []).filter((x) => x.pd), ue = A.unknown_ebay || [], sales = A.since_oct7 || [], old = A.old || [];
+  const salesBad = sales.filter((x) => x.live_now && !x.still_ok);
+  const when = A.taken_at ? new Date(A.taken_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+  const head = au ? `${probs.length + salesBad.length ? `⚠️ ${probs.length} to fix` : "✅ nothing sold is still listed"} · checked ${esc(when)}` : "tap to open";
+  const tab = (k, lab) => `<button role="tab" data-autab="${k}" aria-selected="${auTab === k}">${lab}</button>`;
+  const ch = (v) => { const t = String(v || ""); return /^(removed|sold|logged)$/.test(t) ? `<span style="color:var(--green)">✓ ${esc(t === "removed" ? "off" : t)}</span>` : t === "none" ? `<span class="muted">—</span>` : /^(kept|qty):/.test(t) ? `<span title="more copies left">✓ ${esc(t.replace("kept:", "copies left ").replace("qty:", "qty now "))}</span>` : `<span style="color:var(--red)">${esc(t)}</span>`; };
+  const tbl = (cols, rows) => `<div style="overflow:auto;max-height:420px"><table class="bdg" style="font-size:.86rem"><thead><tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.join("") || `<tr><td colspan="${cols.length}">Nothing here 👍</td></tr>`}</tbody></table></div>`;
+  let body = "";
+  if (!au) body = `<p class="muted">${auBusy ? "Loading…" : ""}</p>`;
+  else if (auTab === "problems") body = `<p style="margin:0">Books that are still for sale somewhere even though they already sold. Each one needs to come down.</p>` +
+    tbl(["PD", "Book", "Still on", "Why"], [...probs.map((x) => `<tr><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td><td>${esc(x.stores)}</td><td>${esc(x.why)}</td></tr>`),
+      ...salesBad.map((x) => `<tr><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td><td>${esc(x.live_now)}</td><td>Sold ${esc(x.date)} on ${esc(x.channel)}</td></tr>`)]);
+  else if (auTab === "sales") body = `<p style="margin:0">Every sale since Oct 7 (when the automatic close-out started), what each store did, and a live check today.</p>` +
+    tbl(["Sold", "PD", "Book", "Where", "eBay", "AbeBooks", "Etsy", "Amazon", "Airtable", "Live today"], sales.map((x) => { const st = x.st || {};
+      return `<tr><td style="white-space:nowrap">${esc(x.date)}</td><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td><td>${esc(x.channel)}</td><td>${ch(st.ebay)}</td><td>${ch(st.abe)}</td><td>${ch(st.etsy)}</td><td>${ch(st.amazon)}</td><td>${ch(st.airtable)}</td>
+        <td>${!x.live_now ? `<span style="color:var(--green)">✅ off every store</span>` : x.still_ok ? `✅ ${esc(x.live_now)} (copies left)` : `<span style="color:var(--red)">⚠️ ${esc(x.live_now)}</span>`}</td></tr>`; }));
+  else if (auTab === "old") body = `<p style="margin:0">Sold before Oct 7 but never taken down. Closed out Nov 3–4 and checked again today.</p>` +
+    tbl(["PD", "Book", "Sold", "Where", "Live today"], old.map((x) => `<tr><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td><td style="white-space:nowrap">${esc(x.sold_day || "")}</td><td>${esc(x.sold_on || "")}</td>
+      <td>${x.live_now ? `<span style="color:var(--red)">⚠️ ${esc(x.live_now)}</span>` : `<span style="color:var(--green)">✅ off every store</span>`}</td></tr>`));
+  else body = `<p style="margin:0">For sale on a store but not in your Airtable inventory, so I can't tell if they sold elsewhere.</p>` +
+    tbl(["Store", "SKU / item", "Book"], [...unk.map((x) => `<tr><td>${esc(x.stores)}</td><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td></tr>`),
+      ...ue.map((x) => `<tr><td>eBay</td><td class="mono"><a href="https://www.ebay.com/itm/${esc(x.item)}" target="_blank" rel="noopener">${esc(x.item)}</a></td><td>${esc(x.title || "")}</td></tr>`)]);
+  const live = A.live || {};
+  return `<section class="card" aria-label="Store audit">
+    <div class="row" style="justify-content:space-between"><button class="quiet" data-auopen="1" style="border:0;padding:0;color:var(--ink);min-height:0;text-align:left"><h2 style="margin:0">${auOpen ? "▾" : "▸"} 🧾 Store audit</h2></button>
+      <span class="muted" style="font-size:.85rem">${head}</span></div>
+    ${auOpen ? `<p class="muted" style="margin:0;font-size:.85rem">Live right now: eBay ${live.eBay || 0} · AbeBooks ${live.AbeBooks || 0} · Etsy ${live.Etsy || 0} · Amazon ${live.Amazon || 0}</p>
+      <div class="tabs" role="tablist">${tab("problems", `⚠️ To fix (${probs.length + salesBad.length})`)}${tab("sales", `✅ Sales since Oct 7 (${sales.length})`)}${tab("old", `🧹 Old sales closed out (${old.length})`)}${tab("unknown", `❓ Not in Airtable (${unk.length + ue.length})`)}</div>${body}` : ""}
+  </section>`;
+}
+function renderAudit() {
+  const el = $("auditbox"); if (!el) return;
+  el.innerHTML = auditCard();
+  el.querySelectorAll("[data-auopen]").forEach((b) => b.onclick = () => { auOpen = !auOpen; if (auOpen && !au) loadAudit(); else renderAudit(); });
+  el.querySelectorAll("[data-autab]").forEach((b) => b.onclick = () => { auTab = b.dataset.autab; renderAudit(); });
 }
 // ---------- 🚚 FBA boxes at Amazon (Papa Duck 2026-11-02): "know the status of my fba boxes sent in and when books are ready to sale"
 // fba-track reads Amazon every 2 hours: the box's trip (Shipped -> On the way -> Delivered -> Checked in -> Receiving -> Ready) and each book.
