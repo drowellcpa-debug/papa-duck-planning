@@ -1,4 +1,4 @@
-// Papa Duck — Edge Function "pd-writeoff" v1 (2026-11-03). Papa Duck: "can not find the 2437 or 0054 ... take them off everywhere consider them sold".
+// Papa Duck — Edge Function "pd-writeoff" v2 (2026-11-04; v2 = optional {shelf, title} - used to close out old eBay sales from before Oct 7) v1 (2026-11-03). Papa Duck: "can not find the 2437 or 0054 ... take them off everywhere consider them sold".
 // For each PD: eBay ended (EndItem + read back), AbeBooks deleted, Etsy inactive (+ read back), Amazon offer removed,
 // Airtable Status "Sold", Quantity 0, Shelf "Missing - written off". Same calls as shelf-clear. Logs to pipeline.alerts (handled).
 // POST {"pds":["PD-0054"], "why":"..."}. Auth: x-backup-secret = backup.config cron_secret.
@@ -93,6 +93,7 @@ Deno.serve(async (req) => {
       return { status: r.status, j: J(r.body), raw: r.body };
     };
 
+    const shelf = String(b.shelf || "Missing - written off").slice(0, 80);
     const out: any[] = [];
     for (const pd of pds) {
       const log: Record<string, string> = {};
@@ -131,10 +132,10 @@ Deno.serve(async (req) => {
       });
       await step("airtable", async () => {
         if (!recs[0]) return "none (not in Inventory)";
-        await at("PATCH", "", { typecast: true, records: [{ id: recs[0].id, fields: { [F.STATUS]: "Sold", [F.QTY]: 0, [F.SHELF]: "Missing - written off" } }] });
-        return "updated: Sold, quantity 0, shelf 'Missing - written off'";
+        await at("PATCH", "", { typecast: true, records: [{ id: recs[0].id, fields: { [F.STATUS]: "Sold", [F.QTY]: 0, [F.SHELF]: shelf } }] });
+        return `updated: Sold, quantity 0, shelf '${shelf}'`;
       });
-      await sql`select pipeline.alert_add('Inventory', ${`${pd} taken off every store - counted as sold`}, ${(b.why || "Papa Duck could not find it.") + " " + Object.entries(log).map(([k, v]) => `${k}: ${v}`).join(" · ")},
+      if (!b.quiet) await sql`select pipeline.alert_add('Inventory', ${`${pd} ${b.title || "taken off every store - counted as sold"}`}, ${(b.why || "Papa Duck could not find it.") + " " + Object.entries(log).map(([k, v]) => `${k}: ${v}`).join(" · ")},
         ${pd}, null, ${bad ? "issue" : "handled"}, ${"writeoff:" + pd})`;
       out.push({ pd, ok: !bad, log });
     }
