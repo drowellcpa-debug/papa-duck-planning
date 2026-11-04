@@ -303,7 +303,7 @@ function salesCard() {
 }
 // ---------- 🦆 Bargain Duck (Papa Duck 2026-11-03): "instead of the email have it go to our launch pad ... for our new buy or watch"
 // Its own bd.* tables + its own query, so it can never slow down or break the blast off part of this page.
-let bd = null, bdAt = 0, bdBuy = null, bdWatchOpen = false, bdRestrOpen = false, bdMsg = "";
+let bd = null, bdAt = 0, bdBuy = null, bdWatchOpen = false, bdRestrOpen = false, bdZzOpen = false, bdDropArm = null, bdMsg = "";
 async function loadBd(force) {
   if (!force && Date.now() - bdAt < 120000) return;
   bdAt = Date.now();
@@ -339,12 +339,15 @@ function bdOffers(x) {
 function bdCard() {
   if (!bd) return "";
   // 2026-11-03 Papa Duck: "also verify that I am not restricted on them" - Amazon's restriction check per book; restricted ones are never a buy
-  const R = bd.rows || [], kind = (x) => x.status === "listed" ? "listed" : (x.status === "watching" && x.amz_ok === false) ? "restricted" : x.bucket, grp = (k) => R.filter((x) => kind(x) === k);
-  const buy = grp("buy"), close = grp("close"), listNow = grp("list now"), hold = grp("holding"), listed = grp("listed"), watch = grp("watching"), restricted = grp("restricted");
+  const R = bd.rows || [], today = new Date().toLocaleDateString("en-CA"), kind = (x) => x.status === "listed" ? "listed" : (x.status === "watching" && x.snooze_until && x.snooze_until > today) ? "snoozed" : (x.status === "watching" && x.amz_ok === false) ? "restricted" : x.bucket, grp = (k) => R.filter((x) => kind(x) === k);
+  const buy = grp("buy"), close = grp("close"), listNow = grp("list now"), hold = grp("holding"), listed = grp("listed"), watch = grp("watching"), restricted = grp("restricted"), snoozed = grp("snoozed");
   const best = (x) => { const amz = x.used != null ? Number(x.used) : Infinity, ob = x.best_total != null ? Number(x.best_total) : Infinity;
     return ob < amz ? { t: ob, w: `${esc(x.best_grade || "")} · ${esc(x.best_source)}` } : amz < Infinity ? { t: amz, w: "Amazon used" } : null; };
   const row = (x, owned) => { const b = best(x), pr = b ? bdNet(x) - b.t : null, open = !!bdOpen[x.asin];
-    const btns = owned ? "" : `<button class="bdb" data-bdbought="${esc(x.asin)}">🛒 Bought</button><button class="bdb ghost" data-bddrop="${esc(x.asin)}" title="Stop watching">✕</button>`;
+    // 2026-11-03 Papa Duck: "did not mean to stop watching ... just wanted to put it out another week" -> 💤 snooze a week; ✕ now asks twice
+    const zz = x.snooze_until && x.snooze_until > today;
+    const btns = owned ? "" : zz ? `<span class="muted" style="font-size:.8rem">💤 until ${esc(new Date(x.snooze_until + "T12:00:00").toLocaleDateString([], { month: "short", day: "numeric" }))}</span><button class="bdb ghost" data-bdwake="${esc(x.asin)}">Wake</button>`
+      : `<button class="bdb" data-bdbought="${esc(x.asin)}">🛒 Bought</button><button class="bdb ghost" data-bdsnooze="${esc(x.asin)}" title="Hide it and ask me again in a week">⏰ Ask me in a week</button><button class="bdb ghost" data-bddrop="${esc(x.asin)}" title="Stop watching">${bdDropArm === x.asin ? "Tap again: stop watching" : "✕"}</button>`;
     const mid = owned ? `<td colspan="2">${x.status === "listed" ? `Listed ${esc(x.pd || "")} at ${money(x.list_price)}` : `Paid ${money(x.cost)}${x.pd ? " · " + esc(x.pd) : " · scan it in, pick Hold Shelf"}`}</td>`
       : `<td class="n"><b>${b ? money(b.t) : "—"}</b><div class="muted" style="font-size:.76rem;white-space:nowrap">${b ? b.w : ""}</div></td><td class="n">${money(x.buy_target)}</td>`;
     const form = bdBuy === x.asin ? `<tr><td colspan="7"><div class="row" style="gap:6px"><label class="price">I paid $<input type="text" inputmode="decimal" id="bdcost" placeholder="${b ? b.t.toFixed(2) : ""}"></label>
@@ -369,6 +372,7 @@ function bdCard() {
       ${!buy.length && !close.length ? `<tr><td colspan="7">Nothing in the buy zone today. I check every morning.</td></tr>` : ""}
       ${sec("🟢", "Buy now", buy, false)}${sec("🟡", "Getting close", close, false)}${sec("🚀", "Time to list", listNow, true, "goes into the next blast off on its own")}
       ${sec("📦", "On the Hold Shelf", hold, true)}${sec("✅", "Listed from the Hold Shelf", listed, true)}
+      ${snoozed.length ? `<tr class="bdh"><td colspan="7"><button class="quiet" data-bdzz="1" style="border:0;padding:0;color:var(--ink);min-height:0">${bdZzOpen ? "▾" : "▸"} 💤 <b>Snoozed</b> (${snoozed.length})</button></td></tr>${bdZzOpen ? snoozed.map((x) => row(x, false)).join("") : ""}` : ""}
       ${restricted.length ? `<tr class="bdh"><td colspan="7"><button class="quiet" data-bdrestr="1" style="border:0;padding:0;color:var(--ink);min-height:0">${bdRestrOpen ? "▾" : "▸"} 🔒 <b>Restricted on Amazon</b> (${restricted.length}) <span class="muted" style="font-weight:400">· not counted as buys</span></button></td></tr>${bdRestrOpen ? restricted.map((x) => row(x, false)).join("") : ""}` : ""}
       ${watch.length ? `<tr class="bdh"><td colspan="7"><button class="quiet" data-bdwatch="1" style="border:0;padding:0;color:var(--ink);min-height:0">${bdWatchOpen ? "▾" : "▸"} 👀 <b>Watching</b> (${watch.length})</button></td></tr>${bdWatchOpen ? wsort.map((x) => row(x, false)).join("") : ""}` : ""}
     </tbody></table></div>
@@ -384,7 +388,12 @@ function renderBd() {
   el.querySelectorAll("[data-bdbought]").forEach((b) => b.onclick = () => { bdBuy = b.dataset.bdbought; renderBd(); const i = $("bdcost"); if (i) i.focus(); });
   el.querySelectorAll("[data-bdcancel]").forEach((b) => b.onclick = () => { bdBuy = null; renderBd(); });
   el.querySelectorAll("[data-bdsave]").forEach((b) => b.onclick = () => bdAct(`select bd.bought('${b.dataset.bdsave.replace(/[^0-9A-Z]/g, "")}', ${Number(($("bdcost") || {}).value) || "null"})`, "Saved. Scan it in and pick Hold Shelf when you list it."));
-  el.querySelectorAll("[data-bddrop]").forEach((b) => b.onclick = () => bdAct(`select bd.drop_book('${b.dataset.bddrop.replace(/[^0-9A-Z]/g, "")}')`, "OK, I stopped watching that one."));
+  el.querySelectorAll("[data-bddrop]").forEach((b) => b.onclick = () => { const a = b.dataset.bddrop;
+    if (bdDropArm !== a) { bdDropArm = a; renderBd(); setTimeout(() => { if (bdDropArm === a) { bdDropArm = null; renderBd(); } }, 5000); return; }
+    bdDropArm = null; bdAct(`select bd.drop_book('${a.replace(/[^0-9A-Z]/g, "")}')`, "OK, I stopped watching that one."); });
+  el.querySelectorAll("[data-bdsnooze]").forEach((b) => b.onclick = () => bdAct(`select bd.snooze('${b.dataset.bdsnooze.replace(/[^0-9A-Z]/g, "")}', 7)`, "⏰ OK. I'll ask you again in a week on the Launch Pad."));
+  el.querySelectorAll("[data-bdwake]").forEach((b) => b.onclick = () => bdAct(`select bd.unsnooze('${b.dataset.bdwake.replace(/[^0-9A-Z]/g, "")}')`, "It's back on the list."));
+  el.querySelectorAll("[data-bdzz]").forEach((b) => b.onclick = () => { bdZzOpen = !bdZzOpen; renderBd(); });
   const ab = $("bdaddbtn"); if (ab) ab.onclick = () => { const v = (($("bdadd") || {}).value || "").toUpperCase().replace(/[^0-9X]/g, ""); if (v.length >= 10) bdAct(`select bd.add_book('${v}')`, "Looking it up on Keepa. It will show here in a minute.", 45000); };
   el.querySelectorAll("[data-bdopen]").forEach((b) => b.onclick = () => { bdOpen[b.dataset.bdopen] = !bdOpen[b.dataset.bdopen]; renderBd(); });
   el.querySelectorAll("[data-bdwatch]").forEach((b) => b.onclick = () => { bdWatchOpen = !bdWatchOpen; renderBd(); });
