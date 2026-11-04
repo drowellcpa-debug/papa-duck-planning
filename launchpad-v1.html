@@ -483,14 +483,27 @@ function renderTodo() {
   el.innerHTML = `<section class="card ask" aria-label="To-do">
     <h2 style="margin:0">📝 To-do · ${waiting ? `${waiting} waiting for you` : "working on it"}</h2>
     ${todoMsg ? `<div class="notice good" role="status">${esc(todoMsg)}</div>` : ""}
-    <p class="muted" style="margin:0;font-size:.85rem">🔢 Recount: count the copies on the shelf, type the number, tap Save. I set eBay, Etsy and Airtable to it (and AbeBooks).</p>
-    <div style="display:grid;gap:6px;max-height:420px;overflow:auto">${T.map((x) => `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 8px">
+    ${T.some((x) => x.kind === "recount") ? `<p class="muted" style="margin:0;font-size:.85rem">🔢 Recount: count the copies on the shelf, type the number, tap Save. I set eBay, Etsy and Airtable to it (and AbeBooks).</p>` : ""}
+    ${T.some((x) => x.kind === "find") ? `<p class="muted" style="margin:0;font-size:.85rem">🔍 Find it: old eBay listings with no PD number. Look on the shelf. ✅ Found it = I give it a PD number and check it for FBA. ❌ Not here = I take the eBay listing down.</p>` : ""}
+    <div style="display:grid;gap:6px;max-height:420px;overflow:auto">${T.map((x) => x.kind === "find" ? `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 8px">
+      <div style="font-size:.9rem">🔍 ${esc(String(x.title || "").slice(0, 70))}</div>
+      <div class="muted" style="font-size:.78rem">eBay · <a href="https://www.ebay.com/itm/${esc(x.ref || "")}" target="_blank" rel="noopener">see the listing ↗</a></div>
+      ${x.answer == null ? `<div class="row" style="gap:6px;margin-top:4px;flex-wrap:nowrap"><button data-fdyes="${x.id}" style="min-height:32px;padding:2px 12px">✅ Found it</button>
+        <button data-fdno="${x.id}" style="min-height:32px;padding:2px 12px">❌ Not here</button></div>`
+        : `<div style="font-size:.8rem;margin-top:3px">✔ ${Number(x.answer) ? "Found it" : "Not here"} · ${esc(x.applied || "")}</div>`}
+    </div>` : `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 8px">
       <div style="font-size:.9rem"><b class="mono">${esc(x.pd || "")}</b> ${esc(String(x.title || "").slice(0, 60))}</div>
       <div class="muted" style="font-size:.78rem">Airtable says ${esc(x.airtable)} · stores showed ${esc(x.stores || "")}</div>
       ${x.answer == null ? `<div class="row" style="gap:6px;margin-top:4px;flex-wrap:nowrap"><label class="price">I have <input type="text" inputmode="numeric" id="rc-${x.id}" style="width:56px" placeholder="${esc(x.airtable)}"></label>
         <button data-rcsave="${x.id}" style="min-height:32px;padding:2px 12px">Save</button></div>`
         : `<div style="font-size:.8rem;margin-top:3px">✔ You counted <b>${esc(x.answer)}</b> · ${esc(x.applied || "")}</div>`}
     </div>`).join("")}</div></section>`;
+  el.querySelectorAll("[data-fdyes],[data-fdno]").forEach((b) => b.onclick = async () => {
+    const found = !!b.dataset.fdyes, id = Number(b.dataset.fdyes || b.dataset.fdno);
+    try { const r = await q(`select pipeline.todo_find(${id}, ${found}) as t`); todos = (r[0] && r[0].t) || todos; todoMsg = found ? "Got it - I'll give it a PD number and check FBA." : "Got it - taking the eBay listing down now."; }
+    catch (e) { todoMsg = "That didn't save. Try again."; }
+    renderTodo(); setTimeout(() => { todoMsg = ""; loadTodo(true); }, 15000);
+  });
   el.querySelectorAll("[data-rcsave]").forEach((b) => b.onclick = async () => {
     const id = Number(b.dataset.rcsave), v = (($("rc-" + id) || {}).value || "").trim();
     if (!/^\d+$/.test(v)) { todoMsg = "Type a number (0 if none are on the shelf)."; renderTodo(); return; }

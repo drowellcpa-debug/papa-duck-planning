@@ -1,4 +1,4 @@
-// Papa Duck - Edge Function "recount-apply" v1 (2026-11-04). Papa Duck: "put on a list any that we are uncertain and I will get you a recount".
+// Papa Duck - Edge Function "recount-apply" v2 (2026-11-04; v2: also "find" to-dos - an old eBay listing with no PD he could not find on the shelf gets ended). Papa Duck: "put on a list any that we are uncertain and I will get you a recount".
 // When he saves a shelf count on the Launch Pad To-do card (pipeline.todo_recount), this sets every store to that count:
 //   eBay ReviseInventoryStatus (0 = end the listing), Etsy inventory quantity (0 = inactive), Airtable Quantity (0 = Unlisted),
 //   AbeBooks: 0 = DELETE; other counts need a full-record update (AbeBooks has no quantity-only call) -> flagged for Claude.
@@ -14,8 +14,23 @@ Deno.serve(async (req) => {
     const [cfg] = await sql`select value from backup.config where key = 'cron_secret'`;
     if (req.headers.get("x-backup-secret") !== cfg?.value) return json({ error: "not allowed" }, 403);
     const b = await req.json().catch(() => ({}));
-    const [t] = await sql`select * from pipeline.todos where id = ${Number(b.id)} and kind = 'recount'`;
-    if (!t || t.answer == null) return json({ ok: false, error: "no recount answer for that to-do" }, 400);
+    const [t] = await sql`select * from pipeline.todos where id = ${Number(b.id)} and kind in ('recount', 'find')`;
+    if (!t || t.answer == null) return json({ ok: false, error: "no answer for that to-do" }, 400);
+    if (t.kind === "find") {
+      if (Number(t.answer) !== 0 || !t.ref) return json({ ok: true, skipped: true });
+      const K0 = JSON.parse((await sql`select decrypted_secret from vault.decrypted_secrets where name = 'papaduck_keys'`)[0].decrypted_secret).ebay;
+      const tr = async (name: string, inner: string) => (await (await fetch("https://api.ebay.com/ws/api.dll", { method: "POST", headers: { "X-EBAY-API-CALL-NAME": name, "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "1193",
+        "X-EBAY-API-APP-NAME": K0.app_id, "X-EBAY-API-DEV-NAME": K0.dev_id, "X-EBAY-API-CERT-NAME": K0.cert_id, "Content-Type": "text/xml" },
+        body: `<?xml version="1.0" encoding="utf-8"?><${name}Request xmlns="urn:ebay:apis:eBLBaseComponents"><RequesterCredentials><eBayAuthToken>${K0.auth_token.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</eBayAuthToken></RequesterCredentials>${inner}</${name}Request>` })).text());
+      const pk = (x: string, tag: string) => (x.match(new RegExp(`<${tag}>([^<]*)</${tag}>`)) || [])[1] || "";
+      const g0 = await tr("GetItem", `<ItemID>${t.ref}</ItemID><DetailLevel>ReturnSummary</DetailLevel>`);
+      let text = "";
+      if (pk(g0, "ListingStatus") !== "Active") text = `eBay: already ${pk(g0, "ListingStatus") || "gone"}`;
+      else { await tr("EndItem", `<ItemID>${t.ref}</ItemID><EndingReason>NotAvailable</EndingReason>`); const g1 = await tr("GetItem", `<ItemID>${t.ref}</ItemID><DetailLevel>ReturnSummary</DetailLevel>`);
+        text = pk(g1, "ListingStatus") === "Active" ? "eBay FAILED - still live" : "eBay: listing ended"; }
+      await sql`update pipeline.todos set applied = ${text}, done_at = ${/FAILED/.test(text) ? null : new Date()} where id = ${t.id}`;
+      return json({ ok: !/FAILED/.test(text), text });
+    }
     const pd = String(t.pd).toUpperCase(), n = Number(t.answer);
     const vr = await sql`select id, decrypted_secret from vault.decrypted_secrets where name = 'papaduck_keys'`;
     const K = JSON.parse(vr[0].decrypted_secret);
