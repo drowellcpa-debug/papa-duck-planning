@@ -1,4 +1,4 @@
-// Papa Duck - Edge Function "amazon-watch" v1 (2026-11-05). Papa Duck: "Can you automatically with amazon api look for issues like return asked for"
+// Papa Duck - Edge Function "amazon-watch" v2 (2026-11-05; v2: a slow returns report is picked up next run, warning only after 3 slow runs). Papa Duck: "Can you automatically with amazon api look for issues like return asked for"
 // (after a return request on PD-3190 never reached his email). Read-only. Runs from cron pd-amazon-watch every 2 hours and posts Launch Pad alerts:
 //   1) RETURN REQUESTS  - SP-API report GET_FLAT_FILE_RETURNS_DATA_BY_RETURN_DATE (last 30 days): one alert per return (order + RMA),
 //                         plain-words reason; "Pending" ones are marked urgent (Amazon wants an answer within 2 business days).
@@ -38,10 +38,22 @@ Deno.serve(async (req) => {
 
     // 1) return requests
     try {
-      const c = await (await fetch(`${AMZ}/reports/2021-06-30/reports`, { method: "POST", headers: H, body: JSON.stringify({ reportType: "GET_FLAT_FILE_RETURNS_DATA_BY_RETURN_DATE", marketplaceIds: [MKT], dataStartTime: since30 }) })).json();
-      if (!c.reportId) throw new Error("returns report: " + JSON.stringify(c).slice(0, 160));
+      // v2: a slow Amazon report is not a problem - its id is kept (audit.runs 'amzwatch') and picked up next run; warn only after 3 misses in a row
+      await sql`insert into audit.runs (store, run_id, started_at, cursor, n) values ('amzwatch', 'returns', now(), null, 0) on conflict (store) do nothing`;
+      const [run] = await sql`select cursor, n from audit.runs where store = 'amzwatch'`;
+      let reportId = run?.cursor || "";
+      if (!reportId) {
+        const c = await (await fetch(`${AMZ}/reports/2021-06-30/reports`, { method: "POST", headers: H, body: JSON.stringify({ reportType: "GET_FLAT_FILE_RETURNS_DATA_BY_RETURN_DATE", marketplaceIds: [MKT], dataStartTime: since30 }) })).json();
+        if (!c.reportId) throw new Error("returns report: " + JSON.stringify(c).slice(0, 160));
+        reportId = c.reportId;
+      }
       let st: any = null;
-      for (let i = 0; i < 20; i++) { await sleep(5000); st = await get(`${AMZ}/reports/2021-06-30/reports/${c.reportId}`); if (/DONE|CANCELLED|FATAL/.test(st.processingStatus)) break; }
+      for (let i = 0; i < 24; i++) { st = await get(`${AMZ}/reports/2021-06-30/reports/${reportId}`); if (/DONE|CANCELLED|FATAL/.test(st.processingStatus)) break; await sleep(5000); }
+      if (/IN_QUEUE|IN_PROGRESS/.test(st?.processingStatus || "")) {
+        const miss = Number(run?.n || 0) + 1;
+        await sql`update audit.runs set cursor = ${reportId}, n = ${miss} where store = 'amzwatch'`;
+        if (miss >= 3) out.errors.push(`Amazon's returns report has been slow ${miss} runs in a row`);
+      } else await sql`update audit.runs set cursor = null, n = 0, finished_at = now() where store = 'amzwatch'`;
       if (st?.processingStatus === "DONE") {
         const d = await get(`${AMZ}/reports/2021-06-30/documents/${st.reportDocumentId}`);
         const raw = new Uint8Array(await (await fetch(d.url)).arrayBuffer());
@@ -63,7 +75,7 @@ Deno.serve(async (req) => {
             (SAFE_T.test(code) ? " When it comes back: photograph the package before opening and the book after - if it isn't what the buyer said, a SAFE-T claim can get your money back." : ""),
             pd, pending ? "issue" : "question", `amzret:${order}:${rma}:${pending ? "p" : "a"}`);
         }
-      } else out.errors.push("returns report " + (st?.processingStatus || "timeout"));
+      } else if (/CANCELLED|FATAL/.test(st?.processingStatus || "") && st?.processingStatus !== "CANCELLED") out.errors.push("returns report " + st.processingStatus);
     } catch (e) { out.errors.push(String((e as Error).message || e).slice(0, 200)); }
 
     // 2) buyer cancel requests on unshipped orders
