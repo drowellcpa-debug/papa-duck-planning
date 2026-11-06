@@ -1,4 +1,4 @@
-// Papa Duck - Edge Function "ebay-answer" v2 (2026-11-06; v2: never states copies in stock; test mode). Papa Duck: "Can you look at my response and respond in similar way automatically.
+// Papa Duck - Edge Function "ebay-answer" v3 (2026-11-06; v2: never states copies in stock; test mode; v3: no local pickup, no extra photos - answered automatically). Papa Duck: "Can you look at my response and respond in similar way automatically.
 //   If they ask me for an offer I only accept in ebay offer area. I offer no hassle returns." + "Yes all of it please handle for me and just put
 //   in launch pad question asked and your response".
 // Every 15 min (cron pd-ebay-answer): reads new eBay buyer messages (GetMemberMessages, unanswered), looks up the listing, and Claude writes a short
@@ -23,13 +23,16 @@ HIS RULES (never break):
   each through Make Offer; he combines shipping on multiple books.
 - Never offer free shipping. Never move a sale off eBay (no Vinted, PayPal, email, phone, other sites) - "I sell through eBay only". No links, emails or phone numbers.
 - FACTS about the book come ONLY from the listing below. If the listing clearly answers it, answer plainly. If the listing does not say, NEVER guess.
+- LOCAL PICKUP (Papa Duck 2026-11-06: "No local pickups"): kindly say he doesn't offer local pickup, everything ships through eBay - "send".
+- PHOTO REQUESTS (Papa Duck 2026-11-06: no extra photos): kindly say all the photos are in the listing; answer what they want to see from the listing
+  text if it says (e.g. spine, cover, contents), and remind them of no-hassle returns - "send". Never promise to take or add photos.
 - Never say how many copies are in stock or that more are available (his rule CR) - "Yes, it's still available!" is enough.
 - Never mention AI, Claude, or that the reply is automatic.
 DECIDE action:
 - "send": you can fully and truthfully answer from his rules and the listing (offers, availability, bundles/combined shipping, returns policy,
   shipping method/speed in general terms, questions the listing clearly answers).
-- "hold": anything that needs him or the book in hand: condition/contents/edition details the listing doesn't state, photo requests, measurements not
-  in the listing, local pickup, address change, cancel requests, item not received / late, damaged / not as described / refund / return problems,
+- "hold": anything that needs him or the book in hand: condition/contents/edition details the listing doesn't state, measurements not
+  in the listing, address change, cancel requests, item not received / late, damaged / not as described / refund / return problems,
   publisher, copyright or legal messages, anything odd. Still write the reply you would suggest (he will check it), and say in "why" what he must do.
 - "skip": the buyer only says thanks / ok / 👍 / confirms - no reply needed.
 Respond with ONLY JSON: {"action":"send|hold|skip","reply":"","why":"short reason"}`;
