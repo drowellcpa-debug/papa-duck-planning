@@ -1,3 +1,4 @@
+// v4 (2026-11-06): {"reply_to":{message_id,reply}} sends a checked reply to a held message.
 // Papa Duck - Edge Function "ebay-answer" v3 (2026-11-06; v2: never states copies in stock; test mode; v3: no local pickup, no extra photos - answered automatically). Papa Duck: "Can you look at my response and respond in similar way automatically.
 //   If they ask me for an offer I only accept in ebay offer area. I offer no hassle returns." + "Yes all of it please handle for me and just put
 //   in launch pad question asked and your response".
@@ -54,6 +55,19 @@ Deno.serve(async (req) => {
       "X-EBAY-API-APP-NAME": e.app_id, "X-EBAY-API-DEV-NAME": e.dev_id, "X-EBAY-API-CERT-NAME": e.cert_id, "Content-Type": "text/xml" },
       body: `<?xml version="1.0" encoding="utf-8"?><${name}Request xmlns="urn:ebay:apis:eBLBaseComponents"><RequesterCredentials><eBayAuthToken>${xesc(e.auth_token)}</eBayAuthToken></RequesterCredentials>${inner}</${name}Request>` })).text());
     const pick = (x: string, t: string) => (x.match(new RegExp(`<${t}>([\\s\\S]*?)</${t}>`)) || [])[1] || "";
+    // v4: send a reply to a HELD message, after Papa Duck / Claude checked it ({"reply_to":{"message_id":"...","reply":"..."}})
+    if (b.reply_to) {
+      const [row] = await sql`select * from pipeline.ebay_msgs where message_id = ${String(b.reply_to.message_id)}`;
+      if (!row) return json({ ok: false, error: "no such held message" }, 404);
+      if (row.sent_ok) return json({ ok: false, error: "already answered" }, 409);
+      const reply = String(b.reply_to.reply || "").trim().slice(0, 1900);
+      const s = await trade("AddMemberMessageRTQ", `<ItemID>${row.item_id}</ItemID><MemberMessage><Body>${xesc(reply)}</Body><DisplayToPublic>false</DisplayToPublic><EmailCopyToSender>true</EmailCopyToSender><ParentMessageID>${row.message_id}</ParentMessageID><RecipientID>${xesc(row.sender)}</RecipientID></MemberMessage>`);
+      const ok = /<Ack>(Success|Warning)/.test(s);
+      if (!ok) return json({ ok: false, error: pick(s, "LongMessage").slice(0, 300) }, 502);
+      await sql`update pipeline.ebay_msgs set action = 'send', reply = ${reply}, sent_ok = true, why = ${"answered after checking the photos - " + (row.why || "")}, handled_at = now() where message_id = ${row.message_id}`;
+      await sql`update pipeline.alerts set kind = 'handled', title = ${"Answered " + row.sender + " (checked photos)"}, detail = ${"THEY ASKED: " + String(row.question).slice(0, 600) + "\n\nI REPLIED: " + reply}, done_at = now() where dedupe = ${"ebaymsg:" + row.message_id}`;
+      return json({ ok: true, sent: true });
+    }
     const since = new Date(Date.now() - Number(b.hours || 36) * 3600e3).toISOString();
     const x = await trade("GetMemberMessages", `<MailMessageType>All</MailMessageType><MessageStatus>Unanswered</MessageStatus><StartCreationTime>${since}</StartCreationTime><EndCreationTime>${new Date().toISOString()}</EndCreationTime><Pagination><EntriesPerPage>100</EntriesPerPage><PageNumber>1</PageNumber></Pagination>`);
     if (!/<Ack>(Success|Warning)/.test(x)) throw new Error("eBay messages: " + (pick(x, "LongMessage") || x.slice(0, 200)));
