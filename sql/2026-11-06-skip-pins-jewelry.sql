@@ -8,7 +8,7 @@ declare
   f text := '🚨 SKIP - pins/jewelry. Papa Duck does not sell pins or jewelry (11/6). Not priced.';
   txt text;
 begin
-  if coalesce(new.ident->>'kind','') <> 'item' then return new; end if;
+  if coalesce(new.ident->>'kind','') <> 'item' or coalesce(new.ident->>'pin_ok','') = 'true' then return new; end if;
   txt := coalesce(new.ident->>'title','') || ' ' || coalesce(new.ident->'item'->>'type','') || ' ' || coalesce(new.ident->'item'->>'line_or_pattern','');
   if not pipeline.is_pin_or_jewelry(txt) then return new; end if;
   if not coalesce(new.flags,'[]'::jsonb) @> to_jsonb(array[f]) then new.flags := coalesce(new.flags,'[]'::jsonb) || to_jsonb(array[f]); end if;
@@ -17,3 +17,5 @@ begin
 end $$;
 create trigger drafts_skip_pins before insert or update on pipeline.drafts
 for each row when (new.built_at is null) execute function pipeline.drafts_skip_pins_fn();
+
+-- ident.pin_ok='true' lets a pin through (set on PD-0255, 0259, 0264 per Papa Duck 11/6: 'Go ahead and sell those').
