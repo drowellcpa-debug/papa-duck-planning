@@ -1,0 +1,4 @@
+-- 2026-11-08 Ask for unrestricted (Amazon): pipeline.unrestrict (one row per restricted PD), pipeline.pub_key(publisher),
+-- pipeline.unrestrict_cards() (one Launch Pad card per publisher, source 'Unrestrict', dedupe unrestrict:<pub_key>; filed when none left),
+-- trigger drafts_unrestrict (a draft whose Amazon check says restricted joins the list), cron pd-amz-unrestrict '17 */3 * * *' -> edge fn amz-unrestrict.
+-- Applied as migrations unrestrict_table + unrestrict_cards_v2_and_feed. Seeded from audit.amz_recheck (65 restricted, 58 publisher cards).
