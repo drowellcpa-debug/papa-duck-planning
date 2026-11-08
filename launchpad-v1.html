@@ -600,7 +600,8 @@ function alertCard() {
         <span style="font-weight:800">${ic} ${lab}</span><span><b style="background:var(--gray);border-radius:999px;padding:1px 10px">${L.length}</b> ${open ? "▾" : "▸"}</span></button>
       ${open ? `<div style="display:grid;gap:6px;padding:0 8px 8px">${L.map(item).join("")}</div>` : ""}</div>`; }).join("");
   return `<section class="card${urg || need ? " ask" : ""}" aria-label="To deal with"${urg ? ' style="border-color:var(--red)"' : ""}>
-    <h2>📥 Inbox · ${parts.join(" · ") || "all clear"}</h2>
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">📥 Inbox · ${parts.join(" · ") || "all clear"}</h2>
+      ${Object.values(alertOpen).some(Boolean) ? `<button class="ghost" data-acollapse="1" style="min-height:36px;padding:4px 12px;font-size:.9rem">▴ Collapse all</button>` : ""}</div>
     <div style="display:grid;gap:6px">${groups}</div>
   </section>`;
 }
@@ -1148,6 +1149,7 @@ function wire() {
   const bh = $("boxhist"); if (bh) bh.ontoggle = () => { boxHistOpen = bh.open; };
   const bl = $("bblist"); if (bl) bl.ontoggle = () => { bbListOpen = bl.open; };
   document.querySelectorAll("[data-alert]").forEach((b) => b.onclick = () => alertTap(+b.dataset.alert));
+  document.querySelectorAll("[data-acollapse]").forEach((b) => b.onclick = () => { alertOpen = {}; try { localStorage.setItem("lp_alert_open", "{}"); } catch (e) {} render(); });
   document.querySelectorAll("[data-agrp]").forEach((b) => b.onclick = () => { alertOpen[b.dataset.agrp] = !alertOpen[b.dataset.agrp]; try { localStorage.setItem("lp_alert_open", JSON.stringify(alertOpen)); } catch (e) {} render(); });
   document.querySelectorAll("[data-ship]").forEach((b) => b.onclick = () => shipTap(b.dataset.ship));
   document.querySelectorAll("[data-fbabox]").forEach((b) => b.onclick = () => { fbaOpen[b.dataset.fbabox] = !fbaOpen[b.dataset.fbabox]; render(); });
