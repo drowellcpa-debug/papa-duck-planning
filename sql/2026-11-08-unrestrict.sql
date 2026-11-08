@@ -5,3 +5,5 @@
 -- later the same day: pipeline.unrestrict_recheck(alert_id) behind the Launch Pad "✅ I got approved" button; cards reopen when a book is restricted again;
 -- column new_ok (amz-unrestrict v3 checks NEW when used is still restricted) -> card says "approved for NEW only". Concordia PD-2991: new OK, used still no.
 -- cron pd-amz-unrestrict now runs whenever pipeline.unrestrict has rows (approved books rechecked daily, put back on the list if Amazon restricts again).
+-- textbooks first: column textbook, pipeline.isbn_publisher(asin), Bargain Duck restricted textbooks joined as 'BD-<asin>' rows (trigger unrestrict_bd keeps bd.watch.amz_ok in step);
+-- claimed_at/claim_expired (⏳ waiting for Claude to verify), applied_at + pipeline.unrestrict_applied(alert) (📨 applied, waiting on Amazon). Launch Pad v54-v56.

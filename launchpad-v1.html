@@ -593,8 +593,12 @@ function alertCard() {
     return `<div class="row" style="justify-content:space-between;border:${L.b};background:${L.bg};border-radius:10px;padding:8px 12px">
         <span style="flex:1;min-width:200px"><b>${tag}${esc(a.title)}</b><br>${nested(a)}
           <span class="muted" style="font-size:.85rem;display:block;margin-top:2px">${esc(a.source)} · ${new Date(a.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${a.link ? ` · <a href="${esc(a.link)}" target="_blank" rel="noopener">${grpOf(a) === "unrestrict" ? "🔓 Request approval ↗" : "open"}</a>` : ""}</span></span>
-        ${offerBtns(a)}${grpOf(a) === "unrestrict" ? `<button data-unok="${a.id}">✅ I got approved</button>` : ""}<button class="${alertArm === a.id ? "" : "ghost"}" data-alert="${a.id}">${alertArm === a.id ? "Tap again: done" : grpOf(a) === "answered" ? "✓ I read it" : lvl(a.kind) === 2 ? "Got it" : "✓ Done"}</button></div>`; };
+        ${offerBtns(a)}${grpOf(a) === "unrestrict" ? (/⏳/.test(a.title || "") ? `<span class="pill running" style="white-space:nowrap">⏳ Waiting for Claude to verify</span>`
+          : (/📨/.test(a.title || "") ? `<span class="pill" style="white-space:nowrap">📨 Applied</span>` : `<button class="ghost" data-unapp="${a.id}">📨 I applied (not approved yet)</button>`) + `<button data-unok="${a.id}">✅ I got approved</button>`)
+          : `<button class="${alertArm === a.id ? "" : "ghost"}" data-alert="${a.id}">${alertArm === a.id ? "Tap again: done" : grpOf(a) === "answered" ? "✓ I read it" : lvl(a.kind) === 2 ? "Got it" : "✓ Done"}</button>`}</div>`; };
   const groups = GROUPS.map(([k, ic, lab, col]) => { const L = alerts.filter((a) => grpOf(a) === k); if (!L.length) return "";
+    // 2026-11-08 Papa Duck: "have textbooks come to the top of the list" - 📚 textbook publishers first, Pearson first of all
+    if (k === "unrestrict") L.sort((x, y) => { const r = (a) => /Pearson/.test(a.title || "") ? 0 : /📚/.test(a.title || "") ? 1 : 2; return r(x) - r(y) || String(x.title).localeCompare(String(y.title)); });
     const open = !!alertOpen[k];
     return `<div style="border:1px solid var(--line);border-left:4px solid ${col};border-radius:10px">
       <button class="quiet" data-agrp="${k}" aria-expanded="${open}" style="width:100%;border:0;min-height:44px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;color:var(--ink);text-align:left">
@@ -1150,6 +1154,9 @@ function wire() {
   const bh = $("boxhist"); if (bh) bh.ontoggle = () => { boxHistOpen = bh.open; };
   const bl = $("bblist"); if (bl) bl.ontoggle = () => { bbListOpen = bl.open; };
   document.querySelectorAll("[data-alert]").forEach((b) => b.onclick = () => alertTap(+b.dataset.alert));
+  document.querySelectorAll("[data-unapp]").forEach((b) => b.onclick = async () => {
+    try { const r = await call(`select pipeline.unrestrict_applied(${Number(b.dataset.unapp)}) as r`); if (r) alerts = r; say("Got it - marked as applied. Tap ✅ I got approved when Amazon's email comes.", false); } catch (e) { showError(e); }
+    render(); });
   document.querySelectorAll("[data-unok]").forEach((b) => b.onclick = async () => {
     try { const r = await call(`select pipeline.unrestrict_recheck(${Number(b.dataset.unok)}) as r`); if (r) alerts = r;
       say("Asking Amazon now. If it says yes, this card clears and the drafts are fixed in a minute or two.", false); setTimeout(() => refresh(), 60000); } catch (e) { showError(e); }
