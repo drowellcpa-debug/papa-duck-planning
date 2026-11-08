@@ -592,7 +592,7 @@ function alertCard() {
     return `<div class="row" style="justify-content:space-between;border:${L.b};background:${L.bg};border-radius:10px;padding:8px 12px">
         <span style="flex:1;min-width:200px"><b>${tag}${esc(a.title)}</b><br>${nested(a)}
           <span class="muted" style="font-size:.85rem;display:block;margin-top:2px">${esc(a.source)} · ${new Date(a.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${a.link ? ` · <a href="${esc(a.link)}" target="_blank" rel="noopener">open</a>` : ""}</span></span>
-        ${offerBtns(a)}<button class="${alertArm === a.id ? "" : "ghost"}" data-alert="${a.id}">${alertArm === a.id ? "Tap again: done" : lvl(a.kind) === 2 ? "Got it" : "✓ Done"}</button></div>`; };
+        ${offerBtns(a)}<button class="${alertArm === a.id ? "" : "ghost"}" data-alert="${a.id}">${alertArm === a.id ? "Tap again: done" : grpOf(a) === "answered" ? "✓ I read it" : lvl(a.kind) === 2 ? "Got it" : "✓ Done"}</button></div>`; };
   const groups = GROUPS.map(([k, ic, lab, col]) => { const L = alerts.filter((a) => grpOf(a) === k); if (!L.length) return "";
     const open = !!alertOpen[k];
     return `<div style="border:1px solid var(--line);border-left:4px solid ${col};border-radius:10px">

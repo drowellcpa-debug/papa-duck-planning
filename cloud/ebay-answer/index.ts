@@ -1,3 +1,4 @@
+// v6 (2026-11-08): a reply sent with reply_to stays on the Launch Pad (📨) until Papa Duck taps Read.
 // v5 (2026-11-08): Papa Duck: "I am not going to grab books from the storage to make more pictures". The listing PHOTOS go to Claude with the
 //   question, so contents/condition questions are answered from what the photos show; if they do not show it, an honest "all I have is in the
 //   photos and description" + no-hassle returns is SENT. Held only for problems (refund, damage, cancel, address, legal, anything odd).
@@ -87,7 +88,7 @@ Deno.serve(async (req) => {
       const ok = /<Ack>(Success|Warning)/.test(s);
       if (!ok) return json({ ok: false, error: pick(s, "LongMessage").slice(0, 300) }, 502);
       await sql`update pipeline.ebay_msgs set action = 'send', reply = ${reply}, sent_ok = true, why = ${"answered after checking the photos - " + (row.why || "")}, handled_at = now() where message_id = ${row.message_id}`;
-      await sql`update pipeline.alerts set kind = 'handled', title = ${"Answered " + row.sender + " (checked photos)"}, detail = ${"THEY ASKED: " + String(row.question).slice(0, 600) + "\n\nI REPLIED: " + reply}, done_at = now() where dedupe = ${"ebaymsg:" + row.message_id}`;
+      await sql`update pipeline.alerts set kind = 'handled', title = ${"Answered " + row.sender + " (checked photos)"}, detail = ${"THEY ASKED: " + String(row.question).slice(0, 600) + "\n\nI REPLIED: " + reply}, done_at = null where dedupe = ${"ebaymsg:" + row.message_id}`;
       return json({ ok: true, sent: true });
     }
     const since = new Date(Date.now() - Number(b.hours || 36) * 3600e3).toISOString();
