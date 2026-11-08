@@ -1,0 +1,3 @@
+-- 2026-11-08: audit.report() now skips books whose sale was closed out (pipeline.sales_done.at) AFTER the store snapshot started
+-- (min(audit.runs.started_at)). PD-3415 (Etsy) and PD-5031 (eBay) sold after the 3 AM snapshot and showed as false "sold but still for sale".
+-- Change vs before: sd gets max(at) last_at; new CTE snap; first CASE branch returns null when sd.last_at > snapshot start and not kept.
