@@ -1,3 +1,6 @@
+// v5 (2026-11-08): Papa Duck: "I am not going to grab books from the storage to make more pictures". The listing PHOTOS go to Claude with the
+//   question, so contents/condition questions are answered from what the photos show; if they do not show it, an honest "all I have is in the
+//   photos and description" + no-hassle returns is SENT. Held only for problems (refund, damage, cancel, address, legal, anything odd).
 // v4 (2026-11-06): {"reply_to":{message_id,reply}} sends a checked reply to a held message.
 // Papa Duck - Edge Function "ebay-answer" v3 (2026-11-06; v2: never states copies in stock; test mode; v3: no local pickup, no extra photos - answered automatically). Papa Duck: "Can you look at my response and respond in similar way automatically.
 //   If they ask me for an offer I only accept in ebay offer area. I offer no hassle returns." + "Yes all of it please handle for me and just put
@@ -12,6 +15,21 @@ import postgres from "npm:postgres@3.4.4";
 const json = (o: unknown, s = 200) => new Response(JSON.stringify(o, null, 1), { status: s, headers: { "Content-Type": "application/json" } });
 const un = (s: string) => String(s || "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#xd;/g, "").replace(/&amp;/g, "&").replace(/&apos;/g, "'").replace(/&quot;/g, '"');
 const xesc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function b64(buf: Uint8Array): string { let s = ""; for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000)); return btoa(s); }
+// the listing photos for Claude (v5) - a photo that will not load is skipped
+async function photoParts(urls: string[]) {
+  const out: any[] = [];
+  for (let i = 0; i < urls.length; i++) {
+    try {
+      const r = await fetch(urls[i], { signal: AbortSignal.timeout(15000) });
+      if (!r.ok) continue;
+      const buf = new Uint8Array(await r.arrayBuffer());
+      if (buf.length < 2000 || buf.length > 4_500_000) continue;
+      out.push({ type: "text", text: `Photo ${i + 1}` }, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64(buf) } });
+    } catch (_) { /* skip */ }
+  }
+  return out;
+}
 
 const VOICE = `You answer eBay buyer messages for Papa Duck Homeschool (Dawayne, a Christian homeschool dad in Gresham, Oregon who sells used books).
 His voice: warm, friendly, short, plain words, a little folksy (he writes things like "Sure glad it's going to a good home::)" and "Let me know if
@@ -23,7 +41,11 @@ HIS RULES (never break):
 - BUNDLES / several books / combined shipping: he's glad to combine shipping - add the books to the cart and use "Request total", or send an offer on
   each through Make Offer; he combines shipping on multiple books.
 - Never offer free shipping. Never move a sale off eBay (no Vinted, PayPal, email, phone, other sites) - "I sell through eBay only". No links, emails or phone numbers.
-- FACTS about the book come ONLY from the listing below. If the listing clearly answers it, answer plainly. If the listing does not say, NEVER guess.
+- FACTS about the book come ONLY from the listing below AND ITS PHOTOS (attached, in listing order). Look at the photos carefully (contents
+  pages, credits/acknowledgments, copyright page, covers) and answer from what they clearly show. Say "from my photos" and hedge ("I don't see...")
+  when a page is only partly shown. NEVER guess beyond what the listing and photos show.
+- Papa Duck does NOT go back to storage to check books or take more photos (2026-11-08). If neither the listing nor the photos answer it, say kindly
+  that everything he has on it is in the photos and description, and mention no-hassle returns - "send".
 - LOCAL PICKUP (Papa Duck 2026-11-06: "No local pickups"): kindly say he doesn't offer local pickup, everything ships through eBay - "send".
 - PHOTO REQUESTS (Papa Duck 2026-11-06: no extra photos): kindly say all the photos are in the listing; answer what they want to see from the listing
   text if it says (e.g. spine, cover, contents), and remind them of no-hassle returns - "send". Never promise to take or add photos.
@@ -31,9 +53,9 @@ HIS RULES (never break):
 - Never mention AI, Claude, or that the reply is automatic.
 DECIDE action:
 - "send": you can fully and truthfully answer from his rules and the listing (offers, availability, bundles/combined shipping, returns policy,
-  shipping method/speed in general terms, questions the listing clearly answers).
-- "hold": anything that needs him or the book in hand: condition/contents/edition details the listing doesn't state, measurements not
-  in the listing, address change, cancel requests, item not received / late, damaged / not as described / refund / return problems,
+  shipping method/speed in general terms, contents/condition/edition questions - answered from the listing and photos, or honestly
+  "that's all I have in the photos and description" + no-hassle returns).
+- "hold": ONLY things only he can decide: address change, cancel requests, item not received / late, damaged / not as described / refund / return problems,
   publisher, copyright or legal messages, anything odd. Still write the reply you would suggest (he will check it), and say in "why" what he must do.
 - "skip": the buyer only says thanks / ok / 👍 / confirms - no reply needed.
 Respond with ONLY JSON: {"action":"send|hold|skip","reply":"","why":"short reason"}`;
@@ -85,10 +107,12 @@ Deno.serve(async (req) => {
       const created = pick(m, "CreationDate") || new Date().toISOString();
       // the listing, so facts come only from it
       let listing: any = { title, price: pick(it, "CurrentPrice"), condition: pick(it, "ConditionDisplayName") };
+      let pics: string[] = [];
       if (itemId) {
         const g = await trade("GetItem", `<ItemID>${itemId}</ItemID><DetailLevel>ReturnAll</DetailLevel><IncludeItemSpecifics>true</IncludeItemSpecifics>`);
         const desc = un(pick(g, "Description")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 4000);
         const specs = [...g.matchAll(/<NameValueList><Name>([^<]*)<\/Name><Value>([^<]*)<\/Value>/g)].map((s) => `${un(s[1])}: ${un(s[2])}`).slice(0, 25);
+        pics = [...g.matchAll(/<PictureURL>([^<]+)<\/PictureURL>/g)].map((x) => un(x[1]).split("?")[0].replace(/\$_\d+\./, "$_57.")).slice(0, 8);
         listing = { title: un(pick(g, "Title")) || title, sku: pick(g, "SKU"), price: pick(g, "CurrentPrice"), status: pick(g, "ListingStatus"),
           quantity_left: Number(pick(g, "Quantity") || 0) - Number(pick(g, "QuantitySold") || 0), best_offer: /<BestOfferEnabled>true/.test(g),
           condition: pick(g, "ConditionDisplayName"), condition_notes: un(pick(g, "ConditionDescription")), specifics: specs, description: desc,
@@ -96,8 +120,9 @@ Deno.serve(async (req) => {
       }
       const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
         headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: 700, messages: [{ role: "user", content:
-          `${VOICE}\n\nTHE LISTING:\n${JSON.stringify(listing)}\n\nBUYER (${sender}) WROTE (${typ}):\n"""${body}"""` }] }) });
+        body: JSON.stringify({ model, max_tokens: 900, messages: [{ role: "user", content: [
+          ...(await photoParts(pics)),
+          { type: "text", text: `${VOICE}\n\nTHE LISTING (photos above, in listing order):\n${JSON.stringify(listing)}\n\nBUYER (${sender}) WROTE (${typ}):\n"""${body}"""` }] }] }) });
       const j = await r.json().catch(() => ({}));
       const raw = (j.content || []).map((c: any) => c.text || "").join("").replace(/```json|```/g, "");
       let d: any = {};
