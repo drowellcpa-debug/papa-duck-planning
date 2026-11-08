@@ -593,7 +593,7 @@ function alertCard() {
     return `<div class="row" style="justify-content:space-between;border:${L.b};background:${L.bg};border-radius:10px;padding:8px 12px">
         <span style="flex:1;min-width:200px"><b>${tag}${esc(a.title)}</b><br>${nested(a)}
           <span class="muted" style="font-size:.85rem;display:block;margin-top:2px">${esc(a.source)} · ${new Date(a.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${a.link ? ` · <a href="${esc(a.link)}" target="_blank" rel="noopener">${grpOf(a) === "unrestrict" ? "🔓 Request approval ↗" : "open"}</a>` : ""}</span></span>
-        ${offerBtns(a)}<button class="${alertArm === a.id ? "" : "ghost"}" data-alert="${a.id}">${alertArm === a.id ? "Tap again: done" : grpOf(a) === "answered" ? "✓ I read it" : lvl(a.kind) === 2 ? "Got it" : "✓ Done"}</button></div>`; };
+        ${offerBtns(a)}${grpOf(a) === "unrestrict" ? `<button data-unok="${a.id}">✅ I got approved</button>` : ""}<button class="${alertArm === a.id ? "" : "ghost"}" data-alert="${a.id}">${alertArm === a.id ? "Tap again: done" : grpOf(a) === "answered" ? "✓ I read it" : lvl(a.kind) === 2 ? "Got it" : "✓ Done"}</button></div>`; };
   const groups = GROUPS.map(([k, ic, lab, col]) => { const L = alerts.filter((a) => grpOf(a) === k); if (!L.length) return "";
     const open = !!alertOpen[k];
     return `<div style="border:1px solid var(--line);border-left:4px solid ${col};border-radius:10px">
@@ -1150,6 +1150,10 @@ function wire() {
   const bh = $("boxhist"); if (bh) bh.ontoggle = () => { boxHistOpen = bh.open; };
   const bl = $("bblist"); if (bl) bl.ontoggle = () => { bbListOpen = bl.open; };
   document.querySelectorAll("[data-alert]").forEach((b) => b.onclick = () => alertTap(+b.dataset.alert));
+  document.querySelectorAll("[data-unok]").forEach((b) => b.onclick = async () => {
+    try { const r = await call(`select pipeline.unrestrict_recheck(${Number(b.dataset.unok)}) as r`); if (r) alerts = r;
+      say("Asking Amazon now. If it says yes, this card clears and the drafts are fixed in a minute or two.", false); setTimeout(() => refresh(), 60000); } catch (e) { showError(e); }
+    render(); });
   document.querySelectorAll("[data-acollapse]").forEach((b) => b.onclick = () => { alertOpen = {}; try { localStorage.setItem("lp_alert_open", "{}"); } catch (e) {} render(); });
   document.querySelectorAll("[data-agrp]").forEach((b) => b.onclick = () => { alertOpen[b.dataset.agrp] = !alertOpen[b.dataset.agrp]; try { localStorage.setItem("lp_alert_open", JSON.stringify(alertOpen)); } catch (e) {} render(); });
   document.querySelectorAll("[data-ship]").forEach((b) => b.onclick = () => shipTap(b.dataset.ship));

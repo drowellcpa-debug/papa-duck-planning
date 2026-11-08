@@ -2,3 +2,6 @@
 -- pipeline.unrestrict_cards() (one Launch Pad card per publisher, source 'Unrestrict', dedupe unrestrict:<pub_key>; filed when none left),
 -- trigger drafts_unrestrict (a draft whose Amazon check says restricted joins the list), cron pd-amz-unrestrict '17 */3 * * *' -> edge fn amz-unrestrict.
 -- Applied as migrations unrestrict_table + unrestrict_cards_v2_and_feed. Seeded from audit.amz_recheck (65 restricted, 58 publisher cards).
+-- later the same day: pipeline.unrestrict_recheck(alert_id) behind the Launch Pad "✅ I got approved" button; cards reopen when a book is restricted again;
+-- column new_ok (amz-unrestrict v3 checks NEW when used is still restricted) -> card says "approved for NEW only". Concordia PD-2991: new OK, used still no.
+-- cron pd-amz-unrestrict now runs whenever pipeline.unrestrict has rows (approved books rechecked daily, put back on the list if Amazon restricts again).
