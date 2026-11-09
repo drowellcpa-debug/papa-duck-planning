@@ -1,4 +1,5 @@
 // Papa Duck — SCOUT. Phone page -> this function.
+// v27 (2026-11-09): Clean-up mode (books he already owns) uses a $7.99 minimum for proven sellers; buying keeps $10.
 // v26 (2026-10-28): UPC / product BARCODES ("can you add the bar code scan to scout"). A typed or scanned code that is not a book ISBN
 //   (UPC-A 12, UPC-E 8, EAN-13 not starting 978/979) is looked up by barcode on eBay (gtin search) + UPCitemdb, named by Claude,
 //   and checked as a non-book item; eBay comps also search by the barcode. Books and ISBNs: unchanged.
@@ -573,7 +574,11 @@ Deno.serve(async (req) => {
       const market: number | null = list, adjGroup = "";
       let verdict = "PASS", reason = "";
       // his listing minimum: lower for proven sellers (eBay sales or steady Amazon sales). pipeline.config min_list_proven / min_list
-      const minL = (soldN > 0 || amzSelling) ? (Number(conf.min_list_proven) || 10) : (Number(conf.min_list) || 12);
+      // v27 (2026-11-09): Papa Duck "does it make sense on my pass limit, I have sold many at lower price" - his own sales: 118 books under $10
+      //   sold in ~23 days at ~$7 profit. Books he ALREADY OWNS (Clean-up mode) only need min_list_owned ($7.99) when they are proven sellers;
+      //   buying (stores, Vinted, Duck Check) keeps the $10 / $12 minimums.
+      const owned = body.mode === "cleanup";
+      const minL = (soldN > 0 || amzSelling) ? (owned ? (Number(conf.min_list_owned) || 7.99) : (Number(conf.min_list_proven) || 10)) : (Number(conf.min_list) || 12);
       const net = list != null && cost != null ? (isItem ? netItem(list, cost, weight) : netOf(list, cost, weight)) : null;
       const where = source === "abebooks" ? "AbeBooks" : source === "amazon" ? "Amazon" : "the web";
       const amzSales = amazon && amazon.drops90 != null ? `about ${amazon.drops90} sale${amazon.drops90 === 1 ? "" : "s"} in 90 days` : "";
