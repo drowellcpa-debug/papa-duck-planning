@@ -1,0 +1,3 @@
+-- 2026-11-08: Launch Pad v57 "🔎 Check a find" -> pipeline.check_find(p jsonb) -> scout evaluate (store Vinted). Read-only.
+-- (Vinted search itself can't be automated: its API is behind DataDome and we won't get around bot protection.)
+-- See live definition: select pg_get_functiondef('pipeline.check_find(jsonb)'::regprocedure);

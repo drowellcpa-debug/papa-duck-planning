@@ -151,6 +151,18 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
   <div id="bdbox"></div>
   <div id="auditbox"></div></div>
   <div class="rcol">
+  <section class="card" id="findcard" aria-label="Check a find">
+    <h2 style="margin:0">🔎 Check a find</h2>
+    <p class="muted" style="margin:0;font-size:.9rem">Saw a book on Vinted? Paste the ISBN or title (or add a screenshot) and the price with shipping. I'll give you buy or pass. You still tap Buy yourself.</p>
+    <label class="muted" for="fdisbn" style="font-size:.85rem">ISBN or title</label>
+    <input id="fdisbn" type="text" placeholder="9781565770386 or Saxon Math 76">
+    <label class="muted" for="fdcost" style="font-size:.85rem">Price with shipping ($)</label>
+    <input id="fdcost" type="text" inputmode="decimal" placeholder="8.50">
+    <label class="muted" for="fdpic" style="font-size:.85rem">Screenshot or photo (optional)</label>
+    <input id="fdpic" type="file" accept="image/*">
+    <div class="row"><button id="fdgo">Check it</button><button id="fdclear" class="ghost" type="button">Clear</button></div>
+    <div id="fdout" aria-live="polite"></div>
+  </section>
   <aside class="card duck" aria-label="Ask Grandpa Duck">
     <h2>Ask Grandpa Duck</h2>
     <div class="chat" id="chat" aria-live="polite"><p class="msg duck">Hi Papa Duck. Ask me anything about tonight's books, a photo that turned red, or why a book went where it did.</p></div>
@@ -1325,6 +1337,48 @@ function schedule() {
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(true); });
 $("askform").onsubmit = ask;
+
+// ---------- 🔎 Check a find (v57, 2026-11-08): Vinted finds -> pipeline.check_find -> Scout brain. Never buys anything. ----------
+function fdShrink(file) {
+  return new Promise((ok, bad) => {
+    const img = new Image(), u = URL.createObjectURL(file);
+    img.onload = () => { const s = Math.min(1, 1100 / Math.max(img.width, img.height)); const c = document.createElement("canvas");
+      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(u); ok(c.toDataURL("image/jpeg", 0.8).split(",")[1]); };
+    img.onerror = () => bad(new Error("Couldn't open that picture"));
+    img.src = u;
+  });
+}
+function fdShow(r) {
+  if (!r || r.ok === false || r.error) return `<div class="notice bad">${esc((r && r.error) || "Something went wrong — try again.")}</div>`;
+  const v = String(r.verdict || "CHECK"), good = v === "BUY";
+  const icon = good ? "🟢 BUY" : v === "PASS" ? "🔴 Pass" : v === "TOSS" ? "🔴 Pass" : "🟡 " + v.charAt(0) + v.slice(1).toLowerCase();
+  const t = (r.ident && (r.ident.title || "")) || "";
+  const hard = (r.hard || []).map((x) => `<li>${esc(x)}</li>`).join("");
+  return `<div class="notice ${good ? "good" : "bad"}" style="display:flex;flex-direction:column;gap:4px">
+    <span style="font-size:1.15rem">${icon}</span>
+    ${t ? `<span>${esc(t)}</span>` : ""}
+    <span>Retail ${r.list != null ? money(r.list) : "—"} · Cost ${r.cost != null ? money(r.cost) : "—"} · Profit ${r.profit != null ? money(r.profit) : "—"}</span>
+    <span class="muted" style="font-weight:400">${esc(r.reason || "")}</span>
+    ${hard ? `<ul style="margin:0;padding-left:18px">${hard}</ul>` : ""}</div>`;
+}
+$("fdgo").addEventListener("click", async () => {
+  const out = $("fdout"), btn = $("fdgo");
+  if (!mcp) { out.innerHTML = `<div class="notice bad">Still connecting — try again in a moment.</div>`; return; }
+  const raw = $("fdisbn").value.trim(), cost = $("fdcost").value.replace(/[^0-9.]/g, ""), f = $("fdpic").files[0];
+  const p = { cost: cost === "" ? null : Number(cost) };
+  if (/^[0-9Xx\- ]{10,17}$/.test(raw)) p.isbn = raw; else if (f) { try { p.image = await fdShrink(f); } catch (e) { out.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; } }
+  if (!p.isbn && !p.image && raw) p.title = raw;
+  if (!p.isbn && !p.image && !p.title) { out.innerHTML = `<div class="notice bad">Add an ISBN, a title, or a screenshot.</div>`; return; }
+  btn.disabled = true; out.innerHTML = `<p class="muted" style="margin:0">Checking eBay, AbeBooks and Amazon… about 10–30 seconds.</p>`;
+  try {
+    const rows = await q(`select pipeline.check_find('${JSON.stringify(p).replace(/'/g, "''")}'::jsonb) as r`);
+    let r = rows && rows[0] && rows[0].r; if (typeof r === "string") r = JSON.parse(r);
+    out.innerHTML = fdShow(r);
+  } catch (e) { out.innerHTML = `<div class="notice bad">${esc(String(e.message || e))}</div>`; }
+  btn.disabled = false;
+});
+$("fdclear").addEventListener("click", () => { $("fdisbn").value = ""; $("fdcost").value = ""; $("fdpic").value = ""; $("fdout").innerHTML = ""; });
 
 (async () => {
   mcp = window.claude && await window.claude.use("mcp");
