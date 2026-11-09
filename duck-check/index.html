@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duck Check</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1F3A5F">
+<link rel="icon" href="/icon-192.png">
+<style>
+:root { --bg:#F6F1E6; --panel:#fff; --ink:#1d2430; --muted:#5b6472; --line:#d9d2c3; --navy:#1F3A5F; --gold:#F2C230; --green:#1f7a3f; --red:#b3261e; }
+* { box-sizing:border-box }
+body { margin:0; background:var(--bg); color:var(--ink); font:17px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif }
+header { background:var(--navy); color:#fff; padding:14px 16px; display:flex; align-items:center; gap:10px }
+header img { width:34px; height:34px; border-radius:8px }
+header h1 { font-size:1.2rem; margin:0 }
+main { padding:16px; max-width:560px; margin:0 auto; display:flex; flex-direction:column; gap:14px }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; display:flex; flex-direction:column; gap:10px }
+label { font-size:.9rem; color:var(--muted) }
+input[type=text], input[type=password] { font:inherit; padding:12px; border:2px solid var(--line); border-radius:10px; width:100%; min-height:48px }
+button { font:inherit; font-weight:700; padding:12px 16px; border-radius:10px; border:0; background:var(--navy); color:#fff; min-height:48px }
+button.ghost { background:transparent; color:var(--navy); border:2px solid var(--navy) }
+button:disabled { opacity:.5 }
+.row { display:flex; gap:10px; flex-wrap:wrap }
+.row > * { flex:1 }
+#pic { width:100%; max-height:320px; object-fit:contain; border-radius:10px; background:#eee; display:none }
+.v { border-radius:14px; padding:16px; display:flex; flex-direction:column; gap:6px; border:3px solid var(--line); background:#fff }
+.v.buy { border-color:var(--green) } .v.pass { border-color:var(--red) }
+.v .big { font-size:1.6rem; font-weight:800 }
+.muted { color:var(--muted) }
+table { border-collapse:collapse; width:100% } td { padding:4px 0 } td:last-child { text-align:right; font-weight:700 }
+.spin { display:inline-block; width:18px; height:18px; border:3px solid currentColor; border-right-color:transparent; border-radius:50%; animation:s .8s linear infinite; vertical-align:-3px }
+@keyframes s { to { transform:rotate(360deg) } }
+.sr { position:absolute; left:-9999px }
+</style>
+</head>
+<body>
+<header><img src="/icon-192.png" alt=""><h1>Duck Check</h1></header>
+<main>
+  <section class="card" id="pinbox" style="display:none">
+    <strong>One-time setup</strong>
+    <label for="pin">Your Scout PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off">
+    <button id="pinsave">Save</button>
+    <span class="muted" id="pinmsg"></span>
+  </section>
+
+  <section class="card" id="checkbox">
+    <img id="pic" alt="Your screenshot">
+    <div class="row">
+      <label class="ghost" style="flex:1"><input class="sr" id="file" type="file" accept="image/*"><button class="ghost" type="button" id="pickbtn" style="width:100%">📷 Pick a screenshot</button></label>
+    </div>
+    <label for="isbn">…or type an ISBN or title</label>
+    <input id="isbn" type="text" placeholder="9781565770386 or Saxon Math 76">
+    <label for="cost">Price with shipping ($)</label>
+    <input id="cost" type="text" inputmode="decimal" placeholder="8.50">
+    <button id="go">Check it</button>
+  </section>
+
+  <div id="out" aria-live="polite"></div>
+  <p class="muted" style="font-size:.85rem;margin:0">Tip: in Vinted, take a screenshot → Share → <b>Duck Check</b>. This only checks prices. It never buys anything.</p>
+</main>
+<script>
+const FN = "https://gdwxwiwckxthwcsrgywh.supabase.co/functions/v1/scout";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const money = (v) => v == null ? "—" : "$" + Number(v).toFixed(2);
+const ls = { get(k){ try { return localStorage.getItem(k) || ""; } catch(e){ return ""; } }, set(k,v){ try { localStorage.setItem(k,v); } catch(e){} } };
+let shot = null;   // base64 jpeg
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+if (!ls.get("dc_pin")) $("pinbox").style.display = "flex";
+
+async function post(body) {
+  const r = await fetch(FN, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: ls.get("dc_pin"), ...body }) });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 403) { $("pinbox").style.display = "flex"; throw new Error("Wrong PIN — enter your Scout PIN above."); }
+  if (!r.ok || j.error) throw new Error(j.error || "The cloud had a problem (" + r.status + ")");
+  return j;
+}
+$("pinsave").onclick = async () => {
+  ls.set("dc_pin", $("pin").value.trim());
+  try { await post({ action: "ping" }); $("pinbox").style.display = "none"; }
+  catch (e) { $("pinmsg").textContent = e.message; }
+};
+
+function shrink(blob) {
+  return new Promise((ok, bad) => {
+    const img = new Image(), u = URL.createObjectURL(blob);
+    img.onload = () => { const s = Math.min(1, 1400 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      const d = c.toDataURL("image/jpeg", 0.85); $("pic").src = d; $("pic").style.display = "block"; URL.revokeObjectURL(u); ok(d.split(",")[1]); };
+    img.onerror = () => bad(new Error("Couldn't open that picture"));
+    img.src = u;
+  });
+}
+$("pickbtn").onclick = () => $("file").click();
+$("file").onchange = async () => { const f = $("file").files[0]; if (f) { shot = await shrink(f); $("isbn").value = ""; $("cost").focus(); } };
+
+// came here from the Android share menu?
+(async () => {
+  if (!location.search.includes("shared=1")) return;
+  history.replaceState(null, "", "/");
+  try {
+    const c = await caches.open("duck-share");
+    const r = await c.match("/shared-image");
+    if (r) { shot = await shrink(await r.blob()); await c.delete("/shared-image"); }
+    const t = await c.match("/shared-text");
+    if (t) { const s = await t.text(); await c.delete("/shared-text"); if (!shot) $("isbn").value = s.slice(0, 120); }
+    $("cost").focus();
+  } catch (e) { $("out").innerHTML = `<div class="v pass">${esc(e.message)}</div>`; }
+})();
+
+function show(r) {
+  const v = String(r.verdict || "CHECK"), buy = v === "BUY", pass = v === "PASS" || v === "TOSS";
+  const label = buy ? "🟢 BUY" : pass ? "🔴 Pass" : "🟡 " + v.charAt(0) + v.slice(1).toLowerCase();
+  const t = r.ident ? [r.ident.title, r.ident.author].filter(Boolean).join(" · ") : "";
+  const hard = (r.hard || []).map((x) => `<li>${esc(x)}</li>`).join("");
+  return `<div class="v ${buy ? "buy" : pass ? "pass" : ""}">
+    <span class="big">${label}</span>${t ? `<span>${esc(t)}</span>` : ""}
+    <table><tr><td>Retail</td><td>${money(r.list)}</td></tr><tr><td>Cost</td><td>${money(r.cost)}</td></tr><tr><td>Profit</td><td>${money(r.profit)}</td></tr></table>
+    <span class="muted">${esc(r.reason || "")}</span>${hard ? `<ul style="margin:0;padding-left:18px">${hard}</ul>` : ""}</div>`;
+}
+$("go").onclick = async () => {
+  const raw = $("isbn").value.trim(), cost = $("cost").value.replace(/[^0-9.]/g, "");
+  const body = { action: "evaluate", store: "Vinted", cost: cost === "" ? null : Number(cost), mode: "find" };
+  if (/^[0-9Xx\- ]{10,17}$/.test(raw)) body.isbn = raw.replace(/[^0-9Xx]/g, "");
+  else if (shot) body.images = [{ data: shot, mt: "image/jpeg" }];
+  else if (raw) body.ident = { kind: "book", title: raw, author: "", format: "", confidence: "medium" };
+  else { $("out").innerHTML = `<div class="v pass">Pick a screenshot or type an ISBN or title.</div>`; return; }
+  $("go").disabled = true; $("out").innerHTML = `<div class="v"><span><span class="spin"></span>&nbsp; Reading it and checking eBay, AbeBooks and Amazon…</span></div>`;
+  try { $("out").innerHTML = show(await post(body)); }
+  catch (e) { $("out").innerHTML = `<div class="v pass">${esc(e.message)}</div>`; }
+  $("go").disabled = false;
+};
+</script>
+</body>
+</html>
