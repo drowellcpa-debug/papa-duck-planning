@@ -542,9 +542,9 @@
      plus the family check. LIST carries the cover photo into the book below. -->
 <div class="card" id="qcard" style="border:3px solid var(--accent)">
   <h2 style="margin:0 0 6px">🔎 Quick check — do this first</h2>
-  <div style="font-size:.95em;color:var(--dim);margin-bottom:8px">Snap the cover (or scan/type the ISBN) and tap Quick check. Only take the rest of the photos if it says <b style="color:var(--ok)">LIST IT</b>. Put the PD sticker on after it passes.</div>
+  <div style="font-size:.95em;color:var(--dim);margin-bottom:8px">Drop the cover photo here (or snap it, or scan/type the ISBN) and tap Quick check. Only take the rest of the photos if it says <b style="color:var(--ok)">LIST IT</b>. Put the PD sticker on after it passes.</div>
   <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">
-    <div id="qcthumb" style="width:110px;height:146px;border-radius:8px;background:#d9dee5;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:.9em;cursor:pointer;flex:0 0 auto;overflow:hidden;background-size:cover;background-position:center" title="Tap to snap or pick the cover">📷 Cover</div>
+    <div id="qcthumb" style="width:110px;height:146px;border-radius:8px;background:#d9dee5;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:.9em;cursor:pointer;flex:0 0 auto;overflow:hidden;background-size:cover;background-position:center" title="Drop or tap to add the cover">📷 Drop cover here</div>
     <div style="flex:1 1 220px;display:flex;flex-direction:column;gap:8px">
       <button type="button" id="qcsnap" style="min-height:46px;font-size:1.02em">📷 Snap / pick the cover</button>
       <label for="qcisbn" style="font-size:.9em;color:var(--dim)">…or ISBN (scanner works here)</label>
@@ -4001,10 +4001,20 @@ $('qcfile').addEventListener('change', async () => {
   qcFile = f; $('qcisbn').value = '';
   try { const d = await qcShrink(f); $('qcthumb').style.backgroundImage = 'url(' + d + ')'; $('qcthumb').textContent = ''; } catch(e){}
 });
+
+// drag & drop a cover onto the Quick check box (Papa Duck 2026-11-09: "would not let me drop the cover in")
+async function qcTake(f){
+  if (!f || !(/^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name || ''))) { $('qcout').innerHTML = '<div style="color:var(--err);font-weight:700">That isn\'t a photo — drop a JPG or PNG.</div>'; return; }
+  qcFile = f; $('qcisbn').value = ''; $('qcout').innerHTML = '';
+  try { const d = await qcShrink(f); $('qcthumb').style.backgroundImage = 'url(' + d + ')'; $('qcthumb').textContent = ''; } catch(e){}
+}
+['dragenter','dragover'].forEach(ev => $('qcard').addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); $('qcard').style.background = '#fdf3dc'; }));
+['dragleave','drop'].forEach(ev => $('qcard').addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); $('qcard').style.background = ''; }));
+$('qcard').addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) qcTake(f); });
 $('qcisbn').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('qcgo').click(); } });
 function qcReset(){
   qcFile = null; qcLast = null; $('qcfile').value = ''; $('qcisbn').value = '';
-  $('qcthumb').style.backgroundImage = ''; $('qcthumb').textContent = '📷 Cover'; $('qcout').innerHTML = '';
+  $('qcthumb').style.backgroundImage = ''; $('qcthumb').textContent = '📷 Drop cover here'; $('qcout').innerHTML = '';
 }
 async function qcPile(p){
   if (!qcLast || !qcLast.pile_id) { qcReset(); return; }
