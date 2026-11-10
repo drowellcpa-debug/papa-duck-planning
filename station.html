@@ -547,7 +547,7 @@
     <div id="qcthumb" style="width:110px;height:146px;border-radius:8px;background:#d9dee5;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:.9em;cursor:pointer;flex:0 0 auto;overflow:hidden;background-size:cover;background-position:center" title="Drop or tap to add the cover">📷 Drop cover here</div>
     <div style="flex:1 1 220px;display:flex;flex-direction:column;gap:8px">
       <button type="button" id="qcsnap" style="min-height:46px;font-size:1.02em">📷 Snap / pick the cover</button>
-      <label for="qcisbn" style="font-size:.9em;color:var(--dim)">…or ISBN (scanner works here)</label>
+      <label for="qcisbn" style="font-size:.9em;color:var(--dim)">…or ISBN / barcode (scanner works here)</label>
       <input type="text" id="qcisbn" inputmode="numeric" placeholder="9781933339016" style="min-height:44px;font-size:1.05em">
       <button type="button" id="qcgo" style="min-height:54px;font-size:1.15em;font-weight:800;background:var(--accent);color:#fff;border:0;border-radius:10px">🔎 Quick check</button>
     </div>
@@ -4066,7 +4066,7 @@ $('qcgo').addEventListener('click', async () => {
   const t0 = Date.now(); const tick = setInterval(() => { $('qcout').innerHTML = '<div style="padding:10px;font-weight:700">⏳ Checking eBay, AbeBooks, Amazon, buybacks and the family check… ' + Math.round((Date.now() - t0) / 1000) + 's</div>'; }, 500);
   try {
     const body = {};
-    if (isbn.length === 10 || isbn.length === 13) body.isbn = isbn;
+    if ([8, 10, 12, 13].indexOf(isbn.length) !== -1) body.isbn = isbn;   // 12 / 8 = UPC barcode (VHS, DVDs, games)
     else { const d = await qcShrink(qcFile); body.image = d.split(',')[1]; }
     const r = await api('check', body, 2);
     clearInterval(tick); qcLast = r; qcShow(r);
