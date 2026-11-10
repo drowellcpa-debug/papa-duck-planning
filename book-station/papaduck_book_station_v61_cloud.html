@@ -3384,6 +3384,7 @@ $('newbookbtn').addEventListener('click', () => {
     }
   }
   progHide();
+  try { qcReset(); } catch(e){}   // v61: New Book clears the Quick check too (Papa Duck 2026-11-09)
   if (isOverride()){
     $('overridetoggle').checked = false;
     $('overridebox').style.display = 'none';
