@@ -151,6 +151,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
   <div id="bdbox"></div>
   <div id="auditbox"></div></div>
   <div class="rcol">
+  <div id="gwbox"></div>
   <section class="card" id="findcard" aria-label="Check a find">
     <h2 style="margin:0">🔎 Check a find</h2>
     <p class="muted" style="margin:0;font-size:.9rem">Saw a book on Vinted? Paste the ISBN or title (or add a screenshot) and the price with shipping. I'll give you buy or pass. You still tap Buy yourself.</p>
@@ -233,6 +234,7 @@ function jobState(list) {
 
 // ---------- render ----------
 function render() {
+  try { gwRender(); } catch (e) {}
   { const sb = $("salesbox"); if (sb) sb.innerHTML = salesCard(); }
   try { renderBd(); } catch (e) { console.log("[bd]", e); }
   try { renderAudit(); } catch (e) { console.log("[audit]", e); }
@@ -566,7 +568,27 @@ function fbaTrackCard() {
     <p class="muted" style="margin:0;font-size:.74rem">Checked every 2 hours. Books are usually ready 3–10 days after Amazon gets the box.</p></section>`;
 }
 // ---------- ⚠️ To deal with: anything the cloud or the hourly email check found ("if there is any issues to deal with put it on there as well") ----------
-function alertCard() {
+// v58 (Papa Duck 2026-11-09): "it should show up on the right in a prominent box, list again" - the Goodwill double-check's finds
+//   get their own box at the top of the right column instead of the Inbox.
+function lpAlertsNoGw() { return alerts.filter((a) => a.source !== "Goodwill check"); }
+function gwRender() {
+  const box = $("gwbox"); if (!box) return;
+  const g = alerts.filter((a) => a.source === "Goodwill check");
+  if (!g.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<section class="card" aria-label="List again" style="border:3px solid var(--green);background:var(--green-bg, #eaf6ec)">
+    <h2 style="margin:0">♻️ List again <span class="muted" style="font-size:.9rem;font-weight:600">· ${g.length} from the Goodwill pile</span></h2>
+    <p class="muted" style="margin:0;font-size:.9rem">The Quick check couldn't find these from the photo, so they went to Goodwill. A second look found they're worth listing. Pull them back unless you already know they're damaged, used up or not family-friendly.</p>
+    ${g.map((a) => `<div style="border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:6px">
+      <b>${esc(a.title)}</b><span style="font-size:.92rem">${esc(String(a.detail || "").split("\n")[0].replace(/^.*?found it: /, ""))}</span>
+      <div class="row"><button data-gwback="${a.id}">✓ Pulled it back</button><button class="ghost" data-gwleave="${a.id}">Leave in Goodwill</button></div></div>`).join("")}
+  </section>`;
+  box.querySelectorAll("[data-gwback],[data-gwleave]").forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.gwback || b.dataset.gwleave), back = !!b.dataset.gwback; b.disabled = true;
+    try { const r = await call(`select pipeline.goodwill_pull(${id}, ${back}) as r`); if (r) alerts = r; } catch (e) { showError(e); }
+    render();
+  });
+}
+function alertCard(alerts = lpAlertsNoGw()) {
   if (!alerts.length) return "";
   // urgency levels (Papa Duck 2026-11-02): 🚨 URGENT · ⚠️ needs you (not urgent) · ℹ️ FYI · ✅ handled for you
   const lvl = (k) => k === "urgent" ? 0 : (k === "issue" || k === "question") ? 1 : 2;

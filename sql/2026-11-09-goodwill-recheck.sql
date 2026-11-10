@@ -4,3 +4,4 @@
 -- His own choices (Goodwill anyway, family Don't list, damaged) are never second-guessed.
 -- New columns: pipeline.cleanup_piles.rechecked_at, recheck jsonb.
 -- Live definition: select pg_get_functiondef('pipeline.goodwill_recheck()'::regprocedure);
+-- 2026-11-09: pipeline.goodwill_pull(alert, back bool) - Launch Pad v58 '♻️ List again' box buttons; goodwill_recheck alerts carry link 'pile:<id>'.
