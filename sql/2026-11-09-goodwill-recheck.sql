@@ -5,3 +5,4 @@
 -- New columns: pipeline.cleanup_piles.rechecked_at, recheck jsonb.
 -- Live definition: select pg_get_functiondef('pipeline.goodwill_recheck()'::regprocedure);
 -- 2026-11-09: pipeline.goodwill_pull(alert, back bool) - Launch Pad v58 '♻️ List again' box buttons; goodwill_recheck alerts carry link 'pile:<id>'.
+-- goodwill_recheck now stamps pipeline.config gw_recheck_last (Pacific time) each run; Drafts v61 shows it.
