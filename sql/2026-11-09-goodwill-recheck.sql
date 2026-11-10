@@ -1,0 +1,6 @@
+-- 2026-11-09: automatic second look at the Book Station Goodwill pile (cron pd-goodwill-recheck, every 15 min, job 71).
+-- Only rows that went to Goodwill because the Quick check found NOTHING (list_price null) are rechecked by title + author
+-- (scout evaluate, mode cleanup). A LIST result -> Launch Pad Inbox card "♻️ Pull back from Goodwill" (kind need, dedupe gw-recheck:<id>).
+-- His own choices (Goodwill anyway, family Don't list, damaged) are never second-guessed.
+-- New columns: pipeline.cleanup_piles.rechecked_at, recheck jsonb.
+-- Live definition: select pg_get_functiondef('pipeline.goodwill_recheck()'::regprocedure);
