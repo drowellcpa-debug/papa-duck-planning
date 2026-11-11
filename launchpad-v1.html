@@ -489,13 +489,31 @@ async function loadTodo(force) {
   try { const r = await q("select pipeline.todos_open() as t"); todos = (r[0] && r[0].t) || []; } catch (e) { console.log("[todo]", e); }
   renderTodo();
 }
+function wireClaudeTodo(el) {
+  el.querySelectorAll("[data-cok]").forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.cok), v = Number(b.dataset.v);
+    try { const r = await q(`update pipeline.todos set answer = ${v}, answered_at = now(), done_at = case when ${v} = 0 then now() else null end where id = ${id} and kind = 'claude'; select pipeline.todos_open() as t`);
+      todos = (r[0] && r[0].t) || todos; todoMsg = v ? "Got it - I'll do it next time we talk." : "OK, left alone."; } catch (e) { todoMsg = "That didn't save. Try again."; }
+    renderTodo(); });
+}
 function renderTodo() {
   const el = $("todobox"); if (!el) return;
   if (el.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
-  const T = todos || [];
-  if (!T.length) { el.innerHTML = ""; return; }
+  // 2026-11-10 Papa Duck: "how do I know when you leave something as a todo?" -> "yes, please make it simple for me".
+  //   Claude's own unfinished work shows in its own box. Items that need his OK have 👍 / Not now; each one disappears when it's done.
+  const C = (todos || []).filter((x) => x.kind === "claude"), T = (todos || []).filter((x) => x.kind !== "claude");
+  const cHtml = C.length ? `<section class="card" aria-label="Claude's to-dos" style="border:2px solid var(--line)">
+    <h2 style="margin:0">🤖 Claude's open to-dos · ${C.length}</h2>
+    <p class="muted" style="margin:0;font-size:.85rem">Things I still owe you. Each one disappears when it's done.</p>
+    <div style="display:grid;gap:6px">${C.map((x) => `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 8px">
+      <div style="font-size:.95rem"><b>${esc(x.title || "")}</b>${x.stores === "needs_ok" && x.answer == null ? ' <span style="color:var(--red);font-weight:700">· needs your OK</span>' : ""}</div>
+      <div class="muted" style="font-size:.82rem">${esc(x.detail || "")}</div>
+      ${x.stores === "needs_ok" ? (x.answer == null ? `<div class="row" style="gap:6px;margin-top:4px"><button data-cok="${x.id}" data-v="1" style="min-height:32px;padding:2px 12px">👍 OK, do it</button><button class="ghost" data-cok="${x.id}" data-v="0" style="min-height:32px;padding:2px 12px">Not now</button></div>`
+        : `<div style="font-size:.8rem;margin-top:3px">✔ ${Number(x.answer) ? "You said OK — I'll do it next time we talk" : "You said not now — I'll leave it"}</div>`) : ""}
+    </div>`).join("")}</div></section>` : "";
+  if (!T.length) { el.innerHTML = cHtml; wireClaudeTodo(el); return; }
   const waiting = T.filter((x) => x.answer == null).length;
-  el.innerHTML = `<section class="card ask" aria-label="To-do">
+  el.innerHTML = cHtml + `<section class="card ask" aria-label="To-do">
     <h2 style="margin:0">📝 To-do · ${waiting ? `${waiting} waiting for you` : "working on it"}</h2>
     ${todoMsg ? `<div class="notice good" role="status">${esc(todoMsg)}</div>` : ""}
     ${T.some((x) => x.kind === "recount") ? `<p class="muted" style="margin:0;font-size:.85rem">🔢 Recount: count the copies on the shelf, type the number, tap Save. I set eBay, Etsy and Airtable to it (and AbeBooks).</p>` : ""}
@@ -517,6 +535,7 @@ function renderTodo() {
         <button data-rcsave="${x.id}" style="min-height:32px;padding:2px 12px">Save</button></div>`
         : `<div style="font-size:.8rem;margin-top:3px">✔ You counted <b>${esc(x.answer)}</b> · ${esc(x.applied || "")}</div>`}
     </div>`).join("")}</div></section>`;
+  wireClaudeTodo(el);
   el.querySelectorAll("[data-ckdone]").forEach((b) => b.onclick = async () => {
     try { const r = await q(`update pipeline.todos set answer = 1, answered_at = now(), done_at = now(), applied = 'done' where id = ${Number(b.dataset.ckdone)} and kind = 'check'; select pipeline.todos_open() as t`);
       todos = (r[0] && r[0].t) || todos.filter((x) => x.id !== Number(b.dataset.ckdone)); todoMsg = "Checked off."; } catch (e) { todoMsg = "That didn't save. Try again."; }
