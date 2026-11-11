@@ -942,6 +942,15 @@
         <span>💿 <b style="color:#a85a24">CD / DVD / media</b> — discs, tapes, recordings</span>
       </label>
       <div id="mediasubwrap" style="display:none;margin:0 0 4px 22px;padding:5px 8px;border-left:2px solid var(--ship);background:rgba(92,200,232,.06);border-radius:0 6px 6px 0">
+        <!-- 2026-11-10 Papa Duck: "I have no way to test records, CD or Cassettes, I will look for visible scratches and indicate that ... make it a bubble that stands out" -->
+        <div id="scrbubble" style="border:3px solid var(--media);border-radius:14px;background:rgba(168,90,36,.10);padding:8px 10px;margin:2px 0 8px">
+          <div style="font-weight:800;color:var(--media);margin-bottom:6px">👀 Look at the disc / tape — any visible scratches?</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="scrbtn" data-scr="none" style="min-height:44px;padding:6px 14px;border-radius:999px;border:2px solid var(--ok);background:#fff;color:var(--ok);font-weight:800;font-size:1em">✅ No visible scratches</button>
+            <button type="button" class="scrbtn" data-scr="some" style="min-height:44px;padding:6px 14px;border-radius:999px;border:2px solid var(--err);background:#fff;color:var(--err);font-weight:800;font-size:1em">⚠️ Visible scratches</button>
+          </div>
+          <div style="font-size:0.88em;color:var(--dim);margin-top:5px">Always listed as <b>not tested (no player)</b>. Your pick goes into Notes.</div>
+        </div>
         <div style="font-size:0.9em;color:var(--dim);margin-bottom:3px">
           <b style="color:var(--ship)">Discs on their own DO ship Media Mail</b> — recordings count as media. Only a non-media object riding along breaks it.
         </div>
@@ -1605,7 +1614,7 @@ function poolForced(){ const c = $('poolforce'); return !!(c && c.checked); }
 
 $('poolsingle').addEventListener('click', () => { poolAutoMsg=''; setPool('single'); });
 $('poolbatch').addEventListener('click',  () => { poolAutoMsg=''; setPool('batch');  });
-$('poolmedia').addEventListener('click',  () => { poolAutoMsg=''; setPool('media');  });
+$('poolmedia').addEventListener('click',  () => { poolAutoMsg=''; setPool('media'); if (!$('cdtoggle').checked){ $('cdtoggle').checked = true; $('cdtoggle').dispatchEvent(new Event('change')); } });
 $('poolforce').addEventListener('change', () => { refreshPoolUI(); refreshUploadGate(); });
 window.setPoolFromNudge = function(p){ setPool(p); };
 
@@ -2147,8 +2156,18 @@ function setBooksForBlock(){
 }
 $('qtyinput').addEventListener('input', () => { autoPoolFromQty(); updateQtyNote(); refreshPoolUI(); refreshUploadGate(); });
 
+// 2026-11-10: scratch bubble for CDs / tapes / records - writes one line into Notes (flows to Drafts and the listing)
+const SCR_TXT = { none: 'Discs/tapes: no visible scratches. Not tested (no player).', some: 'Discs/tapes: VISIBLE SCRATCHES. Not tested (no player).' };
+function scrSet(k){
+  const n = $('notesinput'); let v = (n.value || '').replace(/\s*Discs\/tapes: [^.]*\. Not tested \(no player\)\./g, '').trim();
+  if (k) v = (v ? v + ' ' : '') + SCR_TXT[k];
+  n.value = v; n.dispatchEvent(new Event('input'));
+  document.querySelectorAll('.scrbtn').forEach(function(b){ const on = b.dataset.scr === k; b.style.background = on ? (k === 'none' ? 'var(--ok)' : 'var(--err)') : '#fff'; b.style.color = on ? '#fff' : (b.dataset.scr === 'none' ? 'var(--ok)' : 'var(--err)'); });
+}
+document.querySelectorAll('.scrbtn').forEach(function(b){ b.addEventListener('click', function(){ scrSet(b.dataset.scr); }); });
 $('cdtoggle').addEventListener('change', () => {
   $('mediasubwrap').style.display = $('cdtoggle').checked ? 'block' : 'none';
+  if (!$('cdtoggle').checked) scrSet('');
   if (!$('cdtoggle').checked){
     $('mediaextratoggle').checked = false;
     $('mediaextranote').style.display = 'none';
@@ -3415,6 +3434,7 @@ $('newbookbtn').addEventListener('click', () => {
   $('libtoggle').checked = false;
   $('cdtoggle').checked = false;
   $('mediasubwrap').style.display = 'none';
+  try { scrSet(''); } catch (e) {}
   $('mediaextratoggle').checked = false;
   $('mediaextranote').style.display = 'none';
   $('mediaextranote').value = '';
