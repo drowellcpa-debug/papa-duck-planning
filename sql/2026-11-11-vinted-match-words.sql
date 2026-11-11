@@ -1,0 +1,6 @@
+-- 2026-11-11 "I did not have photos but scanned isbn in the quick check": last night's 38 Goodwill CDs/VHS moved to the Vinted box
+-- (his OK: "can you start working on it from those scans") and sorted into bags V-0001..V-0011. They carry no barcode, and many
+-- scan titles start with the label ("Reprise Josh Groban - ..."), so vinted_match now also matches on word overlap:
+--   pipeline.title_words(t)  - significant words (numbers kept, so Vol. 3 != Vol. 4)
+--   pipeline.title_overlap(draft, scan) - share of the draft title's words found in the scan title (>= 0.75 matches;
+--   a one-word title also needs the artist's words).  Full SQL applied as migration vinted_match_word_overlap.
