@@ -1,4 +1,4 @@
-// v7 2026-11-10: CDs / tapes never asked for an ISBN; UPC read from photo.
+// v7b 2026-11-10: CDs / tapes never asked for an ISBN; UPC read from photo; media searched by name; a photo check that found nothing retries by name across all of eBay.
 // Papa Duck — Edge Function "station-api" (2026-10-21). The Book Station's back end WITHOUT the claude.ai connector.
 // Papa Duck, 2026-10-21, after a Claude connector outage stalled the Station: "yes plase" (remove the connector dependence).
 // The Station page is now also served as its own website (Netlify) and calls this function directly over HTTPS.
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
               headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
               body: JSON.stringify({ model: String(m?.value || "claude-sonnet-4-6"), max_tokens: 300, messages: [{ role: "user", content: [
                 { type: "image", source: { type: "base64", media_type: "image/jpeg", data: String(b.image) } },
-                { type: "text", text: 'This photo is a book\'s cover, back, title page or copyright page, or a CD, cassette, record, VHS or DVD. Read any ISBN printed on it exactly (old books print it with spaces, e.g. "ISBN 0 85151 076 0"; a barcode\'s 978 number counts too). On music or video, put the 12-digit UPC barcode number (the digits under the bars) in isbn. Plus the title and author/artist if shown. Set kind to "media" for a CD, cassette, record, VHS or DVD (else "book"); for media, search = the best short eBay search words: artist or series + album name + format word (CD / cassette / vinyl LP / VHS / DVD) + set count if a set, e.g. "Grand Old Country 4 cassette tape set". Never guess a digit. Respond ONLY JSON: {"kind":"book","isbn":"","title":"","author":"","search":""}' } ] }] }) });
+                { type: "text", text: 'This photo is a book\'s cover, back, title page or copyright page, or a CD, cassette, 8-track, record, VHS or DVD. Read any ISBN printed on it exactly (old books print it with spaces, e.g. "ISBN 0 85151 076 0"; a barcode\'s 978 number counts too). On music or video, put the 12-digit UPC barcode number (the digits under the bars) in isbn. Plus the title and author/artist if shown. Set kind to "media" for a CD, cassette, 8-track, record, VHS or DVD (else "book"); for media, search = the best short eBay search words: artist or series + album name + format word (CD / cassette / 8 track / vinyl LP / VHS / DVD) + set count if a set, e.g. "Grand Old Country 4 cassette tape set". Never guess a digit. Respond ONLY JSON: {"kind":"book","isbn":"","title":"","author":"","search":""}' } ] }] }) });
             const aj = await ar.json();
             const txt = (aj.content || []).map((x: any) => x.text || "").join("");
             read = JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}") + 1));
@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
           if (okIsbn(ri)) { fwd.isbn = ri; b.read_isbn = ri; }
           // v7: CD / tape / record / VHS with no readable barcode - search eBay in every category by artist + album + format
           //   (the photo path treated a tape set as a book and searched only Books, so "Grand Old Country - 4 Tape Set" found nothing).
-          else if (read && read.kind === "media" && (read.search || read.title)) {
+          else if (read && (read.kind === "media" || /8[- ]?track|stereo 8|cassette|\btapes?\b|\bcds?\b|vinyl|\blp\b|vhs|dvd/i.test(String(read.title || "") + " " + String(read.search || ""))) && (read.search || read.title)) {
             const name = String(read.title || read.search) + (read.author && !String(read.title || "").toLowerCase().includes(String(read.author).toLowerCase()) ? " - " + read.author : "");
             fwd.ident = { kind: "item", title: name.slice(0, 80), search: String(read.search || name).slice(0, 80), author: "", isbn: "", format: "Other", confidence: "medium" };
             b.read_ident = true;
@@ -156,8 +156,24 @@ Deno.serve(async (req) => {
         }
         else return json({ ok: false, error: "Snap the cover or type the ISBN first" }, 400);
       }
-      const r = await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: String(pin?.value || ""), ...fwd }) });
-      const j = await r.json().catch(() => null);
+      let r = await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: String(pin?.value || ""), ...fwd }) });
+      let j = await r.json().catch(() => null);
+      // v7b (2026-11-10, "quick check for grand old opry is saying goodwill?"): a photo check that found nothing gets one more try by name
+      //   across all of eBay (the photo path searches Books only), before anyone is told Goodwill.
+      if (act === "check" && (fwd.images || fwd.ident) && j && j.list == null && (j.verdict === "GOODWILL" || j.verdict === "SELL")) {
+        const nm = String((j.ident && j.ident.title) || "").trim();
+        if (nm.length >= 4) {
+          const f2 = { action: "evaluate", mode: "cleanup", batch: fwd.batch, cost: fwd.cost,
+            ident: { kind: "item", title: nm.slice(0, 80), search: [nm, (j.ident && j.ident.author) || ""].join(" ").trim().slice(0, 80), author: "", isbn: "", format: "Other" } };
+          const r2 = await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: String(pin?.value || ""), ...f2 }) });
+          const j2 = await r2.json().catch(() => null);
+          if (r2.ok && j2 && j2.ok !== false && !j2.error && j2.list != null) {   // only when the name search actually found copies
+            if (j.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: j.pile_id }) }).catch(() => null);
+            r = r2; j = j2; b.read_ident = true;
+          }
+        }
+      }
       if (!r.ok || !j || j.ok === false || j.error) return json({ ok: false, error: (j && j.error) || ("Scout answered " + r.status) }, 502);
       // v4 (2026-11-09): Spurgeon Autobiography Vol 1 ($34.99 book) came back GOODWILL because the cover photo only gave "Autobiography"
       //   and no copies were found. "Found nothing" is not "worth nothing": say so, ask for the ISBN, and take it off the Goodwill pile list.
