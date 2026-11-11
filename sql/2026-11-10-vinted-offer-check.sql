@@ -1,0 +1,6 @@
+-- 2026-11-10 Papa Duck: Vinted seller offers -> filter BUY, show list price and profit, make sure it's the correct book.
+-- pipeline.vinted_offer_check(jsonb {title, offer, was, photo, seller, link, dedupe}) -> duck-check-api v2 (image_url + title_hint,
+-- title_match) -> Launch Pad: 🟢 BUY ('issue', or 'question' if photo looks like a different book) / 🔴 Pass ('handled').
+-- cost = offer + config vinted_ship_est (5.00) + vinted_fee_fixed (0.70) + offer * vinted_fee_pct (0.05)  [estimates]
+-- Hourly email watch (trig_01532433mnT51RWKMxpBcURH) section E calls it for every "New offer for ..." Vinted email.
+-- (function body: see Supabase pipeline.vinted_offer_check)

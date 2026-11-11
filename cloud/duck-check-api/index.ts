@@ -1,3 +1,4 @@
+// v2 (2026-11-10): image_url + title_hint for Vinted offer emails (title_match in the answer).
 // Papa Duck — Edge Function "duck-check-api" v1 (2026-11-10). Papa Duck: "teach the duck check phone app cd and tapes".
 // The Duck Check phone app (papa-duck-check.netlify.app) calls this instead of Scout directly. Same PIN (Scout checks it).
 // Adds what the Book Station got tonight (station-api v7b):
@@ -28,7 +29,19 @@ Deno.serve(async (req) => {
   let b: any; try { b = await req.json(); } catch (_) { return json({ error: "bad request" }, 400); }
   if (b.action !== "evaluate") { const r = await scout(b); return json(r.j, r.status); }
 
+  // v2 (2026-11-10, Vinted offers): {image_url} = a photo on the web (the Vinted offer email's item picture) - fetched here.
+  if (b.image_url && !(Array.isArray(b.images) && b.images.length)) {
+    try {
+      const ir = await fetch(String(b.image_url));
+      const u = new Uint8Array(await ir.arrayBuffer());
+      let s = ""; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
+      if (ir.ok && u.length > 1000) b.images = [{ data: btoa(s), mt: ir.headers.get("content-type") || "image/jpeg" }];
+    } catch (_) { /* fall back to the title */ }
+    delete b.image_url;
+    if (!b.images && b.title_hint) b.ident = { kind: "book", title: String(b.title_hint), author: "", format: "", confidence: "medium" };
+  }
   const fwd: any = { ...b };
+  delete fwd.title_hint;
   const shot = Array.isArray(b.images) && b.images[0] && b.images[0].data ? String(b.images[0].data) : "";
   let read: any = null;
   if (shot && !b.isbn) {
@@ -61,6 +74,13 @@ Deno.serve(async (req) => {
       const r2 = await scout({ ...b, images: undefined, isbn: undefined, ident: { kind: "item", title: nm.slice(0, 80), search: [nm, (r.j.ident && r.j.ident.author) || ""].join(" ").trim().slice(0, 80), author: "", isbn: "", format: "Other", family_friendly: true } });
       if (r2.status === 200 && r2.j && r2.j.list != null) r = r2;
     }
+  }
+  // v2: is the photo the book the seller named? (Papa Duck: "make sure it is the correct book")
+  if (b.title_hint && r.j && r.j.ident) {
+    const words = (t: string) => new Set(String(t || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3 && !/^(with|from|this|that|edition|book|books|the|and)$/.test(w)));
+    const A = words(b.title_hint), B = words(r.j.ident.title + " " + (r.j.ident.author || ""));
+    const hit = [...A].filter((w) => B.has(w)).length;
+    r.j.title_match = A.size ? +(hit / A.size).toFixed(2) : null;
   }
   return json(r.j, r.status);
 });
