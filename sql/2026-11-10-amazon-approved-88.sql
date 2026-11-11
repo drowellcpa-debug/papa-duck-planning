@@ -1,0 +1,4 @@
+-- 2026-11-10 Papa Duck: "ok, yes please do that" (todo 81: put the approved books on Amazon).
+-- Candidates: audit.amz_recheck ok, not in the 11/8 Amazon snapshot (audit.amazon), never sent to Amazon, not sold since 11/8,
+-- live on eBay (audit.live qty > 0), not FBA, books only (PD-5xxx media removed). 88 books -> send_jobs 114, all 'done' (SENT).
+-- price = max(Drafts price, 7.99); qty = eBay qty; cond = amz_recheck.cond. amazon-price cron re-prices within 2 h (Rule CL).
