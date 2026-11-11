@@ -4040,7 +4040,10 @@ function qcReset(){
 }
 async function qcPile(p){
   if (!qcLast || !qcLast.pile_id) { qcReset(); return; }
-  try { await api('pile', { id: qcLast.pile_id, pile: p }); } catch(e){}
+  // 2026-11-11: the 🛍️ Vinted box keeps the snapped photo (for the Launch Pad Vinted sorting box / lots).
+  const xb = { id: qcLast.pile_id, pile: p };
+  if (p === 'VINTED') { const f = (qcCur && qcCur.file) || qcFile; if (f) { try { xb.image = (await qcShrink(f)).split(',')[1]; } catch(e){} } }
+  try { await api('pile', xb); } catch(e){}
   if (qcCur) { qcCur.pile = ({GOODWILL:'Goodwill', VINTED:'Vinted box', SELL:'Sell back', MAYBE:'Maybe later', TOSS:'Toss'}[p] || p); qcRenderQ(); }
   $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;background:#eef1f5;font-weight:700">Put in the ' + qcEsc({GOODWILL:'Goodwill', VINTED:'Vinted box', SELL:'Sell back', MAYBE:'Maybe later', TOSS:'Toss'}[p] || p) + ' pile. Next book!</div>';
   setTimeout(qcReset, 1500);

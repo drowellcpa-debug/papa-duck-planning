@@ -1,3 +1,4 @@
+// v7d 2026-11-11: Vinted box keeps the snapped photo (storage p/vinted/<id>.jpg -> cleanup_piles.photo_url).
 // v7c 2026-11-11: CDs/tapes/records/VHS not worth the store -> VINTED (personal Vinted box) instead of Goodwill.
 // v7b 2026-11-10: CDs / tapes never asked for an ISBN; UPC read from photo; media searched by name; a photo check that found nothing retries by name across all of eBay.
 // Papa Duck — Edge Function "station-api" (2026-10-21). The Book Station's back end WITHOUT the claude.ai connector.
@@ -120,7 +121,20 @@ Deno.serve(async (req) => {
     // v7c (2026-11-11): Papa Duck "I would like to do my personal Vinted instead of Goodwill for my CDs, etc" - "no more than 1 item per day ... or a lot of CDs".
     //   Scout only knows LIST/SELL/GOODWILL/TOSS piles, so the Vinted box (and Maybe later) are written here.
     if (act === "pile" && ["VINTED", "MAYBE"].includes(String(b.pile))) {
-      await sql`update pipeline.cleanup_piles set pile = ${String(b.pile)} where id = ${Number(b.id) || 0}`;
+      const pid = Number(b.id) || 0;
+      await sql`update pipeline.cleanup_piles set pile = ${String(b.pile)} where id = ${pid}`;
+      // v7d (2026-11-11): the Vinted box keeps the snapped photo -> storage p/vinted/<id>.jpg (Launch Pad Vinted sorting box, lots, V-numbers).
+      if (b.pile === "VINTED" && b.image && pid) {
+        try {
+          const bytes = b64ToBytes(String(b.image));
+          if (bytes.length > 2000 && jpegDims(bytes)) {
+            const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, path = `vinted/${pid}.jpg`;
+            const r = await fetch(`${SUPA}/storage/v1/object/p/${path}`, { method: "POST",
+              headers: { Authorization: "Bearer " + svc, apikey: svc, "Content-Type": "image/jpeg", "x-upsert": "true", "cache-control": "max-age=31536000" }, body: bytes });
+            if (r.ok) await sql`update pipeline.cleanup_piles set photo_url = ${`${SUPA}/storage/v1/object/public/p/${path}`} where id = ${pid}`;
+          }
+        } catch (_) { /* the pile is saved either way */ }
+      }
       return json({ ok: true });
     }
     if (act === "check" || act === "pile") {

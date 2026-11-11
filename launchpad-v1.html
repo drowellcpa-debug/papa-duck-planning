@@ -149,6 +149,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 <div class="wrap">
   <div style="display:flex;flex-direction:column;gap:18px;min-width:0"><main id="main"><p class="empty">Loading tonight's blast off…</p></main>
   <div id="bdbox"></div>
+  <div id="vbox"></div>
   <div id="auditbox"></div></div>
   <div class="rcol">
   <div id="gwbox"></div>
@@ -319,6 +320,107 @@ function salesCard() {
     ${chart}
     <p class="muted" style="margin:0;font-size:.82rem">Every sale the cloud caught on eBay, Etsy, AbeBooks and Amazon since ${S.since ? mName(S.since, { month: "short", day: "numeric" }) : "the Launch Pad started"}. Cancelled sales are left out. Prices are what the buyer paid for the item.</p>
   </section>`;
+}
+// ---------- 🛍️ Vinted box (Papa Duck 2026-11-11): "lets have it go to a vinted sorting box and then the ability to click on the books that will
+//   make up a lot so the pictures are together and I can drag and drop, I will need to know the combined price and exact layout of the vinted screen
+//   and that way we can assign a [number] to the lot" -> V-numbers on painter's tape ("lets use the tape idea and I love the V mark").
+//   Personal Vinted, one listing a day. Data: pipeline.vinted_box() / vinted_lot_make(ids) / vinted_lot_save(id, jsonb).
+let vb = null, vbAt = 0, vbPick = new Set(), vbOpen = null, vbMsg = "", vbShow = false;
+const sqlS = (x) => "'" + String(x).replace(/'/g, "''") + "'";
+async function loadVb(force) {
+  if (!force && Date.now() - vbAt < 60000) return;
+  vbAt = Date.now();
+  try { const r = await q("select pipeline.vinted_box() as b"); vb = (r[0] && r[0].b) || null; } catch (e) { console.log("[vb]", e); }
+  renderVb();
+}
+const VB_COND = ["New with tags", "New without tags", "Very good", "Good", "Satisfactory"], VB_PKG = ["Small", "Medium", "Large"];
+function vbLotHtml(l) {
+  const ph = (l.photos || []).map((u, i) => `<div draggable="true" data-vbph="${i}" style="position:relative;width:86px">
+      <img src="${esc(u)}" alt="" style="width:86px;height:110px;object-fit:cover;border-radius:8px;border:${i === 0 ? "3px solid #7b3fa0" : "1px solid var(--line)"}">
+      <div style="display:flex;justify-content:space-between;font-size:.75rem"><button class="ghost" data-vbmv="${i}" data-d="-1" style="min-height:24px;padding:0 6px">◀</button>${i === 0 ? "<b>cover</b>" : i + 1}<button class="ghost" data-vbmv="${i}" data-d="1" style="min-height:24px;padding:0 6px">▶</button></div></div>`).join("");
+  const val = (l.item_rows || []).reduce((t, x) => t + Number(x.value || 0), 0);
+  const row = (n, lab, inner) => `<div style="display:grid;grid-template-columns:28px 1fr;gap:6px;align-items:start;margin-top:8px"><b style="color:#7b3fa0">${n}</b><div><div style="font-weight:700;font-size:.9rem">${lab}</div>${inner}</div></div>`;
+  const copy = (id) => `<button class="ghost" data-vbcopy="${id}" style="min-height:28px;padding:0 10px;margin-top:3px">📋 Copy</button>`;
+  return `<div style="border:2px solid #7b3fa0;border-radius:12px;padding:10px;margin-top:8px">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <span style="font-size:1.6rem;font-weight:900;background:#fff3b0;border:2px dashed #7b3fa0;padding:2px 12px;border-radius:6px">🏷️ ${esc(l.vnum)}</span>
+      <span class="muted" style="font-size:.85rem">Write <b>${esc(l.vnum)}</b> on painter's tape and stick it on the lot.</span></div>
+    <div class="muted" style="font-size:.82rem;margin-top:6px">Fill Vinted's "Sell an item" screen in this order (if a field looks different on Vinted, tell Claude):</div>
+    ${row("1", "Photos <span class='muted' style='font-weight:400'>(drag or ◀ ▶ to order · first = cover · a photo of the whole lot together sells best)</span>", `<div id="vbph" style="display:flex;gap:8px;flex-wrap:wrap">${ph || '<span class="muted">No photos saved — snap the lot together on your phone.</span>'}</div>`)}
+    ${row("2", "Title", `<input id="vbt" value="${esc(l.title || "")}" maxlength="100" style="width:100%">${copy("vbt")}`)}
+    ${row("3", "Describe your item", `<textarea id="vbd" rows="7" style="width:100%">${esc(l.description || "")}</textarea>${copy("vbd")}`)}
+    ${row("4", "Category", `<input id="vbc" value="${esc(l.category || "")}" style="width:100%">`)}
+    ${row("5", "Condition", `<select id="vbn">${VB_COND.map((c) => `<option${c === l.condition ? " selected" : ""}>${c}</option>`).join("")}</select>`)}
+    ${row("6", "Package size", `<select id="vbk">${VB_PKG.map((c) => `<option${c === l.package ? " selected" : ""}>${c}</option>`).join("")}</select> <span class="muted" style="font-size:.8rem">1–2 items Small · up to 6 Medium · more Large (go by weight)</span>`)}
+    ${row("7", "Price", `<input id="vbp" type="number" step="1" value="${esc(l.price ?? "")}" style="width:110px"> <span class="muted" style="font-size:.85rem">${(l.item_rows || []).length} item${(l.item_rows || []).length === 1 ? "" : "s"} · eBay value about $${val.toFixed(2)} · Vinted buyer pays shipping</span>`)}
+    <div class="muted" style="font-size:.85rem;margin-top:6px">In this lot: ${(l.item_rows || []).map((x) => esc(x.title || "?")).join(" · ")}</div>
+    <div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">
+      <button data-vbsave="${l.id}">💾 Save</button>
+      <button data-vbst="${l.id}" data-s="listed" style="background:#7b3fa0;color:#fff">✓ Listed on Vinted</button>
+      <button class="ghost" data-vbst="${l.id}" data-s="sold">💰 Sold</button>
+      <button class="ghost" data-vbbreak="${l.id}">↩ Break up lot</button></div></div>`;
+}
+function renderVb() {
+  const el = document.getElementById("vbox"); if (!el) return;
+  if (!vb || (!vb.items.length && !vb.lots.length)) { el.innerHTML = ""; return; }
+  const it = vb.items, lots = vb.lots, drafts = lots.filter((l) => l.status === "draft");
+  const tiles = it.map((x) => `<label style="display:flex;flex-direction:column;gap:3px;width:118px;border:${vbPick.has(x.id) ? "3px solid #7b3fa0" : "1px solid var(--line)"};border-radius:10px;padding:5px;cursor:pointer">
+      <input type="checkbox" data-vbpick="${x.id}"${vbPick.has(x.id) ? " checked" : ""}>
+      ${x.photo ? `<img src="${esc(x.photo)}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:6px">` : `<div style="height:120px;display:grid;place-items:center;background:#f3eef7;border-radius:6px;font-size:2rem">${x.media ? "💿" : "📚"}</div>`}
+      <span style="font-size:.8rem;font-weight:700;line-height:1.2">${esc((x.title || "?").slice(0, 60))}</span>
+      <span class="muted" style="font-size:.75rem">${x.value != null ? "eBay ~$" + Number(x.value).toFixed(2) : "no eBay value"}</span></label>`).join("");
+  const lotRows = lots.map((l) => `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-top:6px">
+      <button class="ghost" data-vbopen="${l.id}" style="width:100%;display:flex;justify-content:space-between;gap:8px;min-height:36px">
+        <span><b style="color:#7b3fa0">${esc(l.vnum)}</b> · ${esc(l.title || "")}</span>
+        <span>$${esc(l.price ?? "")} · ${l.status === "listed" ? "✓ listed" : l.status === "sold" ? "💰 sold" : "to list"}</span></button>
+      ${vbOpen === l.id ? vbLotHtml(l) : ""}</div>`).join("");
+  el.innerHTML = `<section class="card" aria-label="Vinted box" style="border:2px solid #7b3fa0">
+    <button class="ghost" id="vbtog" style="width:100%;display:flex;justify-content:space-between;align-items:center;min-height:40px">
+      <h2 style="margin:0;color:#7b3fa0">🛍️ Vinted box <span class="muted" style="font-size:.85rem;font-weight:400">(your personal Vinted · one listing a day)</span></h2>
+      <span>${it.length} item${it.length === 1 ? "" : "s"} · ${drafts.length} lot${drafts.length === 1 ? "" : "s"} to list ${vbShow ? "▲" : "▼"}</span></button>
+    ${vbShow ? `${vbMsg ? `<div style="margin-top:6px;font-weight:700">${esc(vbMsg)}</div>` : ""}
+    ${it.length ? `<div style="font-weight:700;margin-top:8px">Pick the items that go together, then make a lot (pick 1 to list it alone):</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${tiles}</div>
+      <button id="vbmake" style="margin-top:8px;background:#7b3fa0;color:#fff"${vbPick.size ? "" : " disabled"}>📦 Make a lot from ${vbPick.size} picked</button>` : '<div class="muted" style="margin-top:6px">Nothing waiting — tap 🛍️ Vinted box in the Quick check to add items.</div>'}
+    ${lots.length ? `<div style="font-weight:700;margin-top:12px">Lots</div>${lotRows}` : ""}` : ""}</section>`;
+  wireVb(el);
+}
+function vbCur() { return vb && vb.lots.find((l) => l.id === vbOpen); }
+function wireVb(el) {
+  const tog = el.querySelector("#vbtog"); if (tog) tog.onclick = () => { vbShow = !vbShow; renderVb(); };
+  el.querySelectorAll("[data-vbpick]").forEach((c) => c.onchange = () => { const id = Number(c.dataset.vbpick); c.checked ? vbPick.add(id) : vbPick.delete(id); renderVb(); });
+  const mk = el.querySelector("#vbmake"); if (mk) mk.onclick = async () => {
+    mk.disabled = true; mk.textContent = "Making the lot…";
+    try { const r = await q(`select pipeline.vinted_lot_make(array[${[...vbPick].map(Number).join(",")}]::bigint[]) as r`); const o = r[0] && r[0].r;
+      if (o && o.ok) { vbMsg = "🏷️ " + o.vnum + " made — write it on painter's tape."; vbOpen = o.id; vbPick.clear(); } else vbMsg = (o && o.error) || "That didn't work.";
+    } catch (e) { vbMsg = "That didn't save. Try again."; }
+    await loadVb(true); };
+  el.querySelectorAll("[data-vbopen]").forEach((b) => b.onclick = () => { const id = Number(b.dataset.vbopen); vbOpen = vbOpen === id ? null : id; renderVb(); });
+  el.querySelectorAll("[data-vbcopy]").forEach((b) => b.onclick = async () => { const t = el.querySelector("#" + b.dataset.vbcopy); try { await navigator.clipboard.writeText(t.value); b.textContent = "✓ Copied"; } catch (_) { t.select(); b.textContent = "Selected - copy it"; } });
+  const cur = vbCur();
+  const moveTo = async (from, to) => { const l = vbCur(); if (!l) return; const a = [...(l.photos || [])]; if (to < 0 || to >= a.length) return;
+    const [m] = a.splice(from, 1); a.splice(to, 0, m); l.photos = a; renderVb();
+    try { await q(`select pipeline.vinted_lot_save(${l.id}, ${sqlS(JSON.stringify({ photos: a }))}::jsonb)`); } catch (_) {} };
+  el.querySelectorAll("[data-vbmv]").forEach((b) => b.onclick = () => { const i = Number(b.dataset.vbmv); moveTo(i, i + Number(b.dataset.d)); });
+  let dragFrom = null;
+  el.querySelectorAll("[data-vbph]").forEach((d) => {
+    d.ondragstart = () => { dragFrom = Number(d.dataset.vbph); };
+    d.ondragover = (e) => e.preventDefault();
+    d.ondrop = (e) => { e.preventDefault(); if (dragFrom != null) moveTo(dragFrom, Number(d.dataset.vbph)); dragFrom = null; };
+  });
+  const fields = () => ({ title: el.querySelector("#vbt").value, description: el.querySelector("#vbd").value, category: el.querySelector("#vbc").value,
+    condition: el.querySelector("#vbn").value, package: el.querySelector("#vbk").value, price: el.querySelector("#vbp").value });
+  el.querySelectorAll("[data-vbsave]").forEach((b) => b.onclick = async () => { b.textContent = "Saving…";
+    try { await q(`select pipeline.vinted_lot_save(${Number(b.dataset.vbsave)}, ${sqlS(JSON.stringify(fields()))}::jsonb)`); vbMsg = "Saved."; } catch (_) { vbMsg = "That didn't save."; }
+    await loadVb(true); });
+  el.querySelectorAll("[data-vbst]").forEach((b) => b.onclick = async () => {
+    const o = Object.assign(cur ? fields() : {}, { status: b.dataset.s });
+    try { await q(`select pipeline.vinted_lot_save(${Number(b.dataset.vbst)}, ${sqlS(JSON.stringify(o))}::jsonb)`);
+      vbMsg = b.dataset.s === "listed" ? "✓ Marked listed. See you tomorrow for the next one!" : "💰 Marked sold — find the lot by its V-number on the tape."; vbOpen = null; } catch (_) { vbMsg = "That didn't save."; }
+    await loadVb(true); });
+  el.querySelectorAll("[data-vbbreak]").forEach((b) => b.onclick = async () => {
+    try { await q(`select pipeline.vinted_lot_save(${Number(b.dataset.vbbreak)}, '{"break":true}'::jsonb)`); vbMsg = "Lot broken up - the items are back in the box."; vbOpen = null; } catch (_) {}
+    await loadVb(true); });
 }
 // ---------- 🦆 Bargain Duck (Papa Duck 2026-11-03): "instead of the email have it go to our launch pad ... for our new buy or watch"
 // Its own bd.* tables + its own query, so it can never slow down or break the blast off part of this page.
@@ -1366,7 +1468,7 @@ async function refresh(force) {
     gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
     tickClock();
     if (!hist || Date.now() - histAt > 60000) { histAt = Date.now(); loadHist(); }
-    loadBd(); loadTodo();
+    loadBd(); loadTodo(); loadVb();
     render();
     autoVerify();
   } catch (e) { showError(e); }
