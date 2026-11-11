@@ -1,0 +1,5 @@
+-- 2026-11-11 Vinted: pipeline.vinted_match() (cron pd-vinted-match */5): a new draft that matches a waiting VINTED Quick-check
+-- pile row (14 days, by ISBN or first 16 letters/numbers of the title) gets attached, so its full photos join the box item.
+-- pipeline.vinted_lot_write(p_id) -> edge fn vinted-writer (cloud/vinted-writer) writes title/description/condition/category/package
+-- from the lot photos + his Drafts answers. Launch Pad calls it right after "Make a lot" and from "✍️ Rewrite from photos".
+-- vinted_lots gained columns notes, written_at. Test lot V-0001 deleted, sequence reset to 1.

@@ -349,6 +349,9 @@ function vbLotHtml(l) {
       <span class="muted" style="font-size:.85rem">Write <b>${esc(l.vnum)}</b> on painter's tape and stick it on the lot.</span></div>
     <div class="muted" style="font-size:.82rem;margin-top:6px">Fill Vinted's "Sell an item" screen in this order (if a field looks different on Vinted, tell Claude):</div>
     ${row("1", `Photos <span class="muted" style="font-weight:400">(${(l.photos || []).length} · drag or ◀ ▶ to order · ✕ leaves one out · first = cover · Vinted takes up to 20${(l.photos || []).length > 20 ? ' - <b style="color:var(--red)">pick your best 20</b>' : ""})</span>`, `<div id="vbph" style="display:flex;gap:8px;flex-wrap:wrap">${ph || '<span class="muted">No photos saved — snap the lot together on your phone.</span>'}</div>`)}
+    <div class="row" style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+      <button class="ghost" data-vbwrite="${l.id}"${vbWriting === l.id ? " disabled" : ""}>${vbWriting === l.id ? "✍️ Writing from the photos…" : "✍️ Rewrite from photos"}</button>
+      ${l.notes ? `<span style="font-size:.85rem;background:#fff3b0;padding:3px 8px;border-radius:6px">👀 Double-check: ${esc(l.notes)}</span>` : ""}</div>
     ${row("2", "Title", `<input id="vbt" value="${esc(l.title || "")}" maxlength="100" style="width:100%">${copy("vbt")}`)}
     ${row("3", "Describe your item", `<textarea id="vbd" rows="7" style="width:100%">${esc(l.description || "")}</textarea>${copy("vbd")}`)}
     ${row("4", "Category", `<input id="vbc" value="${esc(l.category || "")}" style="width:100%">`)}
@@ -388,15 +391,26 @@ function renderVb() {
   wireVb(el);
 }
 function vbCur() { return vb && vb.lots.find((l) => l.id === vbOpen); }
+// 2026-11-11: "when I click set ... auto review the pictures, create the full set description" -> pipeline.vinted_lot_write (edge fn vinted-writer).
+let vbWriting = null;
+async function vbWrite(id) {
+  vbWriting = id; vbMsg = "✍️ Claude is looking at the photos and writing the listing… (about 20 seconds)"; renderVb();
+  let o = null; try { const r = await q(`select pipeline.vinted_lot_write(${Number(id)}) as r`); o = r[0] && r[0].r; } catch (_) {}
+  vbWriting = null;
+  vbMsg = o && o.ok ? "✍️ Written from the photos — read it over, change anything, then 💾 Save." : "Couldn't write it just now — you can type it, or tap ✍️ Rewrite from photos again.";
+  await loadVb(true);
+}
 function wireVb(el) {
   const tog = el.querySelector("#vbtog"); if (tog) tog.onclick = () => { vbShow = !vbShow; renderVb(); };
   el.querySelectorAll("[data-vbpick]").forEach((c) => c.onchange = () => { const id = Number(c.dataset.vbpick); c.checked ? vbPick.add(id) : vbPick.delete(id); renderVb(); });
   const mk = el.querySelector("#vbmake"); if (mk) mk.onclick = async () => {
     mk.disabled = true; mk.textContent = "Making the lot…";
     try { const r = await q(`select pipeline.vinted_lot_make(array[${[...vbPick].map(Number).join(",")}]::bigint[]) as r`); const o = r[0] && r[0].r;
-      if (o && o.ok) { vbMsg = "🏷️ " + o.vnum + " made — write it on painter's tape."; vbOpen = o.id; vbPick.clear(); } else vbMsg = (o && o.error) || "That didn't work.";
+      if (o && o.ok) { vbMsg = "🏷️ " + o.vnum + " made — write it on painter's tape."; vbOpen = o.id; vbPick.clear();
+        await loadVb(true); await vbWrite(o.id); return; } else vbMsg = (o && o.error) || "That didn't work.";
     } catch (e) { vbMsg = "That didn't save. Try again."; }
     await loadVb(true); };
+  el.querySelectorAll("[data-vbwrite]").forEach((b) => b.onclick = () => vbWrite(Number(b.dataset.vbwrite)));
   el.querySelectorAll("[data-vbopen]").forEach((b) => b.onclick = () => { const id = Number(b.dataset.vbopen); vbOpen = vbOpen === id ? null : id; renderVb(); });
   el.querySelectorAll("[data-vbcopy]").forEach((b) => b.onclick = async () => { const t = el.querySelector("#" + b.dataset.vbcopy); try { await navigator.clipboard.writeText(t.value); b.textContent = "✓ Copied"; } catch (_) { t.select(); b.textContent = "Selected - copy it"; } });
   const cur = vbCur();
