@@ -4088,7 +4088,7 @@ function qcShow(r){
       '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button type="button" data-qcp="MAYBE">Maybe later box</button><button type="button" data-qcp="GOODWILL">Goodwill anyway</button></div>'
     : v === 'RETAKE' ? ''
     : '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px">' +
-      (v === 'VINTED' ? '<button type="button" data-qcp="VINTED" style="min-height:48px;grid-column:1 / -1;border:3px solid #7b3fa0;color:#7b3fa0;font-weight:800">🛍️ Vinted box</button>' : '') +
+      (v === 'VINTED' || v === 'GOODWILL' || v === 'SELL' || v === 'CHECK' ? '<button type="button" data-qcp="VINTED" style="min-height:48px;grid-column:1 / -1;border:3px solid #7b3fa0;color:#7b3fa0;font-weight:800">🛍️ Vinted box' + (v === 'VINTED' ? '' : ' (kids books, lots…)') + '</button>' : '') +
       '<button type="button" data-qcp="GOODWILL" style="min-height:48px">📦 Goodwill</button><button type="button" data-qcp="SELL" style="min-height:48px">💵 Sell back</button>' +
       '<button type="button" data-qcp="MAYBE" style="min-height:48px">🕒 Maybe later box</button><button type="button" id="qclist" style="min-height:48px">📸 List it anyway</button></div>';
   $('qcout').innerHTML = '<div style="border:4px solid ' + look[1] + ';border-radius:12px;padding:12px">' +
