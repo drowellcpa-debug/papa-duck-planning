@@ -4043,8 +4043,21 @@ async function qcPile(p){
   // 2026-11-11: the 🛍️ Vinted box keeps the snapped photo (for the Launch Pad Vinted sorting box / lots).
   const xb = { id: qcLast.pile_id, pile: p };
   if (p === 'VINTED') { const f = (qcCur && qcCur.file) || qcFile; if (f) { try { xb.image = (await qcShrink(f)).split(',')[1]; } catch(e){} } }
-  try { await api('pile', xb); } catch(e){}
+  let pr = null; try { pr = await api('pile', xb); } catch(e){}
   if (qcCur) { qcCur.pile = ({GOODWILL:'Goodwill', VINTED:'Vinted box', SELL:'Sell back', MAYBE:'Maybe later', TOSS:'Toss'}[p] || p); qcRenderQ(); }
+  // 2026-11-11: "put them in their pre-assigned V number so ... I will know what bag to put it in" - show the bag big; a full bag says so.
+  if (p === 'VINTED' && pr && pr.vnum) {
+    if (qcCur) { qcCur.pile = 'Bag ' + pr.vnum; qcRenderQ(); }
+    $('qcout').innerHTML = '<div style="padding:14px;border-radius:12px;background:#f3eef7;border:3px solid #7b3fa0;text-align:center">' +
+      '<div style="font-weight:700">Put it in bag</div>' +
+      '<div style="font-size:2.6rem;font-weight:900;color:#7b3fa0;background:#fff3b0;border:2px dashed #7b3fa0;border-radius:8px;display:inline-block;padding:2px 18px;margin:6px 0">' + qcEsc(pr.vnum) + '</div>' +
+      '<div style="font-weight:700">' + qcEsc(pr.group || '') + ' · ' + Number(pr.n || 0) + ' of ' + Number(pr.cap || 0) + '</div>' +
+      (Number(pr.n) === 1 ? '<div style="margin-top:4px">🆕 New bag — write <b>' + qcEsc(pr.vnum) + '</b> on painter\'s tape.</div>' : '') +
+      (pr.full ? '<div style="margin-top:4px;color:#7b3fa0;font-weight:800">✅ This bag is full. The next one starts a new V-number.</div>' : '') +
+      '<button type="button" id="qcbagok" style="margin-top:10px;min-height:48px;width:100%;background:#7b3fa0;color:#fff;font-weight:800">Got it — next</button></div>';
+    const ok = $('qcbagok'); if (ok) ok.onclick = qcReset;
+    return;
+  }
   $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;background:#eef1f5;font-weight:700">Put in the ' + qcEsc({GOODWILL:'Goodwill', VINTED:'Vinted box', SELL:'Sell back', MAYBE:'Maybe later', TOSS:'Toss'}[p] || p) + ' pile. Next book!</div>';
   setTimeout(qcReset, 1500);
 }

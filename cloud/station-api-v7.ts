@@ -1,3 +1,4 @@
+// v7e 2026-11-11: Vinted box item is sorted into its bag right away (vinted-sort) and the V-number is returned to the Quick check.
 // v7d 2026-11-11: Vinted box keeps the snapped photo (storage p/vinted/<id>.jpg -> cleanup_piles.photo_url).
 // v7c 2026-11-11: CDs/tapes/records/VHS not worth the store -> VINTED (personal Vinted box) instead of Goodwill.
 // v7b 2026-11-10: CDs / tapes never asked for an ISBN; UPC read from photo; media searched by name; a photo check that found nothing retries by name across all of eBay.
@@ -134,6 +135,15 @@ Deno.serve(async (req) => {
             if (r.ok) await sql`update pipeline.cleanup_piles set photo_url = ${`${SUPA}/storage/v1/object/public/p/${path}`} where id = ${pid}`;
           }
         } catch (_) { /* the pile is saved either way */ }
+      }
+      // v7e (2026-11-11): "put them in their pre-assigned V number so ... I will know what bag to put it in" -> sort into a bag now.
+      if (b.pile === "VINTED" && pid) {
+        try {
+          const [cs] = await sql`select value from backup.config where key = 'cron_secret'`;
+          const sr = await fetch(`${SUPA}/functions/v1/vinted-sort`, { method: "POST", headers: { "Content-Type": "application/json", "x-backup-secret": String(cs?.value || "") }, body: JSON.stringify({ pile: pid }) });
+          const sj = await sr.json();
+          if (sj && sj.vnum) return json({ ok: true, vnum: sj.vnum, group: sj.group, n: sj.n, cap: sj.cap, full: !!sj.full });
+        } catch (_) { /* the cron sorts it within 2 minutes */ }
       }
       return json({ ok: true });
     }

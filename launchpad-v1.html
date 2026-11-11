@@ -334,7 +334,20 @@ async function loadVb(force) {
   renderVb();
 }
 const VB_COND = ["New with tags", "New without tags", "Very good", "Good", "Satisfactory"], VB_PKG = ["Small", "Medium", "Large"];
+function vbBagHtml(l) {
+  const rows = (l.item_rows || []).map((x) => `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;border-bottom:1px solid var(--line);padding:4px 0">
+      <span>${esc(x.title || "?")}${x.draft ? ' <span class="muted" style="font-size:.78rem">📷 full photos</span>' : ""}</span>
+      <button class="ghost" data-vbout="${x.id}" title="Take it out of this bag" style="min-height:28px;padding:0 10px">✕ take out</button></div>`).join("");
+  return `<div style="border:2px dashed #7b3fa0;border-radius:12px;padding:10px;margin-top:8px">
+    <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+      <span style="font-size:1.6rem;font-weight:900;background:#fff3b0;border:2px dashed #7b3fa0;padding:2px 12px;border-radius:6px">🏷️ ${esc(l.vnum)}</span>
+      <b>${esc(l.vgroup || "")} · ${(l.item_rows || []).length} of ${l.cap || "?"}</b></div>
+    <div style="margin-top:8px">${rows || '<span class="muted">Empty.</span>'}</div>
+    <button data-vbready="${l.id}" style="margin-top:10px;background:#7b3fa0;color:#fff"${vbWriting === l.id ? " disabled" : ""}>${vbWriting === l.id ? "✍️ Writing from the photos…" : "✅ Bag is ready — gather the photos and write the listing"}</button>
+    <div class="muted" style="font-size:.8rem;margin-top:4px">Tip: wait until you've shot the full photos in the Book Station (📷 full photos shows on each item).</div></div>`;
+}
 function vbLotHtml(l) {
+  if (l.status === "filling") return vbBagHtml(l);
   const ph = (l.photos || []).map((u, i) => `<div draggable="true" data-vbph="${i}" style="position:relative;width:86px">
       <img src="${esc(u)}" alt="" style="width:86px;height:110px;object-fit:cover;border-radius:8px;border:${i === 0 ? "3px solid #7b3fa0" : "1px solid var(--line)"}">
       <div style="display:flex;justify-content:space-between;font-size:.75rem"><button class="ghost" data-vbmv="${i}" data-d="-1" style="min-height:24px;padding:0 6px">◀</button>${i === 0 ? "<b>cover</b>" : i + 1}<button class="ghost" data-vbmv="${i}" data-d="1" style="min-height:24px;padding:0 6px">▶</button></div>
@@ -368,7 +381,7 @@ function vbLotHtml(l) {
 function renderVb() {
   const el = document.getElementById("vbox"); if (!el) return;
   if (!vb || (!vb.items.length && !vb.lots.length)) { el.innerHTML = ""; return; }
-  const it = vb.items, lots = vb.lots, drafts = lots.filter((l) => l.status === "draft");
+  const it = vb.items, lots = vb.lots, drafts = lots.filter((l) => l.status === "draft"), bags = lots.filter((l) => l.status === "filling");
   const tiles = it.map((x) => `<label style="display:flex;flex-direction:column;gap:3px;width:118px;border:${vbPick.has(x.id) ? "3px solid #7b3fa0" : "1px solid var(--line)"};border-radius:10px;padding:5px;cursor:pointer">
       <input type="checkbox" data-vbpick="${x.id}"${vbPick.has(x.id) ? " checked" : ""}>
       ${x.photo ? `<img src="${esc(x.photo)}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:6px">` : `<div style="height:120px;display:grid;place-items:center;background:#f3eef7;border-radius:6px;font-size:2rem">${x.media ? "💿" : "📚"}</div>`}
@@ -376,17 +389,17 @@ function renderVb() {
       <span class="muted" style="font-size:.75rem">${x.value != null ? "eBay ~$" + Number(x.value).toFixed(2) : "no eBay value"}${(x.photos || []).length > 1 ? " · 📷 " + x.photos.length : ""}</span></label>`).join("");
   const lotRows = lots.map((l) => `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-top:6px">
       <button class="ghost" data-vbopen="${l.id}" style="width:100%;display:flex;justify-content:space-between;gap:8px;min-height:36px">
-        <span><b style="color:#7b3fa0">${esc(l.vnum)}</b> · ${esc(l.title || "")}</span>
-        <span>$${esc(l.price ?? "")} · ${l.status === "listed" ? "✓ listed" : l.status === "sold" ? "💰 sold" : "to list"}</span></button>
+        <span><b style="color:#7b3fa0">${esc(l.vnum)}</b> · ${esc(l.status === "filling" ? (l.vgroup || "") : (l.title || ""))}</span>
+        <span>${l.status === "filling" ? `🛍️ bag ${(l.item_rows || []).length}/${l.cap || "?"}` : `$${esc(l.price ?? "")} · ${l.status === "listed" ? "✓ listed" : l.status === "sold" ? "💰 sold" : "to list"}`}</span></button>
       ${vbOpen === l.id ? vbLotHtml(l) : ""}</div>`).join("");
   el.innerHTML = `<section class="card" aria-label="Vinted box" style="border:2px solid #7b3fa0">
     <button class="ghost" id="vbtog" style="width:100%;display:flex;justify-content:space-between;align-items:center;min-height:40px">
       <h2 style="margin:0;color:#7b3fa0">🛍️ Vinted box <span class="muted" style="font-size:.85rem;font-weight:400">(your personal Vinted · one listing a day)</span></h2>
-      <span>${it.length} item${it.length === 1 ? "" : "s"} · ${drafts.length} lot${drafts.length === 1 ? "" : "s"} to list ${vbShow ? "▲" : "▼"}</span></button>
+      <span>${it.length} item${it.length === 1 ? "" : "s"} · ${bags.length ? bags.length + " bag" + (bags.length === 1 ? "" : "s") + " filling · " : ""}${drafts.length} lot${drafts.length === 1 ? "" : "s"} to list ${vbShow ? "▲" : "▼"}</span></button>
     ${vbShow ? `${vbMsg ? `<div style="margin-top:6px;font-weight:700">${esc(vbMsg)}</div>` : ""}
     ${it.length ? `<div style="font-weight:700;margin-top:8px">Pick the items that go together, then make a lot (pick 1 to list it alone):</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${tiles}</div>
-      <button id="vbmake" style="margin-top:8px;background:#7b3fa0;color:#fff"${vbPick.size ? "" : " disabled"}>📦 Make a lot from ${vbPick.size} picked</button>` : '<div class="muted" style="margin-top:6px">Nothing waiting — tap 🛍️ Vinted box in the Quick check to add items.</div>'}
+      <button id="vbmake" style="margin-top:8px;background:#7b3fa0;color:#fff"${vbPick.size ? "" : " disabled"}>📦 Make a lot from ${vbPick.size} picked</button>` : (bags.length ? '<div class="muted" style="margin-top:6px">New items go straight into their bags (below). Anything you take out of a bag waits here.</div>' : '<div class="muted" style="margin-top:6px">Nothing waiting — tap 🛍️ Vinted box in the Quick check to add items.</div>')}
     ${lots.length ? `<div style="font-weight:700;margin-top:12px">Lots</div>${lotRows}` : ""}` : ""}</section>`;
   wireVb(el);
 }
@@ -411,6 +424,12 @@ function wireVb(el) {
     } catch (e) { vbMsg = "That didn't save. Try again."; }
     await loadVb(true); };
   el.querySelectorAll("[data-vbwrite]").forEach((b) => b.onclick = () => vbWrite(Number(b.dataset.vbwrite)));
+  el.querySelectorAll("[data-vbout]").forEach((b) => b.onclick = async () => { const l = vbCur(); if (!l) return; b.textContent = "Taking out…";
+    try { await q(`select pipeline.vinted_lot_remove(${l.id}, ${Number(b.dataset.vbout)})`); vbMsg = "Taken out — it's waiting in the box above."; } catch (_) { vbMsg = "That didn't save."; }
+    await loadVb(true); });
+  el.querySelectorAll("[data-vbready]").forEach((b) => b.onclick = async () => { const id = Number(b.dataset.vbready);
+    try { const r = await q(`select pipeline.vinted_lot_ready(${id}) as r`); const o = r[0] && r[0].r; if (!o || !o.ok) { vbMsg = (o && o.error) || "That didn't work."; await loadVb(true); return; } } catch (_) { vbMsg = "That didn't save."; await loadVb(true); return; }
+    await loadVb(true); await vbWrite(id); });
   el.querySelectorAll("[data-vbopen]").forEach((b) => b.onclick = () => { const id = Number(b.dataset.vbopen); vbOpen = vbOpen === id ? null : id; renderVb(); });
   el.querySelectorAll("[data-vbcopy]").forEach((b) => b.onclick = async () => { const t = el.querySelector("#" + b.dataset.vbcopy); try { await navigator.clipboard.writeText(t.value); b.textContent = "✓ Copied"; } catch (_) { t.select(); b.textContent = "Selected - copy it"; } });
   const cur = vbCur();
