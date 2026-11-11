@@ -1,0 +1,4 @@
+-- 2026-11-10 Papa Duck: multi-copy sale -> lower the AbeBooks count automatically.
+-- Trigger abe_qty_after_sale (after insert on pipeline.sales_done): when sales-cloud records abe "kept:N", calls abe-qty
+-- {pd, lid (audit.live AbeBooks ref), qty N} via pg_net. No listing id -> Launch Pad 'need' alert. Past kept:N sales already matched.
+-- (function body: see Supabase pipeline.abe_qty_after_sale)
