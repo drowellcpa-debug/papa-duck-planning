@@ -1808,18 +1808,29 @@ $("blast").onclick = async () => {
 };
 
 // ---------- 🚀 Blast off to Launch Pad (2026-10-24): same prep as Blast off, then tonight's questions open on the Launch Pad ----------
-$("lpblast").onclick = async () => {
-  if (!(lpVerified && lpVerified.ok)){
-    lpBusy = true; $("lpblast").textContent = "🔍 Checking tonight's prices…"; $("lpblast").disabled = true;
-    try {
-      const rows = await sql("select pipeline.quick_price_verify() as r");
-      lpVerified = rows[0] && rows[0].r; lpBusy = false; await load(true);
-      if (lpVerified && lpVerified.ok) setNotice("info", "<b>✅ Prices checked</b> (" + esc(lpVerified.checked_at) + "): " + lpVerified.books + " book" + (lpVerified.books === 1 ? "" : "s") + ", " + lpVerified.qc_used + " using your Quick check price. Tap <b>Send to the Launch Pad</b> when you're ready.");
-      else setNotice("warn", "<b>Still checking prices for " + esc(((lpVerified && lpVerified.pending_pd) || []).join(", ")) + ".</b> Give it a few minutes, then tap again.");
-      setTimeout(() => { lpVerified = null; render(); }, 10 * 60 * 1000);   // a check is good for 10 minutes
-    } catch (e){ lpBusy = false; const x = explain(e, SUPA); setNotice(x.kind, x.text); render(); }
+// v62c (Papa Duck 2026-11-10): "it did not tell me still pricing, there should be a timer or something showing me that it is in process".
+//   While any book is still being priced the button itself says so, counts down, and re-checks on its own until it turns into Send.
+let lpTimer = null;
+async function lpVerify(){
+  clearInterval(lpTimer); lpBusy = true; $("lpblast").disabled = true; $("lpblast").textContent = "🔍 Checking tonight's prices…";
+  try {
+    const rows = await sql("select pipeline.quick_price_verify() as r");
+    lpVerified = rows[0] && rows[0].r; lpBusy = false; await load(true);
+  } catch (e){ lpBusy = false; const x = explain(e, SUPA); setNotice(x.kind, x.text); render(); return; }
+  if (lpVerified && lpVerified.ok){
+    setNotice("info", "<b>✅ Prices checked</b> (" + esc(lpVerified.checked_at) + "): " + lpVerified.books + " book" + (lpVerified.books === 1 ? "" : "s") + ", " + lpVerified.qc_used + " using your Quick check price. Tap <b>Send to the Launch Pad</b>.");
+    render(); setTimeout(() => { lpVerified = null; render(); }, 10 * 60 * 1000);   // a check is good for 10 minutes
     return;
   }
+  const who = ((lpVerified && lpVerified.pending_pd) || []).join(", ");
+  setNotice("warn", "<b>⏳ Still pricing " + esc(who) + ".</b> The button re-checks on its own and turns into Send when they're done.");
+  let left = 15; lpBusy = true; $("lpblast").disabled = true;
+  const show = () => { $("lpblast").textContent = "⏳ Still pricing " + who + " · checking again in " + left + "s"; };
+  show();
+  lpTimer = setInterval(() => { left--; if (left <= 0) lpVerify(); else show(); }, 1000);
+}
+$("lpblast").onclick = async () => {
+  if (!(lpVerified && lpVerified.ok)){ lpVerify(); return; }
   lpVerified = null; lpConfirm = false; lpBusy = true; $("lpblast").textContent = "Gathering tonight's books…"; $("lpblast").disabled = true;
   try {
     const rows = await sql("select pipeline.launch_create() as r");
