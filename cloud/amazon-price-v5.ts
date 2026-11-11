@@ -14,7 +14,7 @@
 // v5 (2026-11-11, PD-3278 "Can you fix the Amazon price issue"): reinstated at the SAME $9.99 and Amazon pulled it again 11 hours later.
 //   A pricing-error listing is now put back BELOW what Amazon refused: Amazon's own reference price when its message gives one,
 //   else 20% under the refused price (rounded down to .99). Never under the Amazon minimum - if even the minimum is refused,
-//   it is left off and Papa Duck gets one alert to decide (lower the minimum for this book, or take it off Amazon).
+//   it is taken off Amazon (stays on eBay) - Papa Duck: "Amazon still upset take off book that they dont like".
 // Only touches our MERCHANT listings. FBA is never touched.
 // Results -> pipeline.amazon_prices. POST {} = do up to `max` books not priced in the last `hours` (default 40 / 6h);
 // {"dry":true} = work out the prices, change nothing; {"pds":["PD-1"]} = just these. Auth: x-backup-secret.
@@ -101,8 +101,14 @@ Deno.serve(async (req) => {
               }
               if (want < minAmz) {
                 if (refused <= minAmz + 0.005) {
-                  out.state = "flag"; out.result = `Amazon refuses even the $${minAmz.toFixed(2)} minimum - left off Amazon, Papa Duck to decide`;
-                  if (!dry) await sql`select pipeline.alert_add('Amazon', ${r.pd + ": Amazon says even $" + minAmz.toFixed(2) + " is too high"}, ${"Amazon keeps switching this book off for a pricing error at your $" + minAmz.toFixed(2) + " Amazon minimum. Your call: let Claude list it lower on Amazon, or take it off Amazon (it stays on eBay)."}, ${r.pd}, null, 'question', ${"amzpricemin:" + r.pd})`.catch(() => null);
+                  // Papa Duck 2026-11-11 (PD-3278): "Amazon still upset take off book that they dont like" -> take it off Amazon (stays on eBay).
+                  if (dry) { out.state = "dry"; out.result = `Amazon refuses even the $${minAmz.toFixed(2)} minimum - would take it off Amazon`; }
+                  else {
+                    const del = await api("DELETE", path + "?" + new URLSearchParams({ marketplaceIds: MKT }));
+                    out.state = del.j.status === "ACCEPTED" ? "removed" : "error";
+                    out.result = del.j.status === "ACCEPTED" ? `Amazon refuses even the $${minAmz.toFixed(2)} minimum - taken off Amazon (stays on eBay)` : "tried to take it off Amazon, refused: " + del.raw.slice(0, 160);
+                    if (out.state === "removed") await sql`select pipeline.alert_add('Amazon', ${r.pd + ": taken off Amazon"}, ${"Amazon kept switching it off for a pricing error, even at your $" + minAmz.toFixed(2) + " minimum. Taken off Amazon - it stays on eBay. Nothing to do."}, ${r.pd}, null, 'handled', ${"amzpricemin:" + r.pd})`.catch(() => null);
+                  }
                 }
                 want = minAmz;
               }
