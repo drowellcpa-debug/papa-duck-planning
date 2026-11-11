@@ -4,3 +4,4 @@
 --   pipeline.title_words(t)  - significant words (numbers kept, so Vol. 3 != Vol. 4)
 --   pipeline.title_overlap(draft, scan) - share of the draft title's words found in the scan title (>= 0.75 matches;
 --   a one-word title also needs the artist's words).  Full SQL applied as migration vinted_match_word_overlap.
+-- 2026-11-11 later: no time limit on matching ("they should be saved indefinitely") - vinted_match uses x.created_at <= d.created_at.
