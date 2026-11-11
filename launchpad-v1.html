@@ -619,8 +619,9 @@ function alertCard(alerts = lpAlertsNoGw()) {
   // v47 (Papa Duck 2026-11-08): "my inbox is getting too overwhelming" - grouped under icon headers with a count, minimized until tapped;
   // buyer messages get 💬 (not the ❓ that looked like a to-do); an answered buyer message shows the question with my reply nested under it.
   const isMsg = (a) => /message/i.test(a.source || "") || /^(THEY ASKED|Answered )/.test(a.detail || a.title || "");
+  // v60 (Papa Duck 2026-11-10): "can you add that to the buy zone add vinted and the email there" - 🟢 Vinted offer BUYs (with the email link) sit in Buy zone.
   // v48 (Papa Duck 2026-11-08): "keep buy zones on their own icon and show me how many in the header" + "make it Claude questions and claude todo's"
-  const grpOf = (a) => lvl(a.kind) === 0 ? "urgent" : /bargain duck/i.test(a.source || "") ? "buy" : a.source === "Unrestrict" && a.kind !== "handled" ? "unrestrict" : isMsg(a) ? (a.kind === "handled" ? "answered" : "buyer")
+  const grpOf = (a) => lvl(a.kind) === 0 ? "urgent" : (/bargain duck/i.test(a.source || "") || (a.source === "Vinted" && /^🟢/.test(a.title || ""))) ? "buy" : a.source === "Unrestrict" && a.kind !== "handled" ? "unrestrict" : isMsg(a) ? (a.kind === "handled" ? "answered" : "buyer")
     : /^to-?do/i.test(a.source || "") ? "todo" : a.kind === "question" ? "claudeq" : lvl(a.kind) === 1 ? "need" : a.kind === "handled" ? "handled" : "fyi";
   const GROUPS = [
     ["urgent", "🚨", "Urgent", "var(--red)"],
@@ -646,7 +647,7 @@ function alertCard(alerts = lpAlertsNoGw()) {
   const item = (a) => { const L = look(a), tag = "";   // the group header already says what it is
     return `<div class="row" style="justify-content:space-between;border:${L.b};background:${L.bg};border-radius:10px;padding:8px 12px">
         <span style="flex:1;min-width:200px"><b>${tag}${esc(a.title)}</b><br>${nested(a)}
-          <span class="muted" style="font-size:.85rem;display:block;margin-top:2px">${esc(a.source)} · ${new Date(a.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${a.link ? ` · <a href="${esc(a.link)}" target="_blank" rel="noopener">${grpOf(a) === "unrestrict" ? "🔓 Request approval ↗" : "open"}</a>` : ""}</span></span>
+          <span class="muted" style="font-size:.85rem;display:block;margin-top:2px">${esc(a.source)} · ${new Date(a.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${a.link ? ` · <a href="${esc(a.link)}" target="_blank" rel="noopener">${grpOf(a) === "unrestrict" ? "🔓 Request approval ↗" : a.source === "Vinted" ? "📧 open the Vinted email" : "open"}</a>` : ""}</span></span>
         ${offerBtns(a)}${grpOf(a) === "unrestrict" ? (/⏳/.test(a.title || "") ? `<span class="pill running" style="white-space:nowrap">⏳ Waiting for Claude to verify</span>`
           : (/📨/.test(a.title || "") ? `<span class="pill" style="white-space:nowrap">📨 Applied</span>` : `<button class="ghost" data-unapp="${a.id}">📨 I applied (not approved yet)</button>`) + `<button data-unok="${a.id}">✅ I got approved</button>`)
           : `<button class="${alertArm === a.id ? "" : "ghost"}" data-alert="${a.id}">${alertArm === a.id ? "Tap again: done" : grpOf(a) === "answered" ? "✓ I read it" : lvl(a.kind) === 2 ? "Got it" : "✓ Done"}</button>`}</div>`; };
