@@ -579,6 +579,12 @@ function toast(t){
 function list(){ return example ? SAMPLE : drafts; }
 function current(){ return list().find((d) => d.id === view.id); }
 
+// v62: quick answers for CDs / tapes / records / VHS / DVDs, and a Skip on every question
+const MEDIA_OK = "No scratches, not tested", SKIP_ANS = "Skip";
+function isMedia(d){
+  const id = merged(d).ident || {};
+  return /\b(cd|cds|cassette|cassettes|8[- ]?track|stereo 8|vinyl|lp|record album|vhs|dvd|blu-?ray)\b/i.test([id.title, id.format, id.subtitle].join(" "));
+}
 // ---------- render ----------
 function render(){
   const all = list();
@@ -1046,6 +1052,12 @@ function renderDetail(d){
       if (isStd(q)) return "";
       const a = String(m.answers[i] || "");
       if (q.options.indexOf("Other") === -1) q = Object.assign({}, q, { options: q.options.concat("Other") });   // always a way out
+      // v62 (Papa Duck 2026-11-10): "no scratches not tested needs to be added to the question selection I have to type it everytime,
+      //   it should be able to skip on the questions as well"
+      const extra = [];
+      if (isMedia(d) && q.options.indexOf(MEDIA_OK) === -1) extra.push(MEDIA_OK);
+      if (q.options.indexOf(SKIP_ANS) === -1) extra.push(SKIP_ANS);
+      if (extra.length) q = Object.assign({}, q, { options: extra.slice(0, -1).concat(q.options, extra.slice(-1)) });
       const isOther = a && q.options.indexOf(a) === -1;
       return '<div class="q' + (a.trim() ? "" : " need") + '"><div class="qt">' + esc(q.q) + '</div><div class="seg">' +
         q.options.map((o) => {
