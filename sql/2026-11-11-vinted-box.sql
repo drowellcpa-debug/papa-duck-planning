@@ -7,3 +7,8 @@ create table if not exists pipeline.vinted_lots (id bigint primary key default n
   created_at timestamptz default now(), listed_at timestamptz, sold_at timestamptz);
 -- functions (see Supabase): pipeline.vinted_box(), pipeline.vinted_lot_make(bigint[]), pipeline.vinted_lot_save(bigint, jsonb)
 -- station-api v7d stores the Quick check photo on 🛍️ Vinted box (storage p/vinted/<pile id>.jpg -> cleanup_piles.photo_url).
+
+-- Same day ("If I mark it Vinted it needs to be able to move the folders to another area so I can drag ... all the pictures"):
+-- cleanup_piles.photos text[] + draft_id. ui_save action 'vinted' (status dont_list, channel 'vinted'); trigger drafts_to_vinted puts the
+-- draft in the Vinted box with ALL its photos (reopen takes it out). quick_price_apply: a Station draft whose Quick check went to the
+-- Vinted box moves there automatically. vinted_box returns photos; vinted_lot_make uses every photo of every item. Drafts: 🛍️ Vinted box button.

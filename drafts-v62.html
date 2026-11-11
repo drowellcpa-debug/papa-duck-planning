@@ -933,7 +933,7 @@ function openDraft(id){
 }
 
 const CHANNELS = [["both","eBay + AbeBooks"],["ebay","eBay only"],["abe","AbeBooks only"],["amazon","Amazon only"],["fba","📦 Amazon FBA"]];
-const NOT_LISTING = { goodwill: "Goodwill", trash: "Throw away", dont_list: "Don't list" };
+const NOT_LISTING = { goodwill: "Goodwill", trash: "Throw away", dont_list: "Don't list", vinted: "Vinted box" };
 const DETAIL_FIELDS = [
   ["title","Title"],["subtitle_or_series","Subtitle / series"],["author","Author"],["publisher","Publisher"],["publication_year","Year"],
   ["isbn","ISBN"],["format","Format"],["edition_printing","Edition / printing"],["page_count_if_visible","Pages"],
@@ -1014,7 +1014,7 @@ function renderDetail(d){
              (fb ? " 🔒" : ff ? (ff.level === "good" ? " 🟢" : ff.level === "maybe" ? " 🟡" : " 🔴") : "") + "</button>"; }).join("") + "</div>";
     if (m.channel === "fba") h += '<div class="fbabox"><div class="fw" style="color:var(--ink)"><b>📦 Amazon FBA only.</b> At blast off it is listed on Amazon (fulfilled by Amazon) and its sticker waits in <b>Dispatch → Ready to print</b>. It does not go to eBay, AbeBooks or Etsy.</div>' + fbaFitHtml(d) + '</div>';
     else if (m.channel !== "amazon") h += amzAddHtml(d, locked);
-    if (!locked) h += '<div class="seg" style="margin-top:8px" role="group" aria-label="Not listing"><button type="button" class="notlist" data-not="dont_list">Don\'t list this book</button><button type="button" class="notlist" data-not="goodwill">Goodwill</button><button type="button" class="notlist" data-not="trash">Throw away</button></div>';
+    if (!locked) h += '<div class="seg" style="margin-top:8px" role="group" aria-label="Not listing"><button type="button" class="notlist" data-not="dont_list">Don\'t list this book</button><button type="button" class="notlist" data-not="goodwill">Goodwill</button><button type="button" class="notlist" data-not="vinted" style="color:#7b3fa0;border-color:#7b3fa0">🛍️ Vinted box</button><button type="button" class="notlist" data-not="trash">Throw away</button></div>';
     if (m.channel !== "amazon" && m.channel !== "fba") h += etsyBoxHtml(d);
     h += amzBoxHtml(d);
     if (notConfirm && !locked) h += confirmHtml();
@@ -1281,7 +1281,7 @@ function checkHtml(d){
     h += '<div class="actions"><button class="btn primary" id="send" type="button"' + (miss.length ? " disabled" : "") + ">Send" + (normPd(m.pd) ? " as " + esc(normPd(m.pd)) : "") + "</button>" +
          '<button class="btn" id="savelater" type="button">Save for later</button></div>';
   } else if (d.status === "drafted" && id.do_not_list){
-    h += '<div class="actions"><button class="btn danger notlist" data-not="dont_list" type="button">Mark Don\'t list</button><button class="btn notlist" data-not="goodwill" type="button">Goodwill</button><button class="btn notlist" data-not="trash" type="button">Throw away</button></div>';
+    h += '<div class="actions"><button class="btn danger notlist" data-not="dont_list" type="button">Mark Don\'t list</button><button class="btn notlist" data-not="goodwill" type="button">Goodwill</button><button class="btn notlist" data-not="vinted" type="button" style="color:#7b3fa0;border-color:#7b3fa0">🛍️ Vinted box</button><button class="btn notlist" data-not="trash" type="button">Throw away</button></div>';
   } else if (d.status === "sent" && !d.built_at){
     h += '<div class="actions"><button class="btn" id="reopen" type="button">Reopen to change</button></div>';
   } else if (d.status === "fba"){
@@ -1297,7 +1297,7 @@ function checkHtml(d){
 
 function confirmHtml(){
   return '<div class="confirm"><b>' + esc(NOT_LISTING[notConfirm]) + '?</b> ' +
-     (notConfirm === "goodwill" ? "It leaves the list and goes in the Goodwill box." : notConfirm === "trash" ? "It leaves the list and goes in the trash." : "It leaves the list and never goes to eBay or AbeBooks.") +
+     (notConfirm === "vinted" ? "It leaves the store list and goes to your 🛍️ Vinted box on the Launch Pad, with all its photos." : notConfirm === "goodwill" ? "It leaves the list and goes in the Goodwill box." : notConfirm === "trash" ? "It leaves the list and goes in the trash." : "It leaves the list and never goes to eBay or AbeBooks.") +
      '<div class="actions"><button class="btn danger notyes" type="button">Yes, ' + esc(NOT_LISTING[notConfirm].toLowerCase()) + '</button><button class="btn notno" type="button">Keep it</button></div></div>';
 }
 function showPhoto(d, i){
@@ -1512,8 +1512,8 @@ async function doSave(d, action){
     if (action === "send"){
       toast("Sent " + (r && r.pd ? r.pd : "") + ".");
       tab = d.source === "station" ? "station" : "check"; view = { mode: "list", id: null }; render(); window.scrollTo(0, 0);   // back to the list it came from
-    } else if (action === "dont_list" || action === "goodwill" || action === "trash"){
-      toast(action === "goodwill" ? "Goodwill box." : action === "trash" ? "Marked throw away." : "Marked Don't list.");
+    } else if (action === "dont_list" || action === "goodwill" || action === "trash" || action === "vinted"){
+      toast(action === "vinted" ? "🛍️ In your Vinted box (Launch Pad), with all its photos." : action === "goodwill" ? "Goodwill box." : action === "trash" ? "Marked throw away." : "Marked Don't list.");
       tab = d.source === "station" ? "station" : "check"; view = { mode: "list", id: null }; render(); window.scrollTo(0, 0);
     }
     else if (action === "reopen"){ toast("Reopened."); openDraft(d.id); }

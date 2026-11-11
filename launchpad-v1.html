@@ -337,7 +337,9 @@ const VB_COND = ["New with tags", "New without tags", "Very good", "Good", "Sati
 function vbLotHtml(l) {
   const ph = (l.photos || []).map((u, i) => `<div draggable="true" data-vbph="${i}" style="position:relative;width:86px">
       <img src="${esc(u)}" alt="" style="width:86px;height:110px;object-fit:cover;border-radius:8px;border:${i === 0 ? "3px solid #7b3fa0" : "1px solid var(--line)"}">
-      <div style="display:flex;justify-content:space-between;font-size:.75rem"><button class="ghost" data-vbmv="${i}" data-d="-1" style="min-height:24px;padding:0 6px">◀</button>${i === 0 ? "<b>cover</b>" : i + 1}<button class="ghost" data-vbmv="${i}" data-d="1" style="min-height:24px;padding:0 6px">▶</button></div></div>`).join("");
+      <div style="display:flex;justify-content:space-between;font-size:.75rem"><button class="ghost" data-vbmv="${i}" data-d="-1" style="min-height:24px;padding:0 6px">◀</button>${i === 0 ? "<b>cover</b>" : i + 1}<button class="ghost" data-vbmv="${i}" data-d="1" style="min-height:24px;padding:0 6px">▶</button></div>
+      <a href="${esc(u)}" target="_blank" rel="noopener" style="font-size:.75rem;display:block;text-align:center">⤓ open to save</a>
+      <button class="ghost" data-vbrm="${i}" title="Leave this photo out" style="position:absolute;top:2px;right:2px;min-height:22px;padding:0 6px;background:#fff">✕</button></div>`).join("");
   const val = (l.item_rows || []).reduce((t, x) => t + Number(x.value || 0), 0);
   const row = (n, lab, inner) => `<div style="display:grid;grid-template-columns:28px 1fr;gap:6px;align-items:start;margin-top:8px"><b style="color:#7b3fa0">${n}</b><div><div style="font-weight:700;font-size:.9rem">${lab}</div>${inner}</div></div>`;
   const copy = (id) => `<button class="ghost" data-vbcopy="${id}" style="min-height:28px;padding:0 10px;margin-top:3px">📋 Copy</button>`;
@@ -346,7 +348,7 @@ function vbLotHtml(l) {
       <span style="font-size:1.6rem;font-weight:900;background:#fff3b0;border:2px dashed #7b3fa0;padding:2px 12px;border-radius:6px">🏷️ ${esc(l.vnum)}</span>
       <span class="muted" style="font-size:.85rem">Write <b>${esc(l.vnum)}</b> on painter's tape and stick it on the lot.</span></div>
     <div class="muted" style="font-size:.82rem;margin-top:6px">Fill Vinted's "Sell an item" screen in this order (if a field looks different on Vinted, tell Claude):</div>
-    ${row("1", "Photos <span class='muted' style='font-weight:400'>(drag or ◀ ▶ to order · first = cover · a photo of the whole lot together sells best)</span>", `<div id="vbph" style="display:flex;gap:8px;flex-wrap:wrap">${ph || '<span class="muted">No photos saved — snap the lot together on your phone.</span>'}</div>`)}
+    ${row("1", `Photos <span class="muted" style="font-weight:400">(${(l.photos || []).length} · drag or ◀ ▶ to order · ✕ leaves one out · first = cover · Vinted takes up to 20${(l.photos || []).length > 20 ? ' - <b style="color:var(--red)">pick your best 20</b>' : ""})</span>`, `<div id="vbph" style="display:flex;gap:8px;flex-wrap:wrap">${ph || '<span class="muted">No photos saved — snap the lot together on your phone.</span>'}</div>`)}
     ${row("2", "Title", `<input id="vbt" value="${esc(l.title || "")}" maxlength="100" style="width:100%">${copy("vbt")}`)}
     ${row("3", "Describe your item", `<textarea id="vbd" rows="7" style="width:100%">${esc(l.description || "")}</textarea>${copy("vbd")}`)}
     ${row("4", "Category", `<input id="vbc" value="${esc(l.category || "")}" style="width:100%">`)}
@@ -368,7 +370,7 @@ function renderVb() {
       <input type="checkbox" data-vbpick="${x.id}"${vbPick.has(x.id) ? " checked" : ""}>
       ${x.photo ? `<img src="${esc(x.photo)}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:6px">` : `<div style="height:120px;display:grid;place-items:center;background:#f3eef7;border-radius:6px;font-size:2rem">${x.media ? "💿" : "📚"}</div>`}
       <span style="font-size:.8rem;font-weight:700;line-height:1.2">${esc((x.title || "?").slice(0, 60))}</span>
-      <span class="muted" style="font-size:.75rem">${x.value != null ? "eBay ~$" + Number(x.value).toFixed(2) : "no eBay value"}</span></label>`).join("");
+      <span class="muted" style="font-size:.75rem">${x.value != null ? "eBay ~$" + Number(x.value).toFixed(2) : "no eBay value"}${(x.photos || []).length > 1 ? " · 📷 " + x.photos.length : ""}</span></label>`).join("");
   const lotRows = lots.map((l) => `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-top:6px">
       <button class="ghost" data-vbopen="${l.id}" style="width:100%;display:flex;justify-content:space-between;gap:8px;min-height:36px">
         <span><b style="color:#7b3fa0">${esc(l.vnum)}</b> · ${esc(l.title || "")}</span>
@@ -402,6 +404,9 @@ function wireVb(el) {
     const [m] = a.splice(from, 1); a.splice(to, 0, m); l.photos = a; renderVb();
     try { await q(`select pipeline.vinted_lot_save(${l.id}, ${sqlS(JSON.stringify({ photos: a }))}::jsonb)`); } catch (_) {} };
   el.querySelectorAll("[data-vbmv]").forEach((b) => b.onclick = () => { const i = Number(b.dataset.vbmv); moveTo(i, i + Number(b.dataset.d)); });
+  el.querySelectorAll("[data-vbrm]").forEach((b) => b.onclick = async (e) => { e.preventDefault(); const l = vbCur(); if (!l) return;
+    const a = [...(l.photos || [])]; a.splice(Number(b.dataset.vbrm), 1); l.photos = a; renderVb();
+    try { await q(`select pipeline.vinted_lot_save(${l.id}, ${sqlS(JSON.stringify({ photos: a }))}::jsonb)`); } catch (_) {} });
   let dragFrom = null;
   el.querySelectorAll("[data-vbph]").forEach((d) => {
     d.ondragstart = () => { dragFrom = Number(d.dataset.vbph); };
