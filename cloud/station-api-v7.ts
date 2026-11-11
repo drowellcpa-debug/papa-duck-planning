@@ -1,3 +1,4 @@
+// v7c 2026-11-11: CDs/tapes/records/VHS not worth the store -> VINTED (personal Vinted box) instead of Goodwill.
 // v7b 2026-11-10: CDs / tapes never asked for an ISBN; UPC read from photo; media searched by name; a photo check that found nothing retries by name across all of eBay.
 // Papa Duck — Edge Function "station-api" (2026-10-21). The Book Station's back end WITHOUT the claude.ai connector.
 // Papa Duck, 2026-10-21, after a Claude connector outage stalled the Station: "yes plase" (remove the connector dependence).
@@ -116,6 +117,12 @@ Deno.serve(async (req) => {
     }
     // v2 (2026-11-09): Papa Duck "it will need to be a top of the book station app so it is the first thing I do" - QUICK CHECK before photos.
     //   Cover photo or ISBN -> Scout brain in Clean-up mode (he already owns the book) -> LIST / SELL / GOODWILL / TOSS. Read-only for listings.
+    // v7c (2026-11-11): Papa Duck "I would like to do my personal Vinted instead of Goodwill for my CDs, etc" - "no more than 1 item per day ... or a lot of CDs".
+    //   Scout only knows LIST/SELL/GOODWILL/TOSS piles, so the Vinted box (and Maybe later) are written here.
+    if (act === "pile" && ["VINTED", "MAYBE"].includes(String(b.pile))) {
+      await sql`update pipeline.cleanup_piles set pile = ${String(b.pile)} where id = ${Number(b.id) || 0}`;
+      return json({ ok: true });
+    }
     if (act === "check" || act === "pile") {
       const [pin] = await sql`select value from backup.config where key = 'scout_pin'`;
       const fwd: any = act === "pile" ? { action: "pile", id: b.id, pile: b.pile }
@@ -183,6 +190,13 @@ Deno.serve(async (req) => {
       if (act === "check" && isItem && j.list == null && (j.verdict === "GOODWILL" || j.verdict === "SELL")) {
         j.verdict = "GOODWILL";
         j.reason = `Nothing like it selling on eBay${j.ident.title ? ' (looked for "' + j.ident.title + '")' : ""}. If it has a barcode, type those numbers to double-check.`;
+      }
+      // v7c: CDs, tapes, records, VHS, DVDs that aren't worth the store go to his personal Vinted box instead of Goodwill.
+      const isMedia = isItem && /8[- ]?track|stereo 8|cassette|\btapes?\b|\bcds?\b|vinyl|\blp\b|record|vhs|dvd|blu-?ray/i.test(String(j.ident.title || "") + " " + String(j.ident.search || ""));
+      if (act === "check" && isMedia && j.verdict === "GOODWILL") {
+        j.verdict = "VINTED";
+        j.reason = (j.list != null ? `Only worth about $${Number(j.list).toFixed(2)} on eBay - not worth the store. ` : "Not worth the store. ") + "Put it in your 🛍️ Vinted box (your personal Vinted: one item or one bundle a day).";
+        if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = 'VINTED' where id = ${Number(j.pile_id)}`;
       }
       if (act === "check" && !isItem && j.list == null && (j.verdict === "GOODWILL" || j.verdict === "SELL")) {
         if (j.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },

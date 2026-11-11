@@ -4041,8 +4041,8 @@ function qcReset(){
 async function qcPile(p){
   if (!qcLast || !qcLast.pile_id) { qcReset(); return; }
   try { await api('pile', { id: qcLast.pile_id, pile: p }); } catch(e){}
-  if (qcCur) { qcCur.pile = ({GOODWILL:'Goodwill', SELL:'Sell back', MAYBE:'Maybe later', TOSS:'Toss'}[p] || p); qcRenderQ(); }
-  $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;background:#eef1f5;font-weight:700">Put in the ' + qcEsc({GOODWILL:'Goodwill', SELL:'Sell back', MAYBE:'Maybe later', TOSS:'Toss'}[p] || p) + ' pile. Next book!</div>';
+  if (qcCur) { qcCur.pile = ({GOODWILL:'Goodwill', VINTED:'Vinted box', SELL:'Sell back', MAYBE:'Maybe later', TOSS:'Toss'}[p] || p); qcRenderQ(); }
+  $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;background:#eef1f5;font-weight:700">Put in the ' + qcEsc({GOODWILL:'Goodwill', VINTED:'Vinted box', SELL:'Sell back', MAYBE:'Maybe later', TOSS:'Toss'}[p] || p) + ' pile. Next book!</div>';
   setTimeout(qcReset, 1500);
 }
 function qcCarryOn(){
@@ -4060,7 +4060,7 @@ function qcShow(r){
       '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button type="button" id="qcfamok" style="min-height:44px">OK to list</button><button type="button" id="qcfamno" style="min-height:44px">Don\'t list</button></div></div>'
     : (r.family_checked === false ? '<div style="margin-top:6px;color:var(--dim)">Family check didn\'t answer — look it over yourself.</div>' : '<div style="margin-top:6px;color:var(--ok);font-weight:600">✅ Family check: no concerns</div>');
   const v = fam ? 'CHECK' : String(r.verdict || '');
-  const look = { LIST: ['LIST IT', 'var(--ok)'], SELL: ['SELL BACK', 'var(--ship)'], GOODWILL: ['GOODWILL', 'var(--err)'], TOSS: ['TOSS', 'var(--err)'], CHECK: ['YOUR CALL', 'var(--warn)'], RETAKE: ['TRY AGAIN', 'var(--warn)'] }[v] || [v, 'var(--txt)'];
+  const look = { LIST: ['LIST IT', 'var(--ok)'], SELL: ['SELL BACK', 'var(--ship)'], GOODWILL: ['GOODWILL', 'var(--err)'], VINTED: ['🛍️ VINTED BOX', '#7b3fa0'], TOSS: ['TOSS', 'var(--err)'], CHECK: ['YOUR CALL', 'var(--warn)'], RETAKE: ['TRY AGAIN', 'var(--warn)'] }[v] || [v, 'var(--txt)'];
   const prices = '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px">' +
     '<div style="background:#eef1f5;border-radius:8px;padding:6px 8px"><div style="font-size:.8em;color:var(--dim)">List at</div><b style="font-size:1.2em">' + qcMoney(r.list) + '</b></div>' +
     '<div style="background:#eef1f5;border-radius:8px;padding:6px 8px"><div style="font-size:.8em;color:var(--dim)">eBay sold</div><b style="font-size:1.2em">' + (r.soldN != null ? r.soldN : '—') + '</b></div>' +
@@ -4070,6 +4070,7 @@ function qcShow(r){
       '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button type="button" data-qcp="MAYBE">Maybe later box</button><button type="button" data-qcp="GOODWILL">Goodwill anyway</button></div>'
     : v === 'RETAKE' ? ''
     : '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px">' +
+      (v === 'VINTED' ? '<button type="button" data-qcp="VINTED" style="min-height:48px;grid-column:1 / -1;border:3px solid #7b3fa0;color:#7b3fa0;font-weight:800">🛍️ Vinted box</button>' : '') +
       '<button type="button" data-qcp="GOODWILL" style="min-height:48px">📦 Goodwill</button><button type="button" data-qcp="SELL" style="min-height:48px">💵 Sell back</button>' +
       '<button type="button" data-qcp="MAYBE" style="min-height:48px">🕒 Maybe later box</button><button type="button" id="qclist" style="min-height:48px">📸 List it anyway</button></div>';
   $('qcout').innerHTML = '<div style="border:4px solid ' + look[1] + ';border-radius:12px;padding:12px">' +
@@ -4085,7 +4086,7 @@ function qcShow(r){
 /* v62 (Papa Duck 2026-11-10): "have it scan and list and then go to the next, keep always the 10 last ones showing in my queue with name of item
    and buy or goodwill, it needs to clear quickly automatically so I can continue to scan". Each check runs in the background; the box clears at once. */
 let qcQueue = [], qcSeq = 0;
-const QC_LOOK = { LIST: ['LIST IT', 'var(--ok)'], SELL: ['SELL BACK', 'var(--ship)'], GOODWILL: ['GOODWILL', 'var(--err)'], TOSS: ['TOSS', 'var(--err)'], CHECK: ['YOUR CALL', 'var(--warn)'], RETAKE: ['TRY AGAIN', 'var(--warn)'] };
+const QC_LOOK = { LIST: ['LIST IT', 'var(--ok)'], SELL: ['SELL BACK', 'var(--ship)'], GOODWILL: ['GOODWILL', 'var(--err)'], VINTED: ['🛍️ VINTED BOX', '#7b3fa0'], TOSS: ['TOSS', 'var(--err)'], CHECK: ['YOUR CALL', 'var(--warn)'], RETAKE: ['TRY AGAIN', 'var(--warn)'] };
 function qcRenderQ(){
   const el = $('qcq'); if (!el) return;
   if (!qcQueue.length) { el.innerHTML = ''; return; }
