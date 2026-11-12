@@ -225,6 +225,16 @@ function nightJobs() {
   for (const [c] of CH) out[c] = (ids[c] || []).filter(Boolean).map((id) => jobs.find((x) => x.id === Number(id))).filter(Boolean);
   return out;
 }
+// a night is closed when every step is closed, verify is clean on every store, and nothing is still waiting on a live store
+function nightDone(n) {
+  if (!n || n.status !== "ready_to_send") return false;
+  const nj = nightJobs(), steps = CH.filter(([c]) => nj[c].length);
+  if (!steps.length || steps.some(([c]) => jobState(nj[c]) !== "closed")) return false;
+  const v = verify; if (!v || !v.ok || !v.channels) return false;
+  const ch = Object.values(v.channels);
+  if (!ch.length || ch.some((x) => x.listed !== x.total || (x.problems || []).length)) return false;
+  return !(live || []).some((r) => r.st !== "ok");
+}
 function jobState(list) {
   if (!list.length) return "none";
   if (list.every((j) => j.status === "closed")) return "closed";
@@ -277,6 +287,15 @@ function render() {
       ${n.status === "build_failed" ? `<div class="notice bad">The build stopped: ${esc(n.meta_note || "")}</div>` : ""}
       <p style="margin:0" class="muted">${ready ? "Everything is answered. Grandpa Duck writes each book's listing details, then the eBay, AbeBooks, Etsy and Amazon files are built." : openQ.length + openR.length ? `Answer the ${openQ.length + openR.length} open item${openQ.length + openR.length === 1 ? "" : "s"} above first.` : "Check the skipped PD numbers above first."}</p>
       <div class="row"><button id="gobtn" ${ready ? "" : "disabled"}>${n.status === "build_failed" ? "Try the build again" : "Build the files"}</button></div></section>`;
+  }
+  // 2026-11-12 Papa Duck: "have the last scan confirmation close to summary once it is all cleared and listed"
+  if (nightDone(n)) {
+    $("nightline").textContent = `Night ${n.night.replace(/-.*/, "")} closed · all verified and listed`;
+    h += `<section class="card" aria-label="Night closed"><h2>✅ Night ${esc(n.night.replace(/-.*/, ""))} is closed · all cleared and listed</h2>
+      <p style="margin:0">${n.pds.length} books, ${esc(n.pds[0])} to ${esc(n.pds[n.pds.length - 1])}. Every store sent, Airtable correct, live on the stores. The summary is saved in 🚀 Blast offs below.</p>
+      <div class="row"><button class="ghost" id="startbtn">🚀 Start the next blast off</button><span class="muted" style="font-size:.9rem">or press 🚀 Blast off to Launch Pad in Drafts</span></div></section>`;
+    h += alertCard() + shipCard() + fbaTrackCard() + weekCard() + historyCard();
+    box.innerHTML = h; wire(); return;
   }
   if (building || n.status === "ready_to_send" || n.status === "dry_built") h += buildCard(n, building);
   // 4) send, one step at a time
