@@ -599,7 +599,7 @@ function render(){
   $("blast").textContent = blastConfirm ? "Yes, blast off" : "Blast off";
   $("blast").disabled = example || (!blastConfirm && waiting === 0);
   // v62 (Papa Duck 2026-11-10): "dont let the nightly blast go to the launch pad until to verify that it is checked and then it turns to send to launch pad"
-  $("lpblast").textContent = lpBusy ? $("lpblast").textContent : (lpVerified && lpVerified.ok) ? "✅ Prices checked · 🚀 Send " + waiting + " to the Launch Pad" : "🔍 Check prices, then Launch Pad";
+  $("lpblast").textContent = lpBusy ? $("lpblast").textContent : "🚀 Send " + waiting + " to the Launch Pad (checks prices first)";
   $("lpblast").disabled = example || lpBusy || (!lpConfirm && waiting === 0);
   // 2026-10-09 his ask: "I want a separate blast for amazon FBA I will get these out before my others"
   const fw = fbaWaiting();
@@ -1818,8 +1818,9 @@ async function lpVerify(){
     lpVerified = rows[0] && rows[0].r; lpBusy = false; await load(true);
   } catch (e){ lpBusy = false; const x = explain(e, SUPA); setNotice(x.kind, x.text); render(); return; }
   if (lpVerified && lpVerified.ok){
-    setNotice("info", "<b>✅ Prices checked</b> (" + esc(lpVerified.checked_at) + "): " + lpVerified.books + " book" + (lpVerified.books === 1 ? "" : "s") + ", " + lpVerified.qc_used + " using your Quick check price. Tap <b>Send to the Launch Pad</b>.");
-    render(); setTimeout(() => { lpVerified = null; render(); }, 10 * 60 * 1000);   // a check is good for 10 minutes
+    // v62d (Papa Duck 2026-11-11: "I checked the prices and sent blast off nothing goes there? did this last night as well"):
+    //   the check and the send were two taps, and the second one was easy to miss. Now ONE tap: prices check, then it sends.
+    await lpSend();
     return;
   }
   const who = ((lpVerified && lpVerified.pending_pd) || []).join(", ");
@@ -1829,8 +1830,8 @@ async function lpVerify(){
   show();
   lpTimer = setInterval(() => { left--; if (left <= 0) lpVerify(); else show(); }, 1000);
 }
-$("lpblast").onclick = async () => {
-  if (!(lpVerified && lpVerified.ok)){ lpVerify(); return; }
+$("lpblast").onclick = () => lpVerify();
+async function lpSend(){
   lpVerified = null; lpConfirm = false; lpBusy = true; $("lpblast").textContent = "Gathering tonight's books…"; $("lpblast").disabled = true;
   try {
     const rows = await sql("select pipeline.launch_create() as r");
@@ -1841,9 +1842,9 @@ $("lpblast").onclick = async () => {
       (r.reconsider ? r.reconsider + " to reconsider are waiting. " : "") +
       '<div class="act"><a class="btn primary" href="' + LAUNCH_PAD + '" target="_blank" rel="noopener">Open the Launch Pad</a></div>');
     window.scrollTo(0, 0);
-  } catch (e){ const x = explain(e, SUPA); setNotice(x.kind, x.text); }
+  } catch (e){ const x = explain(e, SUPA); setNotice(x.kind, "<b>⚠️ Didn't reach the Launch Pad.</b> " + x.text); }
   lpBusy = false; render();
-};
+}
 
 // ---------- auto refresh (prices arrive in the background) ----------
 setInterval(() => {
