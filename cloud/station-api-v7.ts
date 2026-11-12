@@ -1,3 +1,4 @@
+// v7g 2026-11-11: careful family check on every Quick check (photo too); low photo read re-checked by its plain title.
 // v7f 2026-11-11: Quick check no longer sends ex-library books worth $12+ to Goodwill - list them with the Ex-Library note.
 // v7e 2026-11-11: Vinted box item is sorted into its bag right away (vinted-sort) and the V-number is returned to the Quick check.
 // v7d 2026-11-11: Vinted box keeps the snapped photo (storage p/vinted/<id>.jpg -> cleanup_piles.photo_url).
@@ -207,6 +208,26 @@ Deno.serve(async (req) => {
         }
       }
       if (!r.ok || !j || j.ok === false || j.error) return json({ ok: false, error: (j && j.error) || ("Scout answered " + r.status) }, 502);
+      // v7g (2026-11-11, "the pocket handyman said goodwill but then I ran it again and it said list"): the photo read added a store
+      //   brand, publisher and year ("Ace Handyman-In-Your Pocket Reference Book by Sequoia Publishing 2001"), found no sold copies and
+      //   fell under the $12 minimum; the plain title found 9 sold. A photo check that comes back low with nothing sold is re-checked once
+      //   by its plain title, and the better answer is kept.
+      if (act === "check" && (fwd.images || fwd.ident) && j && j.ident && j.ident.kind !== "item" && (j.verdict === "GOODWILL" || j.verdict === "SELL") && !Number(j.soldN || 0)) {
+        const plain = String(j.ident.title || "").replace(/\s+by\s+.*$/i, "").replace(/\(.*?\)/g, "").replace(/\b(1[89]|20)\d{2}\b/g, "")
+          .replace(/\b(reference book|paperback|hardcover|edition|book)\b/gi, "").replace(/^\s*(ace|sears|true value|home depot|lowe'?s)\s+/i, "").replace(/\s{2,}/g, " ").trim();
+        if (plain.length >= 4 && plain.toLowerCase() !== String(j.ident.title || "").toLowerCase().trim()) {
+          const f3 = { action: "evaluate", mode: "cleanup", batch: fwd.batch, cost: fwd.cost,
+            ident: { ...j.ident, title: plain, isbn: "", confidence: "medium" } };
+          const r3 = await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: String(pin?.value || ""), ...f3 }) });
+          const j3 = await r3.json().catch(() => null);
+          if (r3.ok && j3 && j3.ok !== false && !j3.error && (j3.verdict === "LIST" || j3.verdict === "CHECK") && Number(j3.soldN || 0) > 0) {
+            if (j.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: j.pile_id }) }).catch(() => null);
+            r = r3; j = j3; b.read_ident = true;
+          } else if (j3 && j3.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: j3.pile_id }) }).catch(() => null);
+        }
+      }
       // v4 (2026-11-09): Spurgeon Autobiography Vol 1 ($34.99 book) came back GOODWILL because the cover photo only gave "Autobiography"
       //   and no copies were found. "Found nothing" is not "worth nothing": say so, ask for the ISBN, and take it off the Goodwill pile list.
       // v7 (2026-11-10): "it only worked on cd with the isbn but these and tapes dont have it" - CDs, tapes, records, VHS have no ISBN,
@@ -246,12 +267,14 @@ Deno.serve(async (req) => {
       }
       // Papa Duck 2026-11-09: "also family friendly check there as well". A photo check already asks it (Scout's identify);
       // an ISBN-only check looks the book up by number, so ask Claude about the title here.
-      if (act === "check" && (!b.image || b.read_isbn || b.read_ident) && j.ident && j.ident.title && !j.family) {
+      // v7g (2026-11-11, "A Separate Reality" passed the Quick check, flagged in Drafts): the careful family check now runs on EVERY
+      //   check, photo or ISBN, not only when the book was looked up by number.
+      if (act === "check" && j.ident && j.ident.title && !j.family) {
         try {
           const ar = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
             headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, messages: [{ role: "user", content:
-              `Papa Duck Homeschool is a Christian, family-friendly book shop. Would a Christian homeschool parent be surprised to find this book in the shop (erotica or sexual content, sexually suggestive cover, graphic violence or gore, heavy profanity, occult/witchcraft/horror focus, drug glorification, crude humor)? Mainstream adult fiction with some mature themes is fine unless known for explicit content.\n${JSON.stringify({ title: j.ident.title, author: j.ident.author, publisher: j.ident.publisher, year: j.ident.year })}\nRespond ONLY JSON: {"ok":true,"note":"short reason if not ok"}` }] }) });
+            body: JSON.stringify({ model: String((await sql`select value from pipeline.config where key = 'claude_model'`)[0]?.value || "claude-sonnet-4-6"), max_tokens: 200, messages: [{ role: "user", content:
+              `Papa Duck Homeschool is a Christian, family-friendly book shop. Would a Christian homeschool parent be surprised to find this book in the shop (erotica or sexual content, sexually suggestive cover, graphic violence or gore, heavy profanity, occult/witchcraft/sorcery/shamanism or New Age spirituality focus, horror focus, drug glorification including psychedelic "spiritual" drug use, crude humor)? Judge by what the book is known for, e.g. Carlos Castaneda's Don Juan books are NOT a fit. Mainstream adult fiction with some mature themes is fine unless known for explicit content.\n${JSON.stringify({ title: j.ident.title, author: j.ident.author, publisher: j.ident.publisher, year: j.ident.year })}\nRespond ONLY JSON: {"ok":true,"note":"short reason if not ok"}` }] }) });
           const aj = await ar.json();
           const txt = (aj.content || []).map((x: any) => x.text || "").join("");
           const fj = JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}") + 1));
