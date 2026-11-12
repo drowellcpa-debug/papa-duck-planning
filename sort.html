@@ -44,6 +44,13 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 18p
 .pass{background:var(--card);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
 .pass input{font-size:1.3rem;padding:12px;border:2px solid var(--line);border-radius:10px}
 .legend{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:.85rem}
+.recent{background:var(--card);border-radius:14px;padding:10px 12px;margin-top:6px}
+.recent h2{font-size:.95rem;margin:2px 0 6px}
+.rrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:.9rem}
+.rrow .dot{font-size:1.1rem}
+.rrow .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rrow .pd{font-weight:800}
+.rrow button{min-height:40px;padding:6px 10px;background:#fff;border:2px solid var(--line);font-size:.85rem}
 .legend span{border-radius:8px;color:#fff;padding:6px 8px;font-weight:700}
 @media (prefers-reduced-motion:reduce){.spin{animation:none}}
 </style>
@@ -54,11 +61,21 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 18p
 <input type="file" id="file" accept="image/*" capture="environment" hidden>
 <script>
 const API_URL = 'https://gdwxwiwckxthwcsrgywh.supabase.co/functions/v1/station-api';
-const PASS_KEY = 'pdStationPass', STK_KEY = 'pdSortNextSticker', TALLY_KEY = 'pdSortTally';
+const PASS_KEY = 'pdStationPass', STK_KEY = 'pdSortNextSticker', TALLY_KEY = 'pdSortTally', RECENT_KEY = 'pdSortRecent';
 const $ = (id) => document.getElementById(id);
 const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ls = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k, v){ try { localStorage.setItem(k, v); } catch(e){} } };
 let cur = null, tally = {};
+// 2026-11-12 Papa Duck: "if they mess up on a sticker does it give them the ability to see what they scanned in last and fix it?"
+let recent = []; try { recent = JSON.parse(ls.get(RECENT_KEY) || '[]'); } catch(e){ recent = []; }
+function remember(bin, title, pd){ if (!cur) return; recent = [{ id: cur.pile_id, bin, title: title || '', pd: pd || '' }].concat(recent.filter((r) => r.id !== cur.pile_id)).slice(0, 15); ls.set(RECENT_KEY, JSON.stringify(recent)); }
+const DOT = { LIST: '🟢', VINTED: '🟣', SELL: '🔵', GOODWILL: '⚪', TOSS: '🔴', ASK: '🟡' };
+function recentHtml(){
+  if (!recent.length) return '';
+  return `<div class="recent"><h2>Last books sorted</h2>` + recent.slice(0, 10).map((r, i) => `<div class="rrow"><span class="dot">${DOT[r.bin] || '•'}</span>
+    <span class="t">${r.pd ? `<span class="pd">${esc(r.pd)}</span> · ` : ''}${esc(r.title || '(no title)')}</span>
+    ${r.bin === 'LIST' && r.id ? `<button data-fix="${i}">✏️ ${r.pd ? 'Fix sticker' : 'Add sticker'}</button>` : ''}</div>`).join('') + `</div>`;
+}
 try { tally = JSON.parse(ls.get(TALLY_KEY) || '{}'); if (tally.day !== new Date().toDateString()) tally = { day: new Date().toDateString() }; } catch(e){ tally = { day: new Date().toDateString() }; }
 
 async function api(action, body){
@@ -91,7 +108,8 @@ function home(note){
     <div id="out">${note || `<div class="legend" style="margin-top:8px">
       <span style="background:var(--list)">🟢 LIST box + sticker</span><span style="background:var(--vinted)">🟣 VINTED bag</span>
       <span style="background:var(--sell)">🔵 SELL BACK box</span><span style="background:var(--goodwill)">⚪ GOODWILL box</span>
-      <span style="background:var(--ask)">🟡 ASK DAD box</span><span style="background:var(--toss)">🔴 SET ASIDE for Dad</span></div>`}</div>`;
+      <span style="background:var(--ask)">🟡 ASK DAD box</span><span style="background:var(--toss)">🔴 SET ASIDE for Dad</span></div>`}</div>${recentHtml()}`;
+  document.querySelectorAll('[data-fix]').forEach((b) => b.onclick = () => { const r = recent[Number(b.dataset.fix)]; cur = { pile_id: r.id }; showList(r.title, '', r.pd); });
   const inp = $('isbn'); inp.focus();
   inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const v = inp.value.replace(/[^0-9Xx]/g, ''); if (v.length >= 10) check({ isbn: v }); } };
   $('cam').onclick = () => $('file').click();
@@ -131,7 +149,7 @@ async function check(body){
   if (v === 'VINTED') {
     $('out').innerHTML = `<div class="busy"><div class="spin"></div>Finding its Vinted bag…</div>`;
     let bag = null; try { bag = await api('pile', { id: j.pile_id, pile: 'VINTED' }); } catch(e){}
-    count('VINTED');
+    count('VINTED'); remember('VINTED', title);
     return home(`<div class="res VINTED"><div class="bin">🟣 VINTED</div>
       ${bag && bag.vnum ? `<div class="what">Put it in bag</div><div class="big">${esc(bag.vnum)}</div><div class="what">${esc(bag.group || '')}</div>
         ${Number(bag.n) === 1 ? `<div>🆕 New bag: write <b>${esc(bag.vnum)}</b> on painter's tape.</div>` : ''}${bag.full ? '<div><b>✅ This bag is full now.</b></div>' : ''}`
@@ -145,17 +163,18 @@ async function check(body){
     TOSS: ['🔴 SET ASIDE', j.family ? 'Not for our shop. Set it aside for Dad.' : 'Set it aside for Dad.'],
     ASK: ['🟡 ASK DAD', 'Put it in the ASK DAD box. Dad decides this one.'],
   }[v] || ['🟡 ASK DAD', 'Put it in the ASK DAD box.'];
-  count(map[0].includes('SELL') ? 'SELL' : map[0].includes('GOODWILL') ? 'GOODWILL' : v === 'TOSS' ? 'TOSS' : 'ASK');
+  const binKey = map[0].includes('SELL') ? 'SELL' : map[0].includes('GOODWILL') ? 'GOODWILL' : v === 'TOSS' ? 'TOSS' : 'ASK';
+  count(binKey); remember(binKey, title);
   home(`<div class="res ${v === 'SELL' || v === 'GOODWILL' || v === 'TOSS' ? v : 'ASK'}"><div class="bin">${map[0]}</div><div class="what">${esc(map[1])}</div><div class="title">${esc(title)}</div></div>`);
 }
 
-function showList(title, err){
-  const next = ls.get(STK_KEY) || '';
+function showList(title, err, fixing){
+  const next = fixing ? String(fixing).replace(/\D/g, '') : (ls.get(STK_KEY) || '');
   $('app').innerHTML = `<div class="res LIST" style="margin-top:4px"><div class="bin">🟢 LIST</div>
-    <div class="what">Put the next sticker on it, then type its number.</div><div class="title">${esc(title)}</div>
+    <div class="what">${fixing ? 'Fix the sticker number for this book.' : 'Put the next sticker on it, then type its number.'}</div><div class="title">${esc(title)}</div>
     ${err ? `<div class="err">${esc(err)}</div>` : ''}
     <div class="stk"><input id="stk" inputmode="numeric" autocomplete="off" placeholder="Sticker #" value="${esc(next)}"><button id="stkgo">Save</button></div>
-    <div class="hint" style="color:#e9fff1">${next ? 'The next number on the roll is filled in. Just press Save if it matches.' : 'Type the number printed on the sticker.'}</div>
+    <div class="hint" style="color:#e9fff1">${fixing ? 'Type the number that is really on the sticker, then Save.' : next ? 'The next number on the roll is filled in. Just press Save if it matches.' : 'Type the number printed on the sticker.'}</div>
     <button class="skip" id="stkskip">No sticker right now - just put it in the LIST box</button></div>`;
   const s = $('stk'); s.focus(); s.select();
   const save = async () => {
@@ -163,13 +182,15 @@ function showList(title, err){
     $('stkgo').disabled = true; $('stkgo').textContent = 'Saving…';
     try {
       const r = await api('sticker', { id: cur.pile_id, pd });
-      const n = Number(String(r.pd).replace(/\D/g, '')); if (n) ls.set(STK_KEY, String(n + 1));
-      count('LIST');
+      const n = Number(String(r.pd).replace(/\D/g, ''));
+      if (!fixing) { if (n) ls.set(STK_KEY, String(n + 1)); count('LIST'); }
+      remember('LIST', title, r.pd);
       home(`<div class="res LIST"><div class="bin">✅ ${esc(r.pd)}</div><div class="what">Sticker saved. Put it in the LIST box.</div><div class="title">${esc(title)}</div></div>`);
-    } catch(e){ showList(title, e.message || "That didn't save. Try again."); }
+    } catch(e){ showList(title, e.message || "That didn't save. Try again.", fixing); }
   };
   $('stkgo').onclick = save; s.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } };
-  $('stkskip').onclick = () => { count('LIST'); home(`<div class="res LIST"><div class="bin">🟢 LIST box</div><div class="what">Put it in the LIST box (no sticker).</div><div class="title">${esc(title)}</div></div>`); };
+  if (fixing) $('stkskip').style.display = 'none';
+  $('stkskip').onclick = () => { count('LIST'); remember('LIST', title); home(`<div class="res LIST"><div class="bin">🟢 LIST box</div><div class="what">Put it in the LIST box (no sticker).</div><div class="title">${esc(title)}</div></div>`); };
 }
 
 showTally();
