@@ -1,0 +1,1 @@
+-- 2026-11-12 Vinted ON HOLD (his call): config vinted_on='false'. station-api v7i keeps media on GOODWILL; vinted_match and quick_price_apply's Vinted route skip while off. Turn back on: update pipeline.config set value='true' where key='vinted_on'. Bags V-0001..V-0011 (38 items) kept as they are.

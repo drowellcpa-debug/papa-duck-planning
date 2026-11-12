@@ -1,3 +1,4 @@
+// v7i 2026-11-12: Vinted on/off switch (config vinted_on).
 // v7h 2026-11-12: "sticker" action for the Sorting helper (links a pre-printed PD sticker to a Quick check).
 // v7g 2026-11-11: careful family check on every Quick check (photo too); low photo read re-checked by its plain title.
 // v7f 2026-11-11: Quick check no longer sends ex-library books worth $12+ to Goodwill - list them with the Ex-Library note.
@@ -254,7 +255,9 @@ Deno.serve(async (req) => {
       }
       // v7c: CDs, tapes, records, VHS, DVDs that aren't worth the store go to his personal Vinted box instead of Goodwill.
       const isMedia = isItem && /8[- ]?track|stereo 8|cassette|\btapes?\b|\bcds?\b|vinyl|\blp\b|record|vhs|dvd|blu-?ray/i.test(String(j.ident.title || "") + " " + String(j.ident.search || ""));
-      if (act === "check" && isMedia && j.verdict === "GOODWILL") {
+      // v7i (2026-11-12, "I think I will hold on that for now"): Vinted can be paused - config vinted_on = 'false' keeps media on GOODWILL.
+      const [von] = await sql`select value from pipeline.config where key = 'vinted_on'`;
+      if (act === "check" && isMedia && j.verdict === "GOODWILL" && String(von?.value ?? "true") !== "false") {
         j.verdict = "VINTED";
         j.reason = (j.list != null ? `Only worth about $${Number(j.list).toFixed(2)} on eBay - not worth the store. ` : "Not worth the store. ") + "Put it in your 🛍️ Vinted box (your personal Vinted: one item or one bundle a day).";
         if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = 'VINTED' where id = ${Number(j.pile_id)}`;
