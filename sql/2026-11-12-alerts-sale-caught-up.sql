@@ -1,0 +1,2 @@
+-- 2026-11-12 "was the amazon sale missed this morning": "not on To ship yet" cards close themselves once the sale is closed out.
+-- trigger alerts_sale_caught_up (before insert) + pipeline.alerts_sale_caught_up_sweep() cron pd-sale-alert-sweep */2. Applied as migration alerts_autoclear_caught_up_sales.
