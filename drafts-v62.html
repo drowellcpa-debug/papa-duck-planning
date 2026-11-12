@@ -300,6 +300,32 @@ body.nobar .wrap{padding-bottom:40px}
 .gwpanel[hidden]{display:none}
 .gwpanel .gwi{border-top:1px solid var(--line);padding-top:8px;display:grid;gap:6px}
 .chip.audwhy{max-width:360px;white-space:normal;text-align:left;line-height:1.25;border-radius:10px}
+/* v62e (Papa Duck 2026-11-11): "have the bar graph moving or the rocket ship moving so I know it is still working and then a graphic blasting off" */
+#lpanim{position:fixed;inset:0;z-index:999;display:none;place-items:center;background:rgba(10,20,14,.55)}
+#lpanim.on{display:grid}
+#lpanim .box{box-sizing:border-box;background:var(--surface);color:var(--ink);border-radius:16px;padding:22px 26px;width:min(340px,calc(100vw - 32px));text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.35);overflow:hidden;position:relative}
+#lpanim .sky{height:150px;position:relative}
+#lpanim .rk{font-size:64px;line-height:1;position:absolute;left:50%;bottom:18px;transform:translateX(-50%) rotate(-45deg);display:inline-block}
+#lpanim.work .rk{animation:lpbob .9s ease-in-out infinite}
+#lpanim .fl{position:absolute;left:50%;bottom:0;width:22px;height:26px;margin-left:-11px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
+  background:radial-gradient(circle at 50% 30%,#fff6b0,#ffb300 45%,#ff5a00 80%,transparent 82%);opacity:0}
+#lpanim.work .fl{opacity:.85;animation:lpflick .15s linear infinite alternate}
+#lpanim.go .rk{animation:lpup 1.6s cubic-bezier(.5,0,.9,.4) forwards}
+#lpanim.go .fl{opacity:1;animation:lpflame 1.6s cubic-bezier(.5,0,.9,.4) forwards}
+#lpanim .smoke{position:absolute;bottom:0;width:30px;height:30px;border-radius:50%;background:#cfd6d1;opacity:0}
+#lpanim.go .smoke{animation:lpsmoke 1.4s ease-out forwards}
+#lpanim .bar{height:12px;border-radius:6px;background:var(--sunk);overflow:hidden;margin:12px 0 6px}
+#lpanim .bar i{display:block;height:100%;width:40%;border-radius:6px;background:linear-gradient(90deg,var(--accent),#ffb300);animation:lpslide 1.1s ease-in-out infinite}
+#lpanim.go .bar i{width:100%;animation:none}
+#lpanim .msg{font-weight:800;font-size:1.05rem}
+#lpanim .sub{color:var(--muted);font-size:.85rem;margin-top:4px}
+@keyframes lpbob{0%,100%{transform:translateX(-50%) translateY(0) rotate(-45deg)}50%{transform:translateX(-50%) translateY(-8px) rotate(-45deg)}}
+@keyframes lpflick{from{transform:scaleY(.8)}to{transform:scaleY(1.15)}}
+@keyframes lpslide{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+@keyframes lpup{0%{transform:translateX(-50%) translateY(0) rotate(-45deg)}15%{transform:translateX(-52%) translateY(2px) rotate(-45deg)}100%{transform:translateX(-50%) translateY(-260px) rotate(-45deg)}}
+@keyframes lpflame{0%{transform:translateY(0) scaleY(1)}100%{transform:translateY(-245px) scaleY(2.2)}}
+@keyframes lpsmoke{0%{opacity:.8;transform:translate(0,0) scale(.5)}100%{opacity:0;transform:translate(var(--dx),-20px) scale(2.4)}}
+@media (prefers-reduced-motion:reduce){#lpanim .rk,#lpanim .fl,#lpanim .bar i,#lpanim .smoke{animation:none!important}}
 </style>
 
 <div class="wrap">
@@ -1807,16 +1833,35 @@ $("blast").onclick = async () => {
   } catch (e){ const x = explain(e, SUPA); setNotice(x.kind, x.text); render(); }
 };
 
+// ---------- v62e rocket animation (Papa Duck 2026-11-11) ----------
+function lpAnim(state, msg, sub){
+  let el = document.getElementById("lpanim");
+  if (!el){
+    el = document.createElement("div"); el.id = "lpanim"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite");
+    el.innerHTML = '<div class="box"><div class="sky">' +
+      [-40, -18, 0, 18, 40].map((dx) => '<span class="smoke" style="left:calc(50% - 15px + ' + dx + 'px);--dx:' + dx + 'px"></span>').join("") +
+      '<span class="fl"></span><span class="rk">🚀</span></div><div class="bar"><i></i></div><div class="msg"></div><div class="sub"></div></div>';
+    document.body.appendChild(el);
+    el.onclick = (e) => { if (e.target === el && el.classList.contains("go")) el.className = ""; };
+  }
+  if (!state){ el.className = ""; return; }
+  el.className = "on " + state;
+  el.querySelector(".msg").textContent = msg || "";
+  el.querySelector(".sub").textContent = sub || "";
+  if (state === "go") setTimeout(() => { if (el.classList.contains("go")) el.className = ""; }, 2600);
+}
+
 // ---------- 🚀 Blast off to Launch Pad (2026-10-24): same prep as Blast off, then tonight's questions open on the Launch Pad ----------
 // v62c (Papa Duck 2026-11-10): "it did not tell me still pricing, there should be a timer or something showing me that it is in process".
 //   While any book is still being priced the button itself says so, counts down, and re-checks on its own until it turns into Send.
 let lpTimer = null;
 async function lpVerify(){
   clearInterval(lpTimer); lpBusy = true; $("lpblast").disabled = true; $("lpblast").textContent = "🔍 Checking tonight's prices…";
+  lpAnim("work", "Checking tonight's prices…", "Still working - hang tight");
   try {
     const rows = await sql("select pipeline.quick_price_verify() as r");
     lpVerified = rows[0] && rows[0].r; lpBusy = false; await load(true);
-  } catch (e){ lpBusy = false; const x = explain(e, SUPA); setNotice(x.kind, x.text); render(); return; }
+  } catch (e){ lpBusy = false; lpAnim(null); const x = explain(e, SUPA); setNotice(x.kind, x.text); render(); return; }
   if (lpVerified && lpVerified.ok){
     // v62d (Papa Duck 2026-11-11: "I checked the prices and sent blast off nothing goes there? did this last night as well"):
     //   the check and the send were two taps, and the second one was easy to miss. Now ONE tap: prices check, then it sends.
@@ -1826,23 +1871,27 @@ async function lpVerify(){
   const who = ((lpVerified && lpVerified.pending_pd) || []).join(", ");
   setNotice("warn", "<b>⏳ Still pricing " + esc(who) + ".</b> The button re-checks on its own and turns into Send when they're done.");
   let left = 15; lpBusy = true; $("lpblast").disabled = true;
-  const show = () => { $("lpblast").textContent = "⏳ Still pricing " + who + " · checking again in " + left + "s"; };
+  const show = () => { $("lpblast").textContent = "⏳ Still pricing " + who + " · checking again in " + left + "s"; lpAnim("work", "Still pricing " + who, "Checking again in " + left + "s - it sends by itself when done"); };
   show();
   lpTimer = setInterval(() => { left--; if (left <= 0) lpVerify(); else show(); }, 1000);
 }
 $("lpblast").onclick = () => lpVerify();
 async function lpSend(){
   lpVerified = null; lpConfirm = false; lpBusy = true; $("lpblast").textContent = "Gathering tonight's books…"; $("lpblast").disabled = true;
+  lpAnim("work", "Gathering tonight's books…", "Loading the rocket");
   try {
     const rows = await sql("select pipeline.launch_create() as r");
     const r = rows[0] && rows[0].r;
     lpBusy = false; await load(true);   // reload first: load() clears the notice area
-    if (!r || !r.ok) setNotice("warn", "<b>" + esc((r && r.error) || "The Launch Pad didn't start.") + "</b>");
-    else setNotice("info", "<b>🚀 " + r.books + " book" + (r.books === 1 ? " is" : "s are") + " on the Launch Pad.</b> " + (r.questions ? r.questions + " question" + (r.questions === 1 ? "" : "s") + " and " : "") +
+    if (!r || !r.ok) { lpAnim(null); setNotice("warn", "<b>" + esc((r && r.error) || "The Launch Pad didn't start.") + "</b>"); }
+    else {
+      lpAnim("go", "🚀 Blast off! " + r.books + " book" + (r.books === 1 ? "" : "s") + " on the Launch Pad", r.questions ? r.questions + " question" + (r.questions === 1 ? "" : "s") + " waiting there" : "");
+      setNotice("info", "<b>🚀 " + r.books + " book" + (r.books === 1 ? " is" : "s are") + " on the Launch Pad.</b> " + (r.questions ? r.questions + " question" + (r.questions === 1 ? "" : "s") + " and " : "") +
       (r.reconsider ? r.reconsider + " to reconsider are waiting. " : "") +
       '<div class="act"><a class="btn primary" href="' + LAUNCH_PAD + '" target="_blank" rel="noopener">Open the Launch Pad</a></div>');
+    }
     window.scrollTo(0, 0);
-  } catch (e){ const x = explain(e, SUPA); setNotice(x.kind, "<b>⚠️ Didn't reach the Launch Pad.</b> " + x.text); }
+  } catch (e){ lpAnim(null); const x = explain(e, SUPA); setNotice(x.kind, "<b>⚠️ Didn't reach the Launch Pad.</b> " + x.text); }
   lpBusy = false; render();
 }
 
