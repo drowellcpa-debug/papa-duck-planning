@@ -1,3 +1,4 @@
+// v7f 2026-11-11: Quick check no longer sends ex-library books worth $12+ to Goodwill - list them with the Ex-Library note.
 // v7e 2026-11-11: Vinted box item is sorted into its bag right away (vinted-sort) and the V-number is returned to the Quick check.
 // v7d 2026-11-11: Vinted box keeps the snapped photo (storage p/vinted/<id>.jpg -> cleanup_piles.photo_url).
 // v7c 2026-11-11: CDs/tapes/records/VHS not worth the store -> VINTED (personal Vinted box) instead of Goodwill.
@@ -221,6 +222,13 @@ Deno.serve(async (req) => {
         j.verdict = "VINTED";
         j.reason = (j.list != null ? `Only worth about $${Number(j.list).toFixed(2)} on eBay - not worth the store. ` : "Not worth the store. ") + "Put it in your 🛍️ Vinted box (your personal Vinted: one item or one bundle a day).";
         if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = 'VINTED' where id = ${Number(j.pile_id)}`;
+      }
+      // v7f (2026-11-11, "The Sony Vision" $24.99 -> "Ex-library markings. Won't list it."): Scout's ex-library stop is a BUYING rule.
+      //   Books he already owns that are ex-library still get listed (🏷️ Ex-Library disclosed), and a price sticker can look like one.
+      if (act === "check" && j.verdict === "GOODWILL" && /^Ex-library markings/i.test(String(j.reason || "")) && j.list != null && Number(j.list) >= 12) {
+        j.verdict = "LIST";
+        j.reason = `Ex-library markings seen, but still worth about $${Number(j.list).toFixed(2)} - list it with the 🏷️ Ex-Library note. (If it's only a price sticker, list it normally.)`;
+        if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = 'LIST', reason = ${j.reason} where id = ${Number(j.pile_id)}`;
       }
       if (act === "check" && !isItem && j.list == null && (j.verdict === "GOODWILL" || j.verdict === "SELL")) {
         if (j.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
