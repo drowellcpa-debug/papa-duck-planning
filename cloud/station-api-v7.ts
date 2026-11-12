@@ -1,3 +1,4 @@
+// v7h 2026-11-12: "sticker" action for the Sorting helper (links a pre-printed PD sticker to a Quick check).
 // v7g 2026-11-11: careful family check on every Quick check (photo too); low photo read re-checked by its plain title.
 // v7f 2026-11-11: Quick check no longer sends ex-library books worth $12+ to Goodwill - list them with the Ex-Library note.
 // v7e 2026-11-11: Vinted box item is sorted into its bag right away (vinted-sort) and the V-number is returned to the Quick check.
@@ -148,6 +149,20 @@ Deno.serve(async (req) => {
         } catch (_) { /* the cron sorts it within 2 minutes */ }
       }
       return json({ ok: true });
+    }
+    // v7h (2026-11-12, Sorting helper): the family sorts ahead of Papa Duck and puts the next pre-printed PD sticker on each LIST book.
+    //   {id: pile id, pd: "3671" | "PD-3671"} links that sticker to the Quick check; a sticker already used is refused with what it's on.
+    if (act === "sticker") {
+      const pid = Number(b.id) || 0;
+      const m = String(b.pd || "").toUpperCase().replace(/\s+/g, "").match(/^(?:PD-?)?(\d{3,5}[A-Z]?)$/);
+      if (!pid || !m) return json({ ok: false, error: "Type the sticker number, like 3671" }, 400);
+      const pd = "PD-" + m[1];
+      const [dup] = await sql`select id, title from pipeline.cleanup_piles where upper(pd) = ${pd} and id <> ${pid} limit 1`;
+      if (dup && !b.force) return json({ ok: false, error: `Sticker ${pd} is already on "${String(dup.title || "another book").slice(0, 60)}" - check the number`, dup: true }, 409);
+      const [dr] = await sql`select ident->>'title' t from pipeline.drafts where upper(pd) = ${pd} limit 1`;
+      if (dr && !b.force) return json({ ok: false, error: `${pd} is already used in Drafts ("${String(dr.t || "").slice(0, 60)}") - check the number`, dup: true }, 409);
+      await sql`update pipeline.cleanup_piles set pd = ${pd}, pile = 'LIST' where id = ${pid}`;
+      return json({ ok: true, pd });
     }
     if (act === "check" || act === "pile") {
       const [pin] = await sql`select value from backup.config where key = 'scout_pin'`;

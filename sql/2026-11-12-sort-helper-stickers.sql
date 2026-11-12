@@ -1,0 +1,4 @@
+-- 2026-11-12 Sorting helper (sort.html on the Book Station site) + pre-printed PD stickers.
+-- cleanup_piles.pd (sticker on a LIST book, set by station-api action "sticker", duplicates refused);
+-- quick_price_apply now links a Station draft to its Quick check by sticker PD first (any age), then the old 3-hour ISBN/title match.
+-- Applied as migration sort_helper_sticker_link.

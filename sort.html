@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1E5B43">
+<title>Papa Duck Sorting Helper</title>
+<!-- 2026-11-12 Papa Duck: "If I had my daughter and wife sort ahead of me that would be super helpful" + pre-printed PD stickers.
+     One big scan box. The answer is a big color + the box to drop the book in. LIST books get the next sticker (number remembered,
+     +1 each time, so on a roll in order they just press Enter). Uses station-api (same passcode as the Book Station). -->
+<style>
+:root{--ink:#14201a;--muted:#5d6b63;--bg:#f4f6f3;--card:#fff;--line:#d9e0db;--brand:#1E5B43;
+  --list:#1f8a4c;--vinted:#7b3fa0;--sell:#1f6fb8;--goodwill:#6b7570;--toss:#c0392b;--ask:#c98a00}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{min-height:100vh;display:flex;flex-direction:column}
+header{background:var(--brand);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+header h1{font-size:1.15rem;margin:0}
+header .tally{font-size:.85rem;opacity:.9;text-align:right}
+main{flex:1;padding:16px;max-width:640px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.scan{display:flex;gap:8px}
+.scan input{flex:1;min-width:0;font-size:1.4rem;padding:14px;border:3px solid var(--line);border-radius:12px;background:#fff}
+.scan input:focus{outline:none;border-color:var(--brand)}
+button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 18px;cursor:pointer;min-height:56px}
+.cam{background:#fff;border:3px solid var(--line);font-size:1.5rem;padding:0 18px}
+.go{background:var(--brand);color:#fff}
+.hint{color:var(--muted);font-size:.9rem;text-align:center;margin:0}
+#out{flex:1;display:flex;flex-direction:column}
+.res{border-radius:18px;color:#fff;padding:22px 18px;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center}
+.res .bin{font-size:2.6rem;font-weight:900;line-height:1.05;letter-spacing:.5px}
+.res .what{font-size:1.15rem;font-weight:700}
+.res .title{font-size:.95rem;opacity:.9;max-width:100%;overflow-wrap:anywhere}
+.res .big{font-size:3rem;font-weight:900;background:#fff3b0;color:#4a2a63;border:3px dashed #4a2a63;border-radius:10px;padding:2px 18px}
+.LIST{background:var(--list)} .VINTED{background:var(--vinted)} .SELL{background:var(--sell)} .GOODWILL{background:var(--goodwill)}
+.TOSS{background:var(--toss)} .ASK{background:var(--ask)} .RETAKE{background:#fff;color:var(--ink);border:3px solid var(--ask)}
+.stk{display:flex;gap:8px;width:100%;max-width:420px}
+.stk input{flex:1;min-width:0;font-size:1.6rem;font-weight:800;padding:12px;border-radius:12px;border:0;text-align:center}
+.stk button{background:#fff;color:var(--list)}
+.skip{background:transparent;color:#fff;text-decoration:underline;font-weight:600;min-height:36px;padding:4px}
+.err{color:#ffe7e3;font-weight:800}
+.busy{display:flex;flex-direction:column;align-items:center;gap:12px;padding:30px 0;color:var(--muted);font-weight:700}
+.spin{width:54px;height:54px;border-radius:50%;border:6px solid var(--line);border-top-color:var(--brand);animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.pass{background:var(--card);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.pass input{font-size:1.3rem;padding:12px;border:2px solid var(--line);border-radius:10px}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:.85rem}
+.legend span{border-radius:8px;color:#fff;padding:6px 8px;font-weight:700}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</head>
+<body>
+<header><h1>🦆 Sorting Helper</h1><div class="tally" id="tally"></div></header>
+<main id="app"></main>
+<input type="file" id="file" accept="image/*" capture="environment" hidden>
+<script>
+const API_URL = 'https://gdwxwiwckxthwcsrgywh.supabase.co/functions/v1/station-api';
+const PASS_KEY = 'pdStationPass', STK_KEY = 'pdSortNextSticker', TALLY_KEY = 'pdSortTally';
+const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ls = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k, v){ try { localStorage.setItem(k, v); } catch(e){} } };
+let cur = null, tally = {};
+try { tally = JSON.parse(ls.get(TALLY_KEY) || '{}'); if (tally.day !== new Date().toDateString()) tally = { day: new Date().toDateString() }; } catch(e){ tally = { day: new Date().toDateString() }; }
+
+async function api(action, body){
+  const r = await fetch(API_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-station-pass': ls.get(PASS_KEY) || '' }, body: JSON.stringify(Object.assign({ action }, body || {})) });
+  let j = null; try { j = await r.json(); } catch(e){}
+  if (j && j.ok) return j;
+  const e = new Error((j && j.error) || ('The cloud answered ' + r.status)); e.code = j && j.error; throw e;
+}
+function count(bin){ tally[bin] = (tally[bin] || 0) + 1; ls.set(TALLY_KEY, JSON.stringify(tally)); showTally(); }
+function showTally(){
+  const n = (k) => tally[k] || 0, total = ['LIST','VINTED','SELL','GOODWILL','TOSS','ASK'].reduce((a, k) => a + n(k), 0);
+  $('tally').innerHTML = total ? `Today: <b>${total}</b> sorted<br>🟢 ${n('LIST')} · 🟣 ${n('VINTED')} · 🔵 ${n('SELL')} · ⚪ ${n('GOODWILL')}` : 'Today: 0 sorted';
+}
+
+function passScreen(msg){
+  $('app').innerHTML = `<div class="pass"><b>Type the Book Station passcode</b><span class="hint" style="text-align:left">Ask Papa Duck. You only type it once on this device.</span>
+    ${msg ? `<span style="color:var(--toss);font-weight:700">${esc(msg)}</span>` : ''}
+    <input id="pw" type="password" autocomplete="current-password"><button class="go" id="pwgo">Start sorting</button></div>`;
+  $('pw').focus();
+  const go = () => { ls.set(PASS_KEY, $('pw').value.trim()); home(); };
+  $('pwgo').onclick = go; $('pw').onkeydown = (e) => { if (e.key === 'Enter') go(); };
+}
+
+function home(note){
+  cur = null;
+  $('app').innerHTML = `
+    <div class="scan"><input id="isbn" inputmode="numeric" autocomplete="off" placeholder="Scan the barcode" aria-label="Barcode or ISBN">
+      <button class="cam" id="cam" aria-label="Take a photo">📷</button></div>
+    <p class="hint">No barcode? Tap 📷 and take a photo of the cover or the copyright page.</p>
+    <div id="out">${note || `<div class="legend" style="margin-top:8px">
+      <span style="background:var(--list)">🟢 LIST box + sticker</span><span style="background:var(--vinted)">🟣 VINTED bag</span>
+      <span style="background:var(--sell)">🔵 SELL BACK box</span><span style="background:var(--goodwill)">⚪ GOODWILL box</span>
+      <span style="background:var(--ask)">🟡 ASK DAD box</span><span style="background:var(--toss)">🔴 SET ASIDE for Dad</span></div>`}</div>`;
+  const inp = $('isbn'); inp.focus();
+  inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const v = inp.value.replace(/[^0-9Xx]/g, ''); if (v.length >= 10) check({ isbn: v }); } };
+  $('cam').onclick = () => $('file').click();
+}
+
+$('file').addEventListener('change', async () => {
+  const f = $('file').files[0]; $('file').value = ''; if (!f) return;
+  try { check({ image: await shrink(f) }); } catch(e){ home(`<div class="res RETAKE"><div class="what">That photo didn't open. Try again.</div></div>`); }
+});
+function shrink(file){
+  return new Promise((ok, bad) => {
+    const img = new Image(), u = URL.createObjectURL(file);
+    img.onload = () => { const sc = Math.min(1, 1400 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(u); ok(c.toDataURL('image/jpeg', 0.85).split(',')[1]); };
+    img.onerror = () => { URL.revokeObjectURL(u); bad(new Error('bad photo')); };
+    img.src = u;
+  });
+}
+
+async function check(body){
+  $('out').innerHTML = `<div class="busy"><div class="spin"></div>Checking this book…</div>`;
+  let j;
+  try { j = await api('check', body); }
+  catch(e){
+    if (e.code === 'bad_passcode') return passScreen('That passcode did not work.');
+    return home(`<div class="res RETAKE"><div class="bin">🔁 TRY AGAIN</div><div class="what">${esc(e.message || 'The check did not answer.')}</div></div>`);
+  }
+  cur = j;
+  const title = j.ident && j.ident.title ? j.ident.title : '';
+  let v = String(j.verdict || '').toUpperCase();
+  if (j.family) v = 'TOSS';
+  if (v === 'CHECK') v = 'ASK';
+  if (v === 'RETAKE') return home(`<div class="res RETAKE"><div class="bin">🔁 TRY AGAIN</div><div class="what">Couldn't tell which book this is.</div>
+      <div>Scan the barcode, or take a photo of the <b>copyright page</b> (the page with the small print).</div></div>`);
+  if (v === 'LIST') return showList(title);
+  if (v === 'VINTED') {
+    $('out').innerHTML = `<div class="busy"><div class="spin"></div>Finding its Vinted bag…</div>`;
+    let bag = null; try { bag = await api('pile', { id: j.pile_id, pile: 'VINTED' }); } catch(e){}
+    count('VINTED');
+    return home(`<div class="res VINTED"><div class="bin">🟣 VINTED</div>
+      ${bag && bag.vnum ? `<div class="what">Put it in bag</div><div class="big">${esc(bag.vnum)}</div><div class="what">${esc(bag.group || '')}</div>
+        ${Number(bag.n) === 1 ? `<div>🆕 New bag: write <b>${esc(bag.vnum)}</b> on painter's tape.</div>` : ''}${bag.full ? '<div><b>✅ This bag is full now.</b></div>' : ''}`
+        : `<div class="what">Put it in the Vinted box.</div>`}
+      <div class="title">${esc(title)}</div></div>`);
+  }
+  if (v === 'TOSS' || v === 'ASK') { try { if (j.pile_id) await api('pile', { id: j.pile_id, pile: 'MAYBE' }); } catch(e){} }
+  const map = {
+    SELL: ['🔵 SELL BACK', 'Put it in the SELL BACK box.'],
+    GOODWILL: ['⚪ GOODWILL', 'Put it in the GOODWILL box.'],
+    TOSS: ['🔴 SET ASIDE', j.family ? 'Not for our shop. Set it aside for Dad.' : 'Set it aside for Dad.'],
+    ASK: ['🟡 ASK DAD', 'Put it in the ASK DAD box. Dad decides this one.'],
+  }[v] || ['🟡 ASK DAD', 'Put it in the ASK DAD box.'];
+  count(map[0].includes('SELL') ? 'SELL' : map[0].includes('GOODWILL') ? 'GOODWILL' : v === 'TOSS' ? 'TOSS' : 'ASK');
+  home(`<div class="res ${v === 'SELL' || v === 'GOODWILL' || v === 'TOSS' ? v : 'ASK'}"><div class="bin">${map[0]}</div><div class="what">${esc(map[1])}</div><div class="title">${esc(title)}</div></div>`);
+}
+
+function showList(title, err){
+  const next = ls.get(STK_KEY) || '';
+  $('app').innerHTML = `<div class="res LIST" style="margin-top:4px"><div class="bin">🟢 LIST</div>
+    <div class="what">Put the next sticker on it, then type its number.</div><div class="title">${esc(title)}</div>
+    ${err ? `<div class="err">${esc(err)}</div>` : ''}
+    <div class="stk"><input id="stk" inputmode="numeric" autocomplete="off" placeholder="Sticker #" value="${esc(next)}"><button id="stkgo">Save</button></div>
+    <div class="hint" style="color:#e9fff1">${next ? 'The next number on the roll is filled in. Just press Save if it matches.' : 'Type the number printed on the sticker.'}</div>
+    <button class="skip" id="stkskip">No sticker right now - just put it in the LIST box</button></div>`;
+  const s = $('stk'); s.focus(); s.select();
+  const save = async () => {
+    const pd = s.value.trim(); if (!pd) return;
+    $('stkgo').disabled = true; $('stkgo').textContent = 'Saving…';
+    try {
+      const r = await api('sticker', { id: cur.pile_id, pd });
+      const n = Number(String(r.pd).replace(/\D/g, '')); if (n) ls.set(STK_KEY, String(n + 1));
+      count('LIST');
+      home(`<div class="res LIST"><div class="bin">✅ ${esc(r.pd)}</div><div class="what">Sticker saved. Put it in the LIST box.</div><div class="title">${esc(title)}</div></div>`);
+    } catch(e){ showList(title, e.message || "That didn't save. Try again."); }
+  };
+  $('stkgo').onclick = save; s.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } };
+  $('stkskip').onclick = () => { count('LIST'); home(`<div class="res LIST"><div class="bin">🟢 LIST box</div><div class="what">Put it in the LIST box (no sticker).</div><div class="title">${esc(title)}</div></div>`); };
+}
+
+showTally();
+if (!ls.get(PASS_KEY)) passScreen(); else home();
+</script>
+</body>
+</html>
