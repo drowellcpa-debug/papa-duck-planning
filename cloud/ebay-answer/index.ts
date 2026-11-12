@@ -1,3 +1,4 @@
+// v7 (2026-11-12): local pickup/delivery asks -> "no, but $3 off" via a Make Offer at price - $3 (held if the listing has no Best Offer).
 // v6 (2026-11-08): a reply sent with reply_to stays on the Launch Pad (📨) until Papa Duck taps Read.
 // v5 (2026-11-08): Papa Duck: "I am not going to grab books from the storage to make more pictures". The listing PHOTOS go to Claude with the
 //   question, so contents/condition questions are answered from what the photos show; if they do not show it, an honest "all I have is in the
@@ -47,7 +48,10 @@ HIS RULES (never break):
   when a page is only partly shown. NEVER guess beyond what the listing and photos show.
 - Papa Duck does NOT go back to storage to check books or take more photos (2026-11-08). If neither the listing nor the photos answer it, say kindly
   that everything he has on it is in the photos and description, and mention no-hassle returns - "send".
-- LOCAL PICKUP (Papa Duck 2026-11-06: "No local pickups"): kindly say he doesn't offer local pickup, everything ships through eBay - "send".
+- LOCAL PICKUP / LOCAL DELIVERY / "I live nearby" (Papa Duck 2026-11-12: "I dont do it but would take $3 off shipping"): kindly say he doesn't do
+  local pickup or delivery - everything ships - but he's happy to take $3 off to help with shipping. If best_offer is true: tell them to send an offer
+  for exactly local_offer_price (the listing's local_offer_price field, write it like $16.99) through the Make Offer button and he'll accept it - "send".
+  If best_offer is false: still write that reply but action "hold" (he has to set up the $3 off himself).
 - PHOTO REQUESTS (Papa Duck 2026-11-06: no extra photos): kindly say all the photos are in the listing; answer what they want to see from the listing
   text if it says (e.g. spine, cover, contents), and remind them of no-hassle returns - "send". Never promise to take or add photos.
 - Never say how many copies are in stock or that more are available (his rule CR) - "Yes, it's still available!" is enough.
@@ -118,6 +122,8 @@ Deno.serve(async (req) => {
           quantity_left: Number(pick(g, "Quantity") || 0) - Number(pick(g, "QuantitySold") || 0), best_offer: /<BestOfferEnabled>true/.test(g),
           condition: pick(g, "ConditionDisplayName"), condition_notes: un(pick(g, "ConditionDescription")), specifics: specs, description: desc,
           sale: typ === "ContactTransactionPartner" ? "this buyer already bought it" : "" };
+        // v7 (2026-11-12): local pickup/delivery asks get $3 off through Make Offer
+        const pr = Number((g.match(/<CurrentPrice[^>]*>([0-9.]+)</) || g.match(/<StartPrice[^>]*>([0-9.]+)</) || [])[1] || listing.price || 0); listing.price = pr ? pr.toFixed(2) : listing.price; listing.local_offer_price = pr > 3 ? (Math.round((pr - 3) * 100) / 100).toFixed(2) : null;
       }
       const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
         headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
@@ -142,7 +148,8 @@ Deno.serve(async (req) => {
         await sql`insert into pipeline.ebay_msgs (message_id, item_id, sender, kind, question, action, reply, why, sent_ok, error, created_at)
           values (${mid}, ${itemId}, ${sender}, ${typ}, ${body}, ${action}, ${reply}, ${why}, ${sentOk}, ${err || null}, ${created}) on conflict (message_id) do nothing`;
         const pd = /^PD-/i.test(listing.sku || "") ? String(listing.sku).toUpperCase() : null, short = String(listing.title || title).slice(0, 55);
-        if (action === "send") await sql`select pipeline.alert_add('eBay message', ${"Answered " + sender + ": " + short}, ${"THEY ASKED: " + body.slice(0, 600) + "\n\nI REPLIED: " + reply}, ${pd}, ${"https://www.ebay.com/itm/" + itemId}, 'handled', ${"ebaymsg:" + mid})`;
+        const localOffer = /local|pick ?up|deliver|nearby|near you|in town|gresham|portland/i.test(body) && listing.local_offer_price && reply.includes(String(listing.local_offer_price));
+        if (action === "send") await sql`select pipeline.alert_add('eBay message', ${"Answered " + sender + ": " + short}, ${"THEY ASKED: " + body.slice(0, 600) + "\n\nI REPLIED: " + reply + (localOffer ? "\n\n👉 If their $" + listing.local_offer_price + " offer comes in, accept it ($3 off for local)." : "")}, ${pd}, ${"https://www.ebay.com/itm/" + itemId}, 'handled', ${"ebaymsg:" + mid})`;
         if (action === "hold") await sql`select pipeline.alert_add('eBay message', ${"Needs you - " + sender + ": " + short}, ${"THEY ASKED: " + body.slice(0, 600) + "\n\nWHY IT'S YOURS: " + why + (reply ? "\n\nSUGGESTED REPLY (not sent): " + reply : "")}, ${pd}, ${"https://www.ebay.com/mesh/ord"}, 'question', ${"ebaymsg:" + mid})`;
       }
       out[action === "send" ? "sent" : action === "skip" ? "skipped" : "held"]++;
