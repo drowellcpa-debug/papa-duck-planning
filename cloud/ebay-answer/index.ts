@@ -1,4 +1,5 @@
-// v7 (2026-11-12): local pickup/delivery asks -> "no, but $3 off" via a Make Offer at price - $3 (held if the listing has no Best Offer).
+// v8 (2026-11-12): $3-off-for-local dropped the same day ("lets not make that a policy") - local pickup/delivery is just a kind no.
+// v7 (2026-11-12): local pickup/delivery asks -> "no, but $3 off" via a Make Offer at price - $3.
 // v6 (2026-11-08): a reply sent with reply_to stays on the Launch Pad (📨) until Papa Duck taps Read.
 // v5 (2026-11-08): Papa Duck: "I am not going to grab books from the storage to make more pictures". The listing PHOTOS go to Claude with the
 //   question, so contents/condition questions are answered from what the photos show; if they do not show it, an honest "all I have is in the
@@ -48,10 +49,8 @@ HIS RULES (never break):
   when a page is only partly shown. NEVER guess beyond what the listing and photos show.
 - Papa Duck does NOT go back to storage to check books or take more photos (2026-11-08). If neither the listing nor the photos answer it, say kindly
   that everything he has on it is in the photos and description, and mention no-hassle returns - "send".
-- LOCAL PICKUP / LOCAL DELIVERY / "I live nearby" (Papa Duck 2026-11-12: "I dont do it but would take $3 off shipping"): kindly say he doesn't do
-  local pickup or delivery - everything ships - but he's happy to take $3 off to help with shipping. If best_offer is true: tell them to send an offer
-  for exactly local_offer_price (the listing's local_offer_price field, write it like $16.99) through the Make Offer button and he'll accept it - "send".
-  If best_offer is false: still write that reply but action "hold" (he has to set up the $3 off himself).
+- LOCAL PICKUP / LOCAL DELIVERY / "I live nearby" (Papa Duck 2026-11-12: "lets not make that a policy I dont accept local pickups"): kindly say he
+  doesn't do local pickup or delivery - everything ships through eBay. No discount for it - "send".
 - PHOTO REQUESTS (Papa Duck 2026-11-06: no extra photos): kindly say all the photos are in the listing; answer what they want to see from the listing
   text if it says (e.g. spine, cover, contents), and remind them of no-hassle returns - "send". Never promise to take or add photos.
 - Never say how many copies are in stock or that more are available (his rule CR) - "Yes, it's still available!" is enough.
