@@ -69,7 +69,10 @@ const API_URL = 'https://gdwxwiwckxthwcsrgywh.supabase.co/functions/v1/station-a
 const PASS_KEY = 'pdStationPass', STK_KEY = 'pdSortNextSticker', TALLY_KEY = 'pdSortTally', RECENT_KEY = 'pdSortRecent', BIN_KEY = 'pdSortBin';
 // 2026-11-12 Papa Duck: "from now on ... add Bin#" - each bin holds 15-20 books, so books are found by bin, not PD order.
 let binNo = Number(ls0('pdSortBin')) || 0, binN = null, binCap = 18;
-const WHO = (() => { let w = ls0('pdSortWho'); if (!w) { w = 'sort-' + Math.random().toString(36).slice(2, 8); try { localStorage.setItem('pdSortWho', w); } catch(e){} } return w; })();
+// "it can not be reused once selected": each bin is checked out to one sorter - the page asks who is sorting once per phone
+let WHO = (ls0('pdSortWho') || '').replace(/^sort-.*/, '');
+function askWho(){ let n = ''; while (!n) { n = String(prompt("Who's sorting on this phone? (first name)") || '').trim().toLowerCase().replace(/[^a-z0-9]/g, ''); if (!n) n = 'sorter'; }
+  WHO = n; try { localStorage.setItem('pdSortWho', n); } catch(e){} }
 function ls0(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 const $ = (id) => document.getElementById(id);
 const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -109,7 +112,7 @@ function passScreen(msg){
 }
 
 function binBarHtml(){
-  if (!binNo) return `<div class="binbar"><span class="lbl">📦 Which bin are you filling?<small>Type the number on the bin</small></span><button id="binset">Set bin</button></div>`;
+  if (!binNo) return `<div class="binbar"><span class="lbl">📦 Getting your bin…<small>one moment</small></span></div>`;
   return `<div class="binbar"><span class="lbl">📦 Filling Bin ${binNo}<small>${binN == null ? 'counting…' : `${binN} of ${binCap} books`} · tap to change</small></span><button id="binplus" style="font-size:.95rem">🆕 New bin</button></div>`;
 }
 // "always give me a new one so I dont overlap" - a new bin is the next number nobody has used (shared with the Book Station)
@@ -121,12 +124,17 @@ async function newBin(){
 }
 function setBin(n){ binNo = Math.max(1, n); ls.set(BIN_KEY, String(binNo)); binN = null; loadBin(); }
 async function loadBin(){
-  if (!binNo) return;
-  try { const r = await api('bin', { bin: binNo }); binN = Number(r.n) || 0; binCap = Number(r.cap) || 18; } catch(e){}
+  if (!WHO) askWho();
+  try {
+    if (!binNo) { const m = await api('bin_mine', { who: WHO }); binNo = Number(m.bin); ls.set(BIN_KEY, String(binNo)); binN = Number(m.n) || 0; binCap = Number(m.cap) || 18; }
+    else { const r = await api('bin', { bin: binNo }); binN = Number(r.n) || 0; binCap = Number(r.cap) || 18; }
+  } catch(e){}
   const bb = document.querySelector('.binbar'); if (bb) { bb.outerHTML = binBarHtml(); wireBin(); }
 }
 function wireBin(){
-  const ask = () => { const v = prompt('Which bin number are you filling?', binNo || ''); const n = parseInt(v, 10); if (n > 0) setBin(n); };
+  const ask = async () => { const v = prompt('Which of YOUR bins are you filling? (number)', binNo || ''); const n = parseInt(v, 10); if (!(n > 0)) return;
+    try { const r = await api('bin_take', { bin: n, who: WHO }); binNo = n; ls.set(BIN_KEY, String(n)); binN = Number(r.n) || 0; binCap = Number(r.cap) || binCap; const bb = document.querySelector('.binbar'); if (bb) { bb.outerHTML = binBarHtml(); wireBin(); } }
+    catch(e){ alert(e.message || 'That bin is not yours.'); } };
   if ($('binset')) $('binset').onclick = ask;
   if ($('binplus')) $('binplus').onclick = newBin;
   const l = document.querySelector('.binbar .lbl'); if (l && binNo) { l.style.cursor = 'pointer'; l.onclick = ask; }
@@ -141,7 +149,7 @@ function home(note){
       <span style="background:var(--list)">🟢 LIST box + sticker</span><span style="background:var(--vinted)">🟣 VINTED bag</span>
       <span style="background:var(--sell)">🔵 SELL BACK box</span><span style="background:var(--goodwill)">⚪ GOODWILL box</span>
       <span style="background:var(--ask)">🟡 ASK DAD box</span><span style="background:var(--toss)">🔴 SET ASIDE for Dad</span></div>`}</div>${recentHtml()}`;
-  wireBin(); if (binNo && binN == null) loadBin();
+  wireBin(); if (binN == null) loadBin();
   document.querySelectorAll('[data-fix]').forEach((b) => b.onclick = () => { const r = recent[Number(b.dataset.fix)]; cur = { pile_id: r.id }; showList(r.title, '', r.pd, r.box); });
   const inp = $('isbn'); inp.focus();
   inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const v = inp.value.replace(/[^0-9Xx]/g, ''); if (v.length >= 10) check({ isbn: v }); } };
@@ -202,7 +210,6 @@ async function check(body){
 }
 
 function showList(title, err, fixing, fixBox){
-  if (!fixing && !binNo) { const n = parseInt(prompt('Which bin number are you filling?', '1'), 10); if (n > 0) { binNo = n; ls.set(BIN_KEY, String(n)); binN = null; } }
   const next = fixing ? String(fixing).replace(/\D/g, '') : (ls.get(STK_KEY) || '');
   $('app').innerHTML = `<div class="res LIST" style="margin-top:4px"><div class="bin">🟢 LIST</div>
     ${!fixing && binNo ? `<div class="what">Goes in</div><div class="binbig">BIN ${binNo}</div>` : ''}

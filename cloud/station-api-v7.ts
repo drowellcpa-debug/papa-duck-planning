@@ -1,4 +1,5 @@
 // v7i 2026-11-12: Vinted on/off switch (config vinted_on).
+// v7l 2026-11-12: bins checked out to one person (bin_take), bin_pd for drafts sent without a Quick check.
 // v7k 2026-11-12: shared bin numbering - bin_mine / bin_new / bin_put.
 // v7j 2026-11-12: sticker takes {bin}; action "bin" returns how full a bin is.
 // v7h 2026-11-12: "sticker" action for the Sorting helper (links a pre-printed PD sticker to a Quick check).
@@ -176,6 +177,23 @@ Deno.serve(async (req) => {
     const who = String(b.who || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 40) || "station";
     if (act === "bin_mine") { const [r] = await sql`select pipeline.bin_mine(${who}) s`; return json({ ok: true, ...r.s }); }
     if (act === "bin_new") { const [r] = await sql`select pipeline.bin_new(${who}, ${Number(b.from) > 0 ? Math.floor(Number(b.from)) : null}::int) s`; return json({ ok: true, ...r.s }); }
+    // v7l (2026-11-12, "it can not be reused once selected"): a bin is checked out to one person. bin_take {bin, who} only
+    //   returns a bin that person already has; someone else's bin or an unused old number is refused. bin_pd {pd, bin, who}
+    //   gives a Book Station draft its bin when it was sent without a Quick check.
+    if (act === "bin_take") {
+      const n = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : 0;
+      const [c] = await sql`select who from pipeline.bin_claims where bin = ${n}`;
+      if (!c) return json({ ok: false, error: `Bin ${n} isn't checked out to anyone. Tap New bin to get your next number.` }, 409);
+      if (String(c.who) !== who) return json({ ok: false, error: `Bin ${n} is checked out to ${String(c.who).replace(/^\w/, (x: string) => x.toUpperCase())}. Tap New bin for your own.` }, 409);
+      const [r] = await sql`select pipeline.bin_status(${n}::int) s`; return json({ ok: true, ...r.s });
+    }
+    if (act === "bin_pd") {
+      const n = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : 0;
+      const m = String(b.pd || "").toUpperCase().match(/(\d{3,5}[A-Z]?)/);
+      if (!n || !m) return json({ ok: false, error: "need pd and bin" }, 400);
+      const r = await sql`update pipeline.drafts set bin = ${n}, bin_synced = false where upper(pd) = ${"PD-" + m[1]} and bin is null returning id`;
+      return json({ ok: true, updated: r.length });
+    }
     if (act === "bin_put") {
       const pid = Number(b.id) || 0, n = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : null;
       if (!pid) return json({ ok: false, error: "no pile id" }, 400);

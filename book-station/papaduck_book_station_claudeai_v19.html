@@ -643,6 +643,7 @@
         <input type="text" id="pdconfirm" placeholder="e.g. 1530" inputmode="numeric" autocomplete="off">
       </div>
       <div id="pdmatchnote"></div>
+      <div id="pdbinline" style="margin-top:6px;font-weight:800;color:#8a5a00;font-size:1.05em"></div>
     </div>
 
     <div class="amzbox" id="amzbox" title="Click if this book is on Amazon — Claude will skip eBay and Etsy for it">
@@ -3360,6 +3361,7 @@ async function sendCurrent(){
   progCreepTo(90);
   try {
     const j = await sendToDrafts(currentItem);
+    qcBinToPd(j && j.pd);
     markBookCopied();
     clearNag();
     progStopClock();
@@ -3397,6 +3399,7 @@ window.sendHist = async function(idx, btn){
   btn.disabled = false; btn.textContent = was;
 };
 
+$('newbookbtn').addEventListener('click', () => { qcBookBin = null; setTimeout(pdBinShow, 0); });
 $('newbookbtn').addEventListener('click', () => {
   if (pendingSend && currentItem && !freeingNumber){
     if (!armTap($('newbookbtn'), '👆 Tap again to skip ' + currentItem.label + ' (not sent)')){
@@ -4056,8 +4059,13 @@ $('qcisbn').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.prev
 /* 2026-11-12 Papa Duck: "can you have the bin# there as well, but always give me a new one so I dont overlap".
    One shared numbering line with the Sorting page: every LIST IT goes in your bin; a full bin hands you the next unused number. */
 const QC_WHO = 'papa';
-let qcBin = null, qcBinNote = '';
+let qcBin = null, qcBinNote = '', qcBookBin = null;
+// 2026-11-12 "can you have the bin in the confirm number on book area": the bin shows under the sticker number, and goes to Drafts with the book
+function pdBinShow(){ const el = $('pdbinline'); if (!el) return; const b = qcBookBin || (qcBin && qcBin.bin);
+  el.innerHTML = b ? '📦 Goes in <span style="background:#fff8e1;border:2px dashed #e0b84a;border-radius:6px;padding:0 8px">Bin ' + b + '</span>' : ''; }
+async function qcBinToPd(pd){ const b = qcBookBin || (qcBin && qcBin.bin); if (!pd || !b) return; try { await qcApi('bin_pd', { pd: pd, bin: b, who: QC_WHO }); } catch(e){} }
 function qcBinRender(){
+  pdBinShow();
   const el = $('qcbin'); if (!el) return;
   if (!qcBin) { el.innerHTML = ''; return; }
   el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;border:2px solid #e0b84a;border-radius:10px;padding:8px 10px">' +
@@ -4113,7 +4121,9 @@ async function qcPile(p){
   setTimeout(qcReset, 1500);
 }
 function qcCarryOn(){
-  if (qcLast && qcLast.pile_id && !qcLast._bin) qcBinPut(qcLast, true);
+  qcBookBin = (qcLast && qcLast._bin) || null;
+  if (qcLast && qcLast.pile_id && !qcLast._bin) qcBinPut(qcLast, true).then(() => { qcBookBin = qcLast && qcLast._bin || qcBookBin; pdBinShow(); });
+  pdBinShow();
   // LIST IT: the quick-check cover becomes the book's cover photo below, and the page scrolls to the photos.
   if (qcFile) { try { coverFile = qcFile; renderThumbs(); } catch(e){} }
   const z = $('coverzone'); if (z) z.scrollIntoView({ behavior: 'smooth', block: 'start' });
