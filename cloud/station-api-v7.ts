@@ -1,4 +1,5 @@
 // v7i 2026-11-12: Vinted on/off switch (config vinted_on).
+// v7j 2026-11-12: sticker takes {bin}; action "bin" returns how full a bin is.
 // v7h 2026-11-12: "sticker" action for the Sorting helper (links a pre-printed PD sticker to a Quick check).
 // v7g 2026-11-11: careful family check on every Quick check (photo too); low photo read re-checked by its plain title.
 // v7f 2026-11-11: Quick check no longer sends ex-library books worth $12+ to Goodwill - list them with the Ex-Library note.
@@ -162,8 +163,16 @@ Deno.serve(async (req) => {
       if (dup && !b.force) return json({ ok: false, error: `Sticker ${pd} is already on "${String(dup.title || "another book").slice(0, 60)}" - check the number`, dup: true }, 409);
       const [dr] = await sql`select ident->>'title' t from pipeline.drafts where upper(pd) = ${pd} limit 1`;
       if (dr && !b.force) return json({ ok: false, error: `${pd} is already used in Drafts ("${String(dr.t || "").slice(0, 60)}") - check the number`, dup: true }, 409);
-      await sql`update pipeline.cleanup_piles set pd = ${pd}, pile = 'LIST' where id = ${pid}`;
-      return json({ ok: true, pd });
+      // v7j (2026-11-12): "add Bin#" - the plastic bin (15-20 books) the book goes into; flows to Drafts + Airtable "Bin"
+      const bin = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : null;
+      await sql`update pipeline.cleanup_piles set pd = ${pd}, pile = 'LIST', bin = coalesce(${bin}::int, bin) where id = ${pid}`;
+      const [bs] = bin ? await sql`select pipeline.bin_status(${bin}::int) s` : [{ s: null }];
+      return json({ ok: true, pd, bin, bin_status: bs ? bs.s : null });
+    }
+    if (act === "bin") {
+      const n = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : null;
+      const [bs] = await sql`select pipeline.bin_status(${n}::int) s`;
+      return json({ ok: true, ...bs.s });
     }
     if (act === "check" || act === "pile") {
       const [pin] = await sql`select value from backup.config where key = 'scout_pin'`;
