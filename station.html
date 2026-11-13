@@ -4176,6 +4176,15 @@ $('qcgo').addEventListener('click', async () => {
   const isbn = $('qcisbn').value.replace(/[^0-9Xx]/g, '');
   const file = qcFile;
   if (!file && !isbn) { $('qcout').innerHTML = '<div style="color:var(--err);font-weight:700">Snap the cover or scan the ISBN first.</div>'; return; }
+  // 2026-11-12 ("i gave it the isbn" - 9780790054140 typed for 9780790005140): an ISBN with a bad check digit is a typo - say so right away
+  const isbnOk = (d) => { d = d.toUpperCase();
+    if (d.length === 10) { let t = 0; for (let i = 0; i < 10; i++) t += (d[i] === 'X' ? 10 : +d[i]) * (10 - i); return t % 11 === 0; }
+    if (d.length === 13) { let t = 0; for (let i = 0; i < 13; i++) t += +d[i] * (i % 2 ? 3 : 1); return t % 10 === 0; }
+    return true; };
+  if ((isbn.length === 10 || (isbn.length === 13 && /^97[89]/.test(isbn))) && !isbnOk(isbn)) {
+    $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;border:3px solid var(--warn);background:#fff7e6;font-weight:800;color:var(--warn)">⚠️ That ISBN doesn\'t look right (' + qcEsc(isbn) + ') - check the numbers and try again.</div>';
+    return;
+  }
   const q = { id: ++qcSeq, label: isbn ? isbn : 'Photo ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }), state: 'wait', file: file };
   qcQueue.unshift(q); qcQueue = qcQueue.slice(0, 10);
   // clear right away so the next scan can go in

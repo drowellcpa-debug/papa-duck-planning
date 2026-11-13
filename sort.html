@@ -152,7 +152,11 @@ function home(note){
   wireBin(); if (binN == null) loadBin();
   document.querySelectorAll('[data-fix]').forEach((b) => b.onclick = () => { const r = recent[Number(b.dataset.fix)]; cur = { pile_id: r.id }; showList(r.title, '', r.pd, r.box); });
   const inp = $('isbn'); inp.focus();
-  inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const v = inp.value.replace(/[^0-9Xx]/g, ''); if (v.length >= 10) check({ isbn: v }); } };
+  inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const v = inp.value.replace(/[^0-9Xx]/g, '').toUpperCase();
+    const ok = (d) => { if (d.length === 10) { let t = 0; for (let i = 0; i < 10; i++) t += (d[i] === 'X' ? 10 : +d[i]) * (10 - i); return t % 11 === 0; }
+      if (d.length === 13 && /^97[89]/.test(d)) { let t = 0; for (let i = 0; i < 13; i++) t += +d[i] * (i % 2 ? 3 : 1); return t % 10 === 0; } return true; };
+    if (v.length >= 10 && !ok(v)) { $('out').innerHTML = `<div class="res RETAKE"><div class="bin">🔁 CHECK THE NUMBER</div><div class="what">That ISBN doesn't look right (${esc(v)}). Type it again carefully.</div></div>`; inp.select(); return; }
+    if (v.length >= 10) check({ isbn: v }); } };
   $('cam').onclick = () => $('file').click();
 }
 
