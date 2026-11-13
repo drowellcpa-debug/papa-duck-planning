@@ -53,3 +53,5 @@ create or replace function pipeline.pd_sort(p_pd text) returns bigint language s
   with x as (select coalesce(nullif(regexp_replace(coalesce(p_pd,''),'\D','','g'),'')::bigint, 0) n)
   select case when x.n < 3671 then x.n else 1000000000 + coalesce(pipeline.pd_bin(p_pd), 99999)::bigint * 100000 + x.n end from x $$;
 -- week_board(): PD sort keys -> pipeline.pd_sort(pd); 'bin', pipeline.pd_bin(pd) added to fba / donate / buyback rows (text replace of the live def).
+
+-- station_quick (claude.ai Book Station path) now also forwards bin, bin_mine, bin_new, bin_put, bin_take, bin_pd (migration station_quick_bins).

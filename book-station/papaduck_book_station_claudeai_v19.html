@@ -4062,7 +4062,7 @@ const QC_WHO = 'papa';
 let qcBin = null, qcBinNote = '', qcBookBin = null;
 // 2026-11-12 "can you have the bin in the confirm number on book area": the bin shows under the sticker number, and goes to Drafts with the book
 function pdBinShow(){ const el = $('pdbinline'); if (!el) return; const b = qcBookBin || (qcBin && qcBin.bin);
-  el.innerHTML = b ? '📦 Goes in <span style="background:#fff8e1;border:2px dashed #e0b84a;border-radius:6px;padding:0 8px">Bin ' + b + '</span>' : ''; }
+  el.innerHTML = b ? '📦 Goes in <span style="background:#fff8e1;border:2px dashed #e0b84a;border-radius:6px;padding:0 8px">Bin ' + b + '</span>' : '📦 Bin: getting your bin number…'; }
 async function qcBinToPd(pd){ const b = qcBookBin || (qcBin && qcBin.bin); if (!pd || !b) return; try { await qcApi('bin_pd', { pd: pd, bin: b, who: QC_WHO }); } catch(e){} }
 function qcBinRender(){
   pdBinShow();
@@ -4076,7 +4076,7 @@ function qcBinRender(){
     try { const r = await qcApi('bin_new', { who: QC_WHO, from: qcBin ? qcBin.bin : null }); qcBin = r; qcBinNote = 'Start Bin ' + r.bin + ' - write ' + r.bin + ' on an empty bin.'; qcBinRender(); } catch(e){}
   };
 }
-async function qcBinLoad(){ try { qcBin = await qcApi('bin_mine', { who: QC_WHO }); qcBinRender(); } catch(e){} }
+async function qcBinLoad(){ try { qcBin = await qcApi('bin_mine', { who: QC_WHO }); qcBinRender(); } catch(e){ setTimeout(qcBinLoad, 15000); } }
 async function qcBinPut(r, on){
   if (!r || !r.pile_id) return;
   try {
@@ -4091,7 +4091,7 @@ async function qcBinPut(r, on){
     qcBinRender();
   } catch(e){}
 }
-setTimeout(qcBinLoad, 1500);
+setTimeout(qcBinLoad, 1500); setTimeout(pdBinShow, 0);
 function qcReset(){
   qcFile = null; qcLast = null; $('qcfile').value = ''; $('qcisbn').value = '';
   $('qcthumb').style.backgroundImage = ''; $('qcthumb').textContent = '📷 Drop cover here'; $('qcout').innerHTML = '';
