@@ -863,7 +863,7 @@ function shipCard() {
   const abe = toShip.filter((x) => x.channel === "abe").length;
   // one row: PD | title + store/price/order | Shipped button, in fixed columns so the buttons line up
   const row = (x) => `<div class="shiprow${x.channel === "abe" ? " abe" : ""}">
-      <b class="mono">${esc(x.pd || "—")}</b>
+      <b class="mono">${esc(x.pd || "—")}</b>${x.bin ? ` <b style="background:#fff3b0;border-radius:6px;padding:0 6px">📦 Bin ${esc(x.bin)}</b>` : ""}
       <span class="st">${esc(x.title || "")}<br><span class="muted"><span class="sbadge ${esc(x.channel)}">${names[x.channel] || esc(x.channel)}</span> ${money(x.price)} · ${esc(x.date || "")}${x.order ? " · order " + esc(x.order) : ""}</span></span>
       <span style="display:grid;gap:4px"><button class="${shipArm === x.key ? "" : "ghost"}" data-ship="${esc(x.key)}">${shipArm === x.key ? "Tap again" : "✓ Shipped"}</button>
         <button class="${cancelArm === x.key ? "danger" : "quiet"}" data-shipcancel="${esc(x.key)}" style="min-height:34px;padding:2px 6px;font-size:.85rem">${cancelArm === x.key ? "Tap again: cancelled" : "✗ Cancelled"}</button></span></div>`;

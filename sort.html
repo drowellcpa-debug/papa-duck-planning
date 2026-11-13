@@ -52,6 +52,11 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 18p
 .rrow .pd{font-weight:800}
 .rrow button{min-height:40px;padding:6px 10px;background:#fff;border:2px solid var(--line);font-size:.85rem}
 .legend span{border-radius:8px;color:#fff;padding:6px 8px;font-weight:700}
+.binbar{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:14px;padding:8px 10px}
+.binbar .lbl{flex:1;font-weight:800;font-size:1.05rem}
+.binbar .lbl small{display:block;font-weight:600;color:var(--muted);font-size:.85rem}
+.binbar button{min-height:48px;min-width:48px;padding:6px 12px;background:#fff;border:2px solid var(--line);font-size:1.2rem}
+.binbig{font-size:2.4rem;font-weight:900;background:#fff;color:var(--list);border-radius:12px;padding:2px 18px}
 @media (prefers-reduced-motion:reduce){.spin{animation:none}}
 </style>
 </head>
@@ -61,19 +66,22 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 18p
 <input type="file" id="file" accept="image/*" capture="environment" hidden>
 <script>
 const API_URL = 'https://gdwxwiwckxthwcsrgywh.supabase.co/functions/v1/station-api';
-const PASS_KEY = 'pdStationPass', STK_KEY = 'pdSortNextSticker', TALLY_KEY = 'pdSortTally', RECENT_KEY = 'pdSortRecent';
+const PASS_KEY = 'pdStationPass', STK_KEY = 'pdSortNextSticker', TALLY_KEY = 'pdSortTally', RECENT_KEY = 'pdSortRecent', BIN_KEY = 'pdSortBin';
+// 2026-11-12 Papa Duck: "from now on ... add Bin#" - each bin holds 15-20 books, so books are found by bin, not PD order.
+let binNo = Number(ls0('pdSortBin')) || 0, binN = null, binCap = 18;
+function ls0(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 const $ = (id) => document.getElementById(id);
 const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ls = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k, v){ try { localStorage.setItem(k, v); } catch(e){} } };
 let cur = null, tally = {};
 // 2026-11-12 Papa Duck: "if they mess up on a sticker does it give them the ability to see what they scanned in last and fix it?"
 let recent = []; try { recent = JSON.parse(ls.get(RECENT_KEY) || '[]'); } catch(e){ recent = []; }
-function remember(bin, title, pd){ if (!cur) return; recent = [{ id: cur.pile_id, bin, title: title || '', pd: pd || '' }].concat(recent.filter((r) => r.id !== cur.pile_id)).slice(0, 15); ls.set(RECENT_KEY, JSON.stringify(recent)); }
+function remember(bin, title, pd, box){ if (!cur) return; recent = [{ id: cur.pile_id, bin, title: title || '', pd: pd || '', box: box || null }].concat(recent.filter((r) => r.id !== cur.pile_id)).slice(0, 15); ls.set(RECENT_KEY, JSON.stringify(recent)); }
 const DOT = { LIST: '🟢', VINTED: '🟣', SELL: '🔵', GOODWILL: '⚪', TOSS: '🔴', ASK: '🟡' };
 function recentHtml(){
   if (!recent.length) return '';
   return `<div class="recent"><h2>Last books sorted</h2>` + recent.slice(0, 10).map((r, i) => `<div class="rrow"><span class="dot">${DOT[r.bin] || '•'}</span>
-    <span class="t">${r.pd ? `<span class="pd">${esc(r.pd)}</span> · ` : ''}${esc(r.title || '(no title)')}</span>
+    <span class="t">${r.pd ? `<span class="pd">${esc(r.pd)}</span> · ` : ''}${r.box ? `<b>Bin ${esc(r.box)}</b> · ` : ''}${esc(r.title || '(no title)')}</span>
     ${r.bin === 'LIST' && r.id ? `<button data-fix="${i}">✏️ ${r.pd ? 'Fix sticker' : 'Add sticker'}</button>` : ''}</div>`).join('') + `</div>`;
 }
 try { tally = JSON.parse(ls.get(TALLY_KEY) || '{}'); if (tally.day !== new Date().toDateString()) tally = { day: new Date().toDateString() }; } catch(e){ tally = { day: new Date().toDateString() }; }
@@ -99,9 +107,26 @@ function passScreen(msg){
   $('pwgo').onclick = go; $('pw').onkeydown = (e) => { if (e.key === 'Enter') go(); };
 }
 
+function binBarHtml(){
+  if (!binNo) return `<div class="binbar"><span class="lbl">📦 Which bin are you filling?<small>Type the number on the bin</small></span><button id="binset">Set bin</button></div>`;
+  return `<div class="binbar"><button id="binminus" aria-label="Previous bin">−</button><span class="lbl">📦 Filling Bin ${binNo}<small>${binN == null ? 'counting…' : `${binN} of ${binCap} books`}</small></span><button id="binplus" aria-label="Next bin">+</button></div>`;
+}
+function setBin(n){ binNo = Math.max(1, n); ls.set(BIN_KEY, String(binNo)); binN = null; loadBin(); }
+async function loadBin(){
+  if (!binNo) return;
+  try { const r = await api('bin', { bin: binNo }); binN = Number(r.n) || 0; binCap = Number(r.cap) || 18; } catch(e){}
+  const bb = document.querySelector('.binbar'); if (bb) { bb.outerHTML = binBarHtml(); wireBin(); }
+}
+function wireBin(){
+  const ask = () => { const v = prompt('Which bin number are you filling?', binNo || ''); const n = parseInt(v, 10); if (n > 0) setBin(n); };
+  if ($('binset')) $('binset').onclick = ask;
+  if ($('binminus')) $('binminus').onclick = () => setBin(binNo - 1);
+  if ($('binplus')) $('binplus').onclick = () => setBin(binNo + 1);
+  const l = document.querySelector('.binbar .lbl'); if (l && binNo) { l.style.cursor = 'pointer'; l.onclick = ask; }
+}
 function home(note){
   cur = null;
-  $('app').innerHTML = `
+  $('app').innerHTML = binBarHtml() + `
     <div class="scan"><input id="isbn" inputmode="numeric" autocomplete="off" placeholder="Scan the barcode" aria-label="Barcode or ISBN">
       <button class="cam" id="cam" aria-label="Take a photo">📷</button></div>
     <p class="hint">No barcode? Tap 📷 and take a photo of the cover or the copyright page.</p>
@@ -109,7 +134,8 @@ function home(note){
       <span style="background:var(--list)">🟢 LIST box + sticker</span><span style="background:var(--vinted)">🟣 VINTED bag</span>
       <span style="background:var(--sell)">🔵 SELL BACK box</span><span style="background:var(--goodwill)">⚪ GOODWILL box</span>
       <span style="background:var(--ask)">🟡 ASK DAD box</span><span style="background:var(--toss)">🔴 SET ASIDE for Dad</span></div>`}</div>${recentHtml()}`;
-  document.querySelectorAll('[data-fix]').forEach((b) => b.onclick = () => { const r = recent[Number(b.dataset.fix)]; cur = { pile_id: r.id }; showList(r.title, '', r.pd); });
+  wireBin(); if (binNo && binN == null) loadBin();
+  document.querySelectorAll('[data-fix]').forEach((b) => b.onclick = () => { const r = recent[Number(b.dataset.fix)]; cur = { pile_id: r.id }; showList(r.title, '', r.pd, r.box); });
   const inp = $('isbn'); inp.focus();
   inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const v = inp.value.replace(/[^0-9Xx]/g, ''); if (v.length >= 10) check({ isbn: v }); } };
   $('cam').onclick = () => $('file').click();
@@ -168,29 +194,37 @@ async function check(body){
   home(`<div class="res ${v === 'SELL' || v === 'GOODWILL' || v === 'TOSS' ? v : 'ASK'}"><div class="bin">${map[0]}</div><div class="what">${esc(map[1])}</div><div class="title">${esc(title)}</div></div>`);
 }
 
-function showList(title, err, fixing){
+function showList(title, err, fixing, fixBox){
+  if (!fixing && !binNo) { const n = parseInt(prompt('Which bin number are you filling?', '1'), 10); if (n > 0) { binNo = n; ls.set(BIN_KEY, String(n)); binN = null; } }
   const next = fixing ? String(fixing).replace(/\D/g, '') : (ls.get(STK_KEY) || '');
   $('app').innerHTML = `<div class="res LIST" style="margin-top:4px"><div class="bin">🟢 LIST</div>
-    <div class="what">${fixing ? 'Fix the sticker number for this book.' : 'Put the next sticker on it, then type its number.'}</div><div class="title">${esc(title)}</div>
+    ${!fixing && binNo ? `<div class="what">Goes in</div><div class="binbig">BIN ${binNo}</div>` : ''}
+    <div class="what">${fixing ? 'Fix the sticker number for this book.' : 'Put the next sticker on a tab, then type its number.'}</div><div class="title">${esc(title)}</div>
     ${err ? `<div class="err">${esc(err)}</div>` : ''}
     <div class="stk"><input id="stk" inputmode="numeric" autocomplete="off" placeholder="Sticker #" value="${esc(next)}"><button id="stkgo">Save</button></div>
     <div class="hint" style="color:#e9fff1">${fixing ? 'Type the number that is really on the sticker, then Save.' : next ? 'The next number on the roll is filled in. Just press Save if it matches.' : 'Type the number printed on the sticker.'}</div>
-    <button class="skip" id="stkskip">No sticker right now - just put it in the LIST box</button></div>`;
+    <button class="skip" id="stkskip">No sticker right now - set it aside for Dad</button></div>`;
   const s = $('stk'); s.focus(); s.select();
   const save = async () => {
     const pd = s.value.trim(); if (!pd) return;
     $('stkgo').disabled = true; $('stkgo').textContent = 'Saving…';
     try {
-      const r = await api('sticker', { id: cur.pile_id, pd });
+      const box = fixing ? (fixBox || null) : (binNo || null);
+      const r = await api('sticker', { id: cur.pile_id, pd, bin: fixing ? undefined : box });
       const n = Number(String(r.pd).replace(/\D/g, ''));
       if (!fixing) { if (n) ls.set(STK_KEY, String(n + 1)); count('LIST'); }
-      remember('LIST', title, r.pd);
-      home(`<div class="res LIST"><div class="bin">✅ ${esc(r.pd)}</div><div class="what">Sticker saved. Put it in the LIST box.</div><div class="title">${esc(title)}</div></div>`);
+      remember('LIST', title, r.pd, box);
+      let full = '';
+      if (!fixing && r.bin_status) {
+        binN = Number(r.bin_status.n) || 0; binCap = Number(r.bin_status.cap) || binCap;
+        if (binN >= binCap) { full = `<div style="background:#fff3b0;color:#4a2a63;border-radius:10px;padding:8px 12px;font-weight:800">📦 Bin ${binNo} is full! Put the lid on and grab Bin ${binNo + 1}.</div>`; binNo += 1; ls.set(BIN_KEY, String(binNo)); binN = null; }
+      }
+      home(`<div class="res LIST"><div class="bin">✅ ${esc(r.pd)}</div><div class="what">${box ? 'Put it in' : 'Sticker saved. Put it in the LIST box.'}</div>${box ? `<div class="binbig">BIN ${esc(box)}</div>` : ''}<div class="title">${esc(title)}</div>${full}</div>`);
     } catch(e){ showList(title, e.message || "That didn't save. Try again.", fixing); }
   };
   $('stkgo').onclick = save; s.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } };
   if (fixing) $('stkskip').style.display = 'none';
-  $('stkskip').onclick = () => { count('LIST'); remember('LIST', title); home(`<div class="res LIST"><div class="bin">🟢 LIST box</div><div class="what">Put it in the LIST box (no sticker).</div><div class="title">${esc(title)}</div></div>`); };
+  $('stkskip').onclick = () => { count('LIST'); remember('LIST', title); home(`<div class="res LIST"><div class="bin">🟢 LIST</div><div class="what">No sticker yet. Set it aside for Dad to sticker (don't put it in a numbered bin).</div><div class="title">${esc(title)}</div></div>`); };
 }
 
 showTally();

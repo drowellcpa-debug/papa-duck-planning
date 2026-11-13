@@ -906,6 +906,7 @@ function rowHtml(d){
     chips += nq ? '<span class="chip q">' + nq + " question" + (nq === 1 ? "" : "s") + "</span>" : (miss.length || d.price_stale ? "" : '<span class="chip ok">✅ Ready — tap Send</span>');
   }
   if (d.location && d.location !== "Garage") chips += '<span class="chip">📍 ' + esc(d.location) + "</span>";
+  if (d.bin) chips += '<span class="chip">📦 Bin ' + esc(d.bin) + "</span>";   // 2026-11-12 "add Bin#"
   // v56 (2026-10-31): Papa Duck "also list the cost that i paid for it if known"
   const costPaid = (() => { const st = (d.answers || {}).station || {}; const n = parseFloat(String(st.cost || "").replace(/[^0-9.]/g, "")); return isFinite(n) && n > 0 ? "Paid $" + n.toFixed(2) : ""; })();
   const meta = [id.author, id.publication_year, (d.photos || []).filter((p) => !p.removed).length + " photos", d.is_set ? "Set" : "", costPaid].filter(Boolean).join(" · ");
@@ -1280,7 +1281,7 @@ function allDetailsHtml(d){
   const val = (v) => Array.isArray(v) ? v.join("; ") : (typeof v === "boolean" ? (v ? "Yes" : "No") : (v == null ? "" : String(v)));
   let rows = DETAIL_FIELDS.map(([k, label]) => [label, val(id[k])]).filter((r) => r[1] !== "" && r[1] !== "No" || r[0] === "Ex-library");
   rows = rows.concat([
-    ["Quantity", String(qtyOf(d))], ["Where it goes", chanName(m.channel)], ["Kept in", m.location], ["PD number", normPd(m.pd) || "not set"], ["Weight on card", m.weight_lb ? m.weight_lb + " lb" : "not set"],
+    ["Quantity", String(qtyOf(d))], ["Where it goes", chanName(m.channel)], ["Kept in", m.location + (d.bin ? " · Bin " + d.bin : "")], ["PD number", normPd(m.pd) || "not set"], ["Weight on card", m.weight_lb ? m.weight_lb + " lb" : "not set"],
     ["Scan / folder", d.scan + " · " + d.p], ["Photos", photos(d).length + (d.is_set ? " (set)" : "")], ["Status", d.status], ["Tries", String(d.attempts || 1)]
   ]);
   let h = '<div class="det">' + rows.map((r) => '<div><b>' + esc(r[0]) + "</b><span>" + esc(r[1]) + "</span></div>").join("") + "</div>";
