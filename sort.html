@@ -69,6 +69,7 @@ const API_URL = 'https://gdwxwiwckxthwcsrgywh.supabase.co/functions/v1/station-a
 const PASS_KEY = 'pdStationPass', STK_KEY = 'pdSortNextSticker', TALLY_KEY = 'pdSortTally', RECENT_KEY = 'pdSortRecent', BIN_KEY = 'pdSortBin';
 // 2026-11-12 Papa Duck: "from now on ... add Bin#" - each bin holds 15-20 books, so books are found by bin, not PD order.
 let binNo = Number(ls0('pdSortBin')) || 0, binN = null, binCap = 18;
+const WHO = (() => { let w = ls0('pdSortWho'); if (!w) { w = 'sort-' + Math.random().toString(36).slice(2, 8); try { localStorage.setItem('pdSortWho', w); } catch(e){} } return w; })();
 function ls0(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 const $ = (id) => document.getElementById(id);
 const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -109,7 +110,14 @@ function passScreen(msg){
 
 function binBarHtml(){
   if (!binNo) return `<div class="binbar"><span class="lbl">📦 Which bin are you filling?<small>Type the number on the bin</small></span><button id="binset">Set bin</button></div>`;
-  return `<div class="binbar"><button id="binminus" aria-label="Previous bin">−</button><span class="lbl">📦 Filling Bin ${binNo}<small>${binN == null ? 'counting…' : `${binN} of ${binCap} books`}</small></span><button id="binplus" aria-label="Next bin">+</button></div>`;
+  return `<div class="binbar"><span class="lbl">📦 Filling Bin ${binNo}<small>${binN == null ? 'counting…' : `${binN} of ${binCap} books`} · tap to change</small></span><button id="binplus" style="font-size:.95rem">🆕 New bin</button></div>`;
+}
+// "always give me a new one so I dont overlap" - a new bin is the next number nobody has used (shared with the Book Station)
+async function newBin(){
+  try { const r = await api('bin_new', { who: WHO, from: binNo || null }); binNo = Number(r.bin); binN = Number(r.n) || 0; binCap = Number(r.cap) || binCap; ls.set(BIN_KEY, String(binNo)); }
+  catch(e){ alert("Couldn't get a new bin number. Try again."); return; }
+  const bb = document.querySelector('.binbar'); if (bb) { bb.outerHTML = binBarHtml(); wireBin(); }
+  alert('Start Bin ' + binNo + '. Write ' + binNo + ' on an empty bin.');
 }
 function setBin(n){ binNo = Math.max(1, n); ls.set(BIN_KEY, String(binNo)); binN = null; loadBin(); }
 async function loadBin(){
@@ -120,8 +128,7 @@ async function loadBin(){
 function wireBin(){
   const ask = () => { const v = prompt('Which bin number are you filling?', binNo || ''); const n = parseInt(v, 10); if (n > 0) setBin(n); };
   if ($('binset')) $('binset').onclick = ask;
-  if ($('binminus')) $('binminus').onclick = () => setBin(binNo - 1);
-  if ($('binplus')) $('binplus').onclick = () => setBin(binNo + 1);
+  if ($('binplus')) $('binplus').onclick = newBin;
   const l = document.querySelector('.binbar .lbl'); if (l && binNo) { l.style.cursor = 'pointer'; l.onclick = ask; }
 }
 function home(note){
@@ -217,7 +224,12 @@ function showList(title, err, fixing, fixBox){
       let full = '';
       if (!fixing && r.bin_status) {
         binN = Number(r.bin_status.n) || 0; binCap = Number(r.bin_status.cap) || binCap;
-        if (binN >= binCap) { full = `<div style="background:#fff3b0;color:#4a2a63;border-radius:10px;padding:8px 12px;font-weight:800">📦 Bin ${binNo} is full! Put the lid on and grab Bin ${binNo + 1}.</div>`; binNo += 1; ls.set(BIN_KEY, String(binNo)); binN = null; }
+        if (binN >= binCap) {
+          const was = binNo; let nx = null;
+          try { nx = await api('bin_new', { who: WHO, from: was }); } catch(e){}
+          if (nx && nx.bin) { binNo = Number(nx.bin); binN = Number(nx.n) || 0; ls.set(BIN_KEY, String(binNo)); }
+          full = `<div style="background:#fff3b0;color:#4a2a63;border-radius:10px;padding:8px 12px;font-weight:800">📦 Bin ${was} is full! Put the lid on. Start <b>Bin ${binNo}</b> - write ${binNo} on an empty bin.</div>`;
+        }
       }
       home(`<div class="res LIST"><div class="bin">✅ ${esc(r.pd)}</div><div class="what">${box ? 'Put it in' : 'Sticker saved. Put it in the LIST box.'}</div>${box ? `<div class="binbig">BIN ${esc(box)}</div>` : ''}<div class="title">${esc(title)}</div>${full}</div>`);
     } catch(e){ showList(title, e.message || "That didn't save. Try again.", fixing); }

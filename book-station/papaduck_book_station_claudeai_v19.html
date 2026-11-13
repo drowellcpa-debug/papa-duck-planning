@@ -553,6 +553,7 @@
     </div>
   </div>
   <input type="file" id="qcfile" accept="image/*,.heic,.heif" style="display:none">
+  <div id="qcbin" style="margin-top:10px"></div>
   <div id="qcout" aria-live="polite" style="margin-top:10px"></div>
   <div id="qcq" aria-live="polite"></div>
 </div>
@@ -4052,6 +4053,37 @@ async function qcTake(f){
 ['dragleave','drop'].forEach(ev => $('qcard').addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); $('qcard').style.background = ''; }));
 $('qcard').addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) qcTake(f); });
 $('qcisbn').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('qcgo').click(); } });
+/* 2026-11-12 Papa Duck: "can you have the bin# there as well, but always give me a new one so I dont overlap".
+   One shared numbering line with the Sorting page: every LIST IT goes in your bin; a full bin hands you the next unused number. */
+const QC_WHO = 'papa';
+let qcBin = null, qcBinNote = '';
+function qcBinRender(){
+  const el = $('qcbin'); if (!el) return;
+  if (!qcBin) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;border:2px solid #e0b84a;border-radius:10px;padding:8px 10px">' +
+    '<span style="flex:1;font-weight:800">📦 Your bin: Bin ' + qcBin.bin + ' <span style="font-weight:600;color:var(--dim)">· ' + Number(qcBin.n || 0) + ' of ' + Number(qcBin.cap || 18) + ' books</span>' +
+    (qcBinNote ? '<div style="color:#8a5a00;font-weight:800;margin-top:2px">' + qcEsc(qcBinNote) + '</div>' : '') + '</span>' +
+    '<button type="button" id="qcbinnew" style="min-height:44px;font-weight:800">🆕 New bin</button></div>';
+  const b = $('qcbinnew'); if (b) b.onclick = async () => {
+    try { const r = await qcApi('bin_new', { who: QC_WHO, from: qcBin ? qcBin.bin : null }); qcBin = r; qcBinNote = 'Start Bin ' + r.bin + ' - write ' + r.bin + ' on an empty bin.'; qcBinRender(); } catch(e){}
+  };
+}
+async function qcBinLoad(){ try { qcBin = await qcApi('bin_mine', { who: QC_WHO }); qcBinRender(); } catch(e){} }
+async function qcBinPut(r, on){
+  if (!r || !r.pile_id) return;
+  try {
+    if (!on) { if (r._bin) { await qcApi('bin_put', { id: r.pile_id, bin: null, who: QC_WHO }); r._bin = null; if (qcBin) { qcBin.n = Math.max(0, Number(qcBin.n) - 1); qcBinRender(); } } return; }
+    if (r._bin) return;
+    if (!qcBin) await qcBinLoad();
+    if (!qcBin) return;
+    const x = await qcApi('bin_put', { id: r.pile_id, bin: qcBin.bin, who: QC_WHO });
+    r._bin = qcBin.bin; qcBin.n = x.n; qcBin.cap = x.cap;
+    if (x.next) { qcBinNote = 'Bin ' + qcBin.bin + ' is full! Start Bin ' + x.next + ' - write ' + x.next + ' on an empty bin.'; qcBin = { bin: x.next, n: 0, cap: x.cap }; }
+    else qcBinNote = '';
+    qcBinRender();
+  } catch(e){}
+}
+setTimeout(qcBinLoad, 1500);
 function qcReset(){
   qcFile = null; qcLast = null; $('qcfile').value = ''; $('qcisbn').value = '';
   $('qcthumb').style.backgroundImage = ''; $('qcthumb').textContent = '📷 Drop cover here'; $('qcout').innerHTML = '';
@@ -4059,6 +4091,7 @@ function qcReset(){
 async function qcPile(p){
   if (!qcLast || !qcLast.pile_id) { qcReset(); return; }
   // 2026-11-11: the 🛍️ Vinted box keeps the snapped photo (for the Launch Pad Vinted sorting box / lots).
+  if (qcLast._bin) qcBinPut(qcLast, false);
   const xb = { id: qcLast.pile_id, pile: p };
   if (p === 'VINTED') { const f = (qcCur && qcCur.file) || qcFile; if (f) { try { xb.image = (await qcShrink(f)).split(',')[1]; } catch(e){} } }
   let pr = null; try { pr = await qcApi('pile', xb); } catch(e){}
@@ -4080,10 +4113,11 @@ async function qcPile(p){
   setTimeout(qcReset, 1500);
 }
 function qcCarryOn(){
+  if (qcLast && qcLast.pile_id && !qcLast._bin) qcBinPut(qcLast, true);
   // LIST IT: the quick-check cover becomes the book's cover photo below, and the page scrolls to the photos.
   if (qcFile) { try { coverFile = qcFile; renderThumbs(); } catch(e){} }
   const z = $('coverzone'); if (z) z.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;background:#e8f5e9;font-weight:700;color:var(--ok)">✓ Cover is in. Put the PD sticker on, then add photos 2, 3, 4… below.</div>';
+  $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;background:#e8f5e9;font-weight:700;color:var(--ok)">✓ Cover is in. Put the PD sticker on, then add photos 2, 3, 4… below.' + (qcLast && qcLast._bin ? ' It goes in <b>Bin ' + qcLast._bin + '</b>.' : '') + '</div>';
   qcFile = null;
 }
 function qcShow(r){
@@ -4110,10 +4144,10 @@ function qcShow(r){
   $('qcout').innerHTML = '<div style="border:4px solid ' + look[1] + ';border-radius:12px;padding:12px">' +
     (title ? '<div style="font-weight:700;margin-bottom:4px">' + qcEsc(title) + '</div>' : '') +
     '<div style="font-size:1.7em;font-weight:900;color:' + look[1] + '">' + look[0] + '</div>' +
-    '<div>' + qcEsc(r.reason || '') + '</div>' + (v !== 'RETAKE' ? prices : '') + famBox + btns + '</div>';
+    '<div>' + qcEsc(r.reason || '') + '</div>' + (v === 'LIST' && r._bin ? '<div style="margin-top:8px;text-align:center"><span style="font-weight:700">Goes in</span> <span style="font-size:2rem;font-weight:900;color:var(--ok);background:#fff8e1;border:2px dashed var(--ok);border-radius:8px;padding:0 14px">BIN ' + r._bin + '</span></div>' : '') + (v !== 'RETAKE' ? prices : '') + famBox + btns + '</div>';
   const L = $('qclist'); if (L) L.onclick = qcCarryOn;
   document.querySelectorAll('#qcout [data-qcp]').forEach(b => b.onclick = () => qcPile(b.dataset.qcp));
-  const ok = $('qcfamok'); if (ok) ok.onclick = () => { r.family = ''; r.verdict = r.list != null && (r.soldN > 0) ? 'LIST' : (r.verdict === 'TOSS' ? 'CHECK' : r.verdict); r.reason = 'Family check OK by you. ' + (r.list != null ? 'List at ' + qcMoney(r.list) + '.' : ''); r.family_checked = true; qcShow(r); };
+  const ok = $('qcfamok'); if (ok) ok.onclick = () => { r.family = ''; r.verdict = r.list != null && (r.soldN > 0) ? 'LIST' : (r.verdict === 'TOSS' ? 'CHECK' : r.verdict); r.reason = 'Family check OK by you. ' + (r.list != null ? 'List at ' + qcMoney(r.list) + '.' : ''); r.family_checked = true; if (r.verdict === 'LIST') { qcBinPut(r, true).then(() => qcShow(r)); } qcShow(r); };
   const no = $('qcfamno'); if (no) no.onclick = () => qcPile('TOSS');
 }
 
@@ -4134,7 +4168,7 @@ function qcRenderQ(){
         const v = fam ? 'CHECK' : String(r.verdict || ''), lk = QC_LOOK[v] || [v, 'var(--txt)'];
         chip = '<span style="display:inline-block;min-width:92px;text-align:center;border-radius:6px;padding:3px 6px;font-weight:900;color:#fff;background:' + lk[1] + '">' + lk[0] + '</span>';
         name = (r.ident && r.ident.title) || q.label;
-        extra = (r.list != null ? ' <b>' + qcMoney(r.list) + '</b>' : '') + (fam ? ' <span style="color:var(--warn);font-weight:700">⚠️ family</span>' : '') + (q.pile ? ' <span style="color:var(--dim)">→ ' + qcEsc(q.pile) + '</span>' : '');
+        extra = (r.list != null ? ' <b>' + qcMoney(r.list) + '</b>' : '') + (fam ? ' <span style="color:var(--warn);font-weight:700">⚠️ family</span>' : '') + (q.pile ? ' <span style="color:var(--dim)">→ ' + qcEsc(q.pile) + '</span>' : '') + (r._bin && !q.pile ? ' <span style="font-weight:800;color:#8a5a00">📦 Bin ' + r._bin + '</span>' : '');
       }
       return '<button type="button" data-qcq="' + q.id + '" style="display:flex;gap:8px;align-items:center;width:100%;text-align:left;background:#fff;color:var(--txt);border:1px solid #ccd6e0;border-radius:8px;padding:6px 8px;margin:3px 0;box-shadow:none;font-weight:600">' +
         chip + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + qcEsc(name) + '</span>' + extra + '</button>';
@@ -4161,6 +4195,7 @@ $('qcgo').addEventListener('click', async () => {
     else { const d = await qcShrink(file); body.image = d.split(',')[1]; }
     q.r = await qcApi('check', body);
     q.state = 'done';
+    if (q.r && String(q.r.verdict || '') === 'LIST' && !q.r.family) await qcBinPut(q.r, true);
   } catch(e) { q.state = 'err'; q.err = String(e.message || e); }
   qcRenderQ();
 });
