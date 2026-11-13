@@ -44,3 +44,12 @@ begin
   if (s->>'n')::int >= (s->>'cap')::int then return pipeline.bin_new(p_who, b); end if;
   return s;
 end $$;
+
+-- pull order (migration book_bins_pull_order): PD order up to PD-3670, then by bin, then PD. week_board squares carry 'bin'.
+create or replace function pipeline.pd_bin(p_pd text) returns int language sql stable as $$
+  select coalesce((select d.bin from pipeline.drafts d where upper(d.pd) = upper(p_pd) and d.bin is not null order by d.id desc limit 1),
+                  (select c.bin from pipeline.cleanup_piles c where upper(c.pd) = upper(p_pd) and c.bin is not null order by c.id desc limit 1)) $$;
+create or replace function pipeline.pd_sort(p_pd text) returns bigint language sql stable as $$
+  with x as (select coalesce(nullif(regexp_replace(coalesce(p_pd,''),'\D','','g'),'')::bigint, 0) n)
+  select case when x.n < 3671 then x.n else 1000000000 + coalesce(pipeline.pd_bin(p_pd), 99999)::bigint * 100000 + x.n end from x $$;
+-- week_board(): PD sort keys -> pipeline.pd_sort(pd); 'bin', pipeline.pd_bin(pd) added to fba / donate / buyback rows (text replace of the live def).
