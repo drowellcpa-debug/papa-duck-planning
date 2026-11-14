@@ -145,7 +145,8 @@ function wireBin(){
 function home(note){
   cur = null;
   $('app').innerHTML = binBarHtml() + `
-    <div class="scan"><input id="isbn" inputmode="numeric" autocomplete="off" placeholder="Scan the barcode" aria-label="Barcode or ISBN">
+    <div class="scan"><input id="isbn" inputmode="numeric" autocomplete="off" placeholder="Scan or type the ISBN" aria-label="Barcode or ISBN">
+      <button class="go" id="isbngo" aria-label="Check this number" style="padding:0 14px">🔎</button>
       <button class="cam" id="cam" aria-label="Take a photo">📷</button></div>
     <p class="hint">No barcode? Tap 📷 and take a photo of the cover or the copyright page.</p>
     <div id="out">${note || `<div class="legend" style="margin-top:8px">
@@ -167,6 +168,7 @@ function home(note){
     if ((v.length === 10 || v.length === 11) && /^\d+$/.test(v) && !ok(v)) { const u = upcFix(v); if (u) { check({ isbn: u }); return; } }
     if (v.length >= 10 && !ok(v)) { $('out').innerHTML = `<div class="res RETAKE"><div class="bin">🔁 CHECK THE NUMBER</div><div class="what">That number doesn't look like a real ISBN (${esc(v)}). If you typed it, type it again carefully. If you scanned it (CDs and videos use other codes), tap below.</div><button id="anyway" style="margin-top:8px;background:#fff;color:#333">Check it anyway</button></div>`; inp.select(); $('anyway').onclick = () => check({ isbn: v }); return; }
     if (v.length >= 10) check({ isbn: v }); } };
+  $('isbngo').onclick = () => inp.onkeydown({ key: 'Enter', preventDefault() {} }); // 2026-11-14 typed ISBNs: phone keyboards may have no Enter key
   $('cam').onclick = () => $('file').click();
 }
 
