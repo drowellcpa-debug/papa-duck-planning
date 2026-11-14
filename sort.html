@@ -161,6 +161,9 @@ function home(note){
     // 2026-11-13 Farset G47 drops the first and last digit of video/CD UPC barcodes (sends 10 digits) - rebuild the full UPC-A
     const upcFix = (d) => { let b = d.length === 10 ? '0' + d : d.length === 11 ? d : ''; if (!b) return '';
       let t = 0; for (let i = 0; i < 11; i++) t += +b[i] * (i % 2 ? 1 : 3); return b + String((10 - t % 10) % 10); };
+    // 2026-11-13: same barcode again within 2 minutes = double scan, don't check or count it twice
+    if (window.lastScan && window.lastScan.v === v && Date.now() - window.lastScan.t < 120000) { $('out').innerHTML = `<div class="res ASK"><div class="bin">👍 ALREADY SCANNED</div><div class="what">You just scanned this one. Next book!</div><button id="another" style="margin-top:8px;background:#fff;color:#333">It's another copy - check it</button></div>`; inp.value = ''; $('another').onclick = () => { window.lastScan = null; check({ isbn: v }); }; return; }
+    window.lastScan = { v, t: Date.now() };
     if ((v.length === 10 || v.length === 11) && /^\d+$/.test(v) && !ok(v)) { const u = upcFix(v); if (u) { check({ isbn: u }); return; } }
     if (v.length >= 10 && !ok(v)) { $('out').innerHTML = `<div class="res RETAKE"><div class="bin">🔁 CHECK THE NUMBER</div><div class="what">That number doesn't look like a real ISBN (${esc(v)}). If you typed it, type it again carefully. If you scanned it (CDs and videos use other codes), tap below.</div><button id="anyway" style="margin-top:8px;background:#fff;color:#333">Check it anyway</button></div>`; inp.select(); $('anyway').onclick = () => check({ isbn: v }); return; }
     if (v.length >= 10) check({ isbn: v }); } };

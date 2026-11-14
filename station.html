@@ -4045,7 +4045,13 @@ let qcBin = null, qcBinNote = '', qcBookBin = null;
 // 2026-11-12 "can you have the bin in the confirm number on book area": the bin shows under the sticker number, and goes to Drafts with the book
 function pdBinShow(){ const el = $('pdbinline'); if (!el) return; const b = qcBookBin || (qcBin && qcBin.bin);
   el.innerHTML = b ? '📦 Goes in <span style="background:#fff8e1;border:2px dashed #e0b84a;border-radius:6px;padding:0 8px">Bin ' + b + '</span>' : '📦 Bin: getting your bin number…'; }
-async function qcBinToPd(pd){ const b = qcBookBin || (qcBin && qcBin.bin); if (!pd || !b) return; try { await api('bin_pd', { pd: pd, bin: b, who: QC_WHO }); } catch(e){} }
+async function qcBinToPd(pd){ const b = qcBookBin || (qcBin && qcBin.bin); if (!pd || !b) return;
+  try { const x = await api('bin_pd', { pd: pd, bin: b, who: QC_WHO });
+    if (qcBin && Number(qcBin.bin) === Number(b)) { qcBin.n = x.n; qcBin.cap = x.cap || qcBin.cap; }
+    if (x.next) { qcBinNote = 'Bin ' + b + ' is full! Start Bin ' + x.next + ' - write ' + x.next + ' on an empty bin.'; qcBin = { bin: x.next, n: 0, cap: x.cap }; }
+    else qcBinNote = '';
+    qcBinRender();
+  } catch(e){} }
 function qcBinRender(){
   pdBinShow();
   const el = $('qcbin'); if (!el) return;
@@ -4059,19 +4065,12 @@ function qcBinRender(){
   };
 }
 async function qcBinLoad(){ try { qcBin = await api('bin_mine', { who: QC_WHO }); qcBinRender(); } catch(e){ setTimeout(qcBinLoad, 15000); } }
+// 2026-11-13 ("how do we avoid this discrepancy?"): a Quick check LIST only SHOWS which bin it goes in; the bin count goes up when the book is SENT to Drafts
 async function qcBinPut(r, on){
-  if (!r || !r.pile_id) return;
-  try {
-    if (!on) { if (r._bin) { await api('bin_put', { id: r.pile_id, bin: null, who: QC_WHO }); r._bin = null; if (qcBin) { qcBin.n = Math.max(0, Number(qcBin.n) - 1); qcBinRender(); } } return; }
-    if (r._bin) return;
-    if (!qcBin) await qcBinLoad();
-    if (!qcBin) return;
-    const x = await api('bin_put', { id: r.pile_id, bin: qcBin.bin, who: QC_WHO });
-    r._bin = qcBin.bin; qcBin.n = x.n; qcBin.cap = x.cap;
-    if (x.next) { qcBinNote = 'Bin ' + qcBin.bin + ' is full! Start Bin ' + x.next + ' - write ' + x.next + ' on an empty bin.'; qcBin = { bin: x.next, n: 0, cap: x.cap }; }
-    else qcBinNote = '';
-    qcBinRender();
-  } catch(e){}
+  if (!r) return;
+  if (!on) { r._bin = null; return; }
+  if (!qcBin) await qcBinLoad();
+  if (qcBin) r._bin = qcBin.bin;
 }
 setTimeout(qcBinLoad, 1500); setTimeout(pdBinShow, 0);
 function qcReset(){
@@ -4174,6 +4173,9 @@ function qcRenderQ(){
 let qcCur = null;
 $('qcgo').addEventListener('click', async () => {
   let isbn = $('qcisbn').value.replace(/[^0-9Xx]/g, '');
+  // 2026-11-13: the same barcode scanned again within 2 minutes is a double scan - don't check (or count) it twice
+  if (isbn && !window.qcSkipIsbn) { const dup = qcQueue.find((x) => x.label === isbn && x.at && Date.now() - x.at < 120000);
+    if (dup) { $('qcisbn').value = ''; $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;background:#eef1f5;font-weight:700">Already checked that one a moment ago - see it in the list below. <button type="button" id="qcanother">It\'s another copy - check it</button></div>'; $('qcanother').onclick = () => { dup.at = 0; $('qcisbn').value = isbn; $('qcgo').click(); }; return; } }
   const file = qcFile;
   if (!file && !isbn) { $('qcout').innerHTML = '<div style="color:var(--err);font-weight:700">Snap the cover or scan the ISBN first.</div>'; return; }
   // 2026-11-12 ("i gave it the isbn" - 9780790054140 typed for 9780790005140): an ISBN with a bad check digit is a typo - say so right away
@@ -4191,7 +4193,7 @@ $('qcgo').addEventListener('click', async () => {
     $('qcanyway').onclick = () => { window.qcSkipIsbn = true; $('qcisbn').value = isbn; $('qcgo').click(); window.qcSkipIsbn = false; };
     return;
   }
-  const q = { id: ++qcSeq, label: isbn ? isbn : 'Photo ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }), state: 'wait', file: file };
+  const q = { at: Date.now(), id: ++qcSeq, label: isbn ? isbn : 'Photo ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }), state: 'wait', file: file };
   qcQueue.unshift(q); qcQueue = qcQueue.slice(0, 10);
   // clear right away so the next scan can go in
   qcFile = null; $('qcfile').value = ''; $('qcisbn').value = ''; $('qcthumb').style.backgroundImage = ''; $('qcthumb').textContent = '📷 Drop cover here'; $('qcout').innerHTML = '';

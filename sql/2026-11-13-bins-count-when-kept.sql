@@ -1,0 +1,6 @@
+-- 2026-11-13 Papa Duck: "in the future how do we avoid this discrepancy?" (Bin 2 said 18, real 16: a double scan + a LIST not kept).
+-- Migrations bins_count_when_kept, bin_assign_pd, bin_status_presets:
+--  * bin_status counts distinct PDs: drafts in the bin + stickered sorting-page piles + draft_presets(bin) waiting for their draft.
+--  * Quick-check piles no longer carry a bin (cleared); Book Station shows "Goes in Bin N" and counts at Send to Drafts (station-api v22 bin_pd -> bin_assign_pd).
+--  * draft_presets.bin applied by drafts_preset_apply when the draft arrives.
+--  * Pages: same barcode within 2 min = "Already scanned" (+ "It's another copy" button).

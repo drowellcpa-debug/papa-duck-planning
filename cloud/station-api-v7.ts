@@ -1,4 +1,5 @@
 // v7i 2026-11-12: Vinted on/off switch (config vinted_on).
+// v7o 2026-11-13: bin_pd = pipeline.bin_assign_pd (count at send to Drafts; returns status + next bin).
 // v7n 2026-11-13: 10-digit scan that finds nothing as an ISBN is retried as the rebuilt UPC-A (Farset G47).
 // v7m 2026-11-13: sorter PINs (config sorter_pins) work as the passcode and set who; action whoami.
 // v7l 2026-11-12: bins checked out to one person (bin_take), bin_pd for drafts sent without a Quick check.
@@ -195,11 +196,10 @@ Deno.serve(async (req) => {
       const [r] = await sql`select pipeline.bin_status(${n}::int) s`; return json({ ok: true, ...r.s });
     }
     if (act === "bin_pd") {
+      // v7o (2026-11-13, "how do we avoid this discrepancy?"): a Book Station book counts in the bin when it is SENT to Drafts.
       const n = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : 0;
-      const m = String(b.pd || "").toUpperCase().match(/(\d{3,5}[A-Z]?)/);
-      if (!n || !m) return json({ ok: false, error: "need pd and bin" }, 400);
-      const r = await sql`update pipeline.drafts set bin = ${n}, bin_synced = false where upper(pd) = ${"PD-" + m[1]} and bin is null returning id`;
-      return json({ ok: true, updated: r.length });
+      const [r] = await sql`select pipeline.bin_assign_pd(${String(b.pd || "")}, ${n || null}::int, ${who}) s`;
+      return json({ ...(r.s as any) });
     }
     if (act === "bin_put") {
       const pid = Number(b.id) || 0, n = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : null;
