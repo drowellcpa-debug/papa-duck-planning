@@ -196,7 +196,8 @@ async function check(body){
     return home(`<div class="res RETAKE"><div class="bin">🔁 TRY AGAIN</div><div class="what">${esc(e.message || 'The check did not answer.')}</div></div>`);
   }
   cur = j;
-  const title = j.ident && j.ident.title ? j.ident.title : '';
+  // 2026-11-14 Papa Duck: "the title and price should show up" - every result shows the book's title and list price
+  const title = (j.ident && j.ident.title ? j.ident.title : 'Title not found') + (j.list != null && Number(j.list) > 0 ? ` · $${Number(j.list).toFixed(2)}` : '');
   let v = String(j.verdict || '').toUpperCase();
   // 2026-11-13: under the $7.99 minimum it is Goodwill anyway - skip the family set-aside
   if (j.family && j.list != null && Number(j.list) < 7.99) { j.family = ''; v = 'GOODWILL'; try { if (j.pile_id) await api('pile', { id: j.pile_id, pile: 'GOODWILL' }); } catch(e){} }
