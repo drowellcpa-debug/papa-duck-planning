@@ -1,3 +1,4 @@
+// v7v 2026-11-14: action undo ("I need cancel scan again") erases a scan; bins never auto-advance ("keep going until I say full new bin").
 // v7u 2026-11-14: read-along books (book + tape/record kits) are marked readalong; the scan asks "Tape included?" - no tape = LOT pile "Read-Along (no tapes)".
 // v7t 2026-11-14: Morning Basket family friendly = "no cult or sex or profanity" (classics and Shakespeare plays are fine).
 // v7s 2026-11-14: 🧺 Morning Basket pile - low-value books that suit a homeschool morning basket go to BASKET (with a theme) instead of Goodwill.
@@ -215,8 +216,14 @@ Deno.serve(async (req) => {
       if (!n) return json({ ok: true, bin: null });
       const [r] = await sql`select pipeline.bin_status(${n}::int) s`;
       const st: any = r.s;
-      if (Number(st.n) >= Number(st.cap)) { const [x] = await sql`select pipeline.bin_new(${who}, ${n}::int) s`; st.next = (x.s as any).bin; }
       return json({ ok: true, ...st });
+    }
+    // v7v (2026-11-14, "I need cancel scan again"): erase a scan that went wrong so the book can be scanned again
+    if (act === "undo") {
+      const pid = Number(b.id) || 0;
+      const [row] = await sql`delete from pipeline.cleanup_piles where id = ${pid} and draft_id is null returning pd`;
+      if (row?.pd) await sql`delete from pipeline.draft_presets where upper(pd) = upper(${String(row.pd)}) and used_at is null`;
+      return json({ ok: true, removed: !!row });
     }
     if (act === "bin") {
       const n = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : null;

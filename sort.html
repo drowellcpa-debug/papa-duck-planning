@@ -143,7 +143,7 @@ function wireBin(){
   const l = document.querySelector('.binbar .lbl'); if (l && binNo) { l.style.cursor = 'pointer'; l.onclick = ask; }
 }
 function home(note){
-  cur = null;
+  const last = cur; cur = null;
   $('app').innerHTML = binBarHtml() + `
     <div class="scan"><input id="isbn" inputmode="numeric" autocomplete="off" placeholder="Scan or type ISBN" aria-label="Barcode or ISBN">
       <button class="go" id="isbngo" aria-label="Check this number" style="padding:0 14px">🔎</button>
@@ -153,6 +153,16 @@ function home(note){
       <span style="background:var(--list)">🟢 LIST box + sticker</span><span style="background:var(--vinted)">🟣 VINTED bag</span>
       <span style="background:var(--sell)">🔵 SELL BACK box</span><span style="background:var(--basket)">🧺 MORNING BASKET box</span><span style="background:var(--goodwill)">⚪ GOODWILL box</span>
       <span style="background:var(--toss)">🔴 SET ASIDE for Dad</span></div>`}</div>${recentHtml()}`;
+  // 2026-11-14 Papa Duck: "I need cancel scan again" - undo the last result and scan it again
+  if (note && last && last.pile_id && $('out')) {
+    const u = document.createElement('button'); u.id = 'undoscan'; u.textContent = '↩️ Cancel this scan'; u.style.cssText = 'margin-top:10px;background:#fff;color:#333;border:2px solid #ccc';
+    $('out').appendChild(u);
+    u.onclick = async () => { const id = last.pile_id; try { await api('undo', { id }); } catch(e){}
+      const r0 = recent.find((r) => r.id === id); if (r0 && tally[r0.bin]) { tally[r0.bin]--; ls.set(TALLY_KEY, JSON.stringify(tally)); showTally(); }
+      recent = recent.filter((r) => r.id !== id); ls.set(RECENT_KEY, JSON.stringify(recent)); window.lastScan = null;
+      if (r0 && r0.pd) { const n = Number(String(r0.pd).replace(/\D/g, '')); if (n && Number(ls.get(STK_KEY)) === n + 1) ls.set(STK_KEY, String(n)); }
+      cur = null; home(`<div class="res RETAKE"><div class="bin">↩️ CANCELLED</div><div class="what">That scan is erased. Scan the book again.</div></div>`); };
+  }
   wireBin(); if (binN == null) loadBin();
   document.querySelectorAll('[data-fix]').forEach((b) => b.onclick = () => { const r = recent[Number(b.dataset.fix)]; cur = { pile_id: r.id }; showList(r.title, '', r.pd, r.box); });
   const inp = $('isbn'); inp.focus();
@@ -289,12 +299,8 @@ function showList(title, err, fixing, fixBox){
       let full = '';
       if (!fixing && r.bin_status) {
         binN = Number(r.bin_status.n) || 0; binCap = Number(r.bin_status.cap) || binCap;
-        if (binN >= binCap) {
-          const was = binNo; let nx = null;
-          try { nx = await api('bin_new', { who: WHO, from: was }); } catch(e){}
-          if (nx && nx.bin) { binNo = Number(nx.bin); binN = Number(nx.n) || 0; ls.set(BIN_KEY, String(binNo)); }
-          full = `<div style="background:#fff3b0;color:#4a2a63;border-radius:10px;padding:8px 12px;font-weight:800">📦 Bin ${was} is full! Put the lid on. Start <b>Bin ${binNo}</b> - write ${binNo} on an empty bin.</div>`;
-        }
+        // 2026-11-14 Papa Duck: "it should not auto advance to new bin but keep going until I say full new bin" - 18 is only a guide
+        if (binN >= binCap) full = `<div style="background:#fff3b0;color:#4a2a63;border-radius:10px;padding:8px 12px;font-weight:800">📦 Bin ${binNo} has ${binN} books. Keep filling it - when it is really full, tap 🆕 New bin.</div>`;
       }
       home(`<div class="res LIST"><div class="bin">✅ ${esc(r.pd)}</div><div class="what">${box ? 'Put it in' : 'Sticker saved. Put it in the LIST box.'}</div>${box ? `<div class="binbig">BIN ${esc(box)}</div>` : ''}<div class="title">${esc(title)}</div>${full}</div>`);
     } catch(e){ showList(title, e.message || "That didn't save. Try again.", fixing); }
