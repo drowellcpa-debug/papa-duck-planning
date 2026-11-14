@@ -71,8 +71,9 @@ const PASS_KEY = 'pdStationPass', STK_KEY = 'pdSortNextSticker', TALLY_KEY = 'pd
 let binNo = Number(ls0('pdSortBin')) || 0, binN = null, binCap = 18;
 // "it can not be reused once selected": each bin is checked out to one sorter - the page asks who is sorting once per phone
 let WHO = (ls0('pdSortWho') || '').replace(/^sort-.*/, '');
-function askWho(){ let n = ''; while (!n) { n = String(prompt("Who's sorting on this phone? (first name)") || '').trim().toLowerCase().replace(/[^a-z0-9]/g, ''); if (!n) n = 'sorter'; }
-  WHO = n; try { localStorage.setItem('pdSortWho', n); } catch(e){} }
+// 2026-11-13 "heathers 2320 ... 1198 for me": the PIN typed at sign-in says who is sorting (server maps PIN -> name)
+async function askWho(){ try { const r = await api('whoami'); WHO = String(r.who || 'sorter'); } catch(e){ WHO = 'sorter'; }
+  try { localStorage.setItem('pdSortWho', WHO); } catch(e){} }
 function ls0(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 const $ = (id) => document.getElementById(id);
 const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -103,17 +104,18 @@ function showTally(){
 }
 
 function passScreen(msg){
-  $('app').innerHTML = `<div class="pass"><b>Type the Book Station passcode</b><span class="hint" style="text-align:left">Ask Papa Duck. You only type it once on this device.</span>
+  $('app').innerHTML = `<div class="pass"><b>Type your PIN</b><span class="hint" style="text-align:left">Your own 4-digit PIN. You only type it once on this device.</span>
     ${msg ? `<span style="color:var(--toss);font-weight:700">${esc(msg)}</span>` : ''}
     <input id="pw" type="password" autocomplete="current-password"><button class="go" id="pwgo">Start sorting</button></div>`;
   $('pw').focus();
-  const go = () => { ls.set(PASS_KEY, $('pw').value.trim()); home(); };
+  const go = () => { ls.set(PASS_KEY, $('pw').value.trim()); WHO = ''; binNo = 0; binN = null; ls.set(BIN_KEY, ''); try { localStorage.removeItem('pdSortWho'); } catch(e){} home(); };
   $('pwgo').onclick = go; $('pw').onkeydown = (e) => { if (e.key === 'Enter') go(); };
 }
 
 function binBarHtml(){
   if (!binNo) return `<div class="binbar"><span class="lbl">📦 Getting your bin…<small>one moment</small></span></div>`;
-  return `<div class="binbar"><span class="lbl">📦 Filling Bin ${binNo}<small>${binN == null ? 'counting…' : `${binN} of ${binCap} books`} · tap to change</small></span><button id="binplus" style="font-size:.95rem">🆕 New bin</button></div>`;
+  const nm = WHO ? WHO.charAt(0).toUpperCase() + WHO.slice(1) : '';
+  return `<div class="binbar"><span class="lbl">📦 ${nm ? esc(nm) + ' · ' : ''}Filling Bin ${binNo}<small>${binN == null ? 'counting…' : `${binN} of ${binCap} books`} · tap to change</small></span><button id="binplus" style="font-size:.95rem">🆕 New bin</button><button id="whoswitch" style="font-size:.85rem" title="Someone else sorting">👤 Switch</button></div>`;
 }
 // "always give me a new one so I dont overlap" - a new bin is the next number nobody has used (shared with the Book Station)
 async function newBin(){
@@ -124,7 +126,7 @@ async function newBin(){
 }
 function setBin(n){ binNo = Math.max(1, n); ls.set(BIN_KEY, String(binNo)); binN = null; loadBin(); }
 async function loadBin(){
-  if (!WHO) askWho();
+  if (!WHO) await askWho();
   try {
     if (!binNo) { const m = await api('bin_mine', { who: WHO }); binNo = Number(m.bin); ls.set(BIN_KEY, String(binNo)); binN = Number(m.n) || 0; binCap = Number(m.cap) || 18; }
     else { const r = await api('bin', { bin: binNo }); binN = Number(r.n) || 0; binCap = Number(r.cap) || 18; }
@@ -137,6 +139,7 @@ function wireBin(){
     catch(e){ alert(e.message || 'That bin is not yours.'); } };
   if ($('binset')) $('binset').onclick = ask;
   if ($('binplus')) $('binplus').onclick = newBin;
+  if ($('whoswitch')) $('whoswitch').onclick = () => { ls.set(PASS_KEY, ''); passScreen('Type the PIN of the person sorting now.'); };
   const l = document.querySelector('.binbar .lbl'); if (l && binNo) { l.style.cursor = 'pointer'; l.onclick = ask; }
 }
 function home(note){
@@ -180,7 +183,7 @@ async function check(body){
   let j;
   try { j = await api('check', body); }
   catch(e){
-    if (e.code === 'bad_passcode') return passScreen('That passcode did not work.');
+    if (e.code === 'bad_passcode') return passScreen('That PIN did not work.');
     return home(`<div class="res RETAKE"><div class="bin">🔁 TRY AGAIN</div><div class="what">${esc(e.message || 'The check did not answer.')}</div></div>`);
   }
   cur = j;

@@ -1,0 +1,3 @@
+-- 2026-11-13 Papa Duck: "heathers 2320 ... 1198 for me" - per-person PINs. Each PIN works as the station passcode and sets who is sorting.
+-- (PIN values live only in pipeline.config 'sorter_pins' as {"<pin>":"<name>"}; not repeated here.)
+-- station-api v20 (v7m): pin -> who; action whoami. sort.html asks for "your PIN" and shows "Heather · Filling Bin 1" + 👤 Switch.

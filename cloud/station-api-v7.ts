@@ -1,4 +1,5 @@
 // v7i 2026-11-12: Vinted on/off switch (config vinted_on).
+// v7m 2026-11-13: sorter PINs (config sorter_pins) work as the passcode and set who; action whoami.
 // v7l 2026-11-12: bins checked out to one person (bin_take), bin_pd for drafts sent without a Quick check.
 // v7k 2026-11-12: shared bin numbering - bin_mine / bin_new / bin_put.
 // v7j 2026-11-12: sticker takes {bin}; action "bin" returns how full a bin is.
@@ -88,9 +89,14 @@ Deno.serve(async (req) => {
   try {
     const [cfg] = await sql`select value from pipeline.config where key = 'station_passcode'`;
     const pass = String(req.headers.get("x-station-pass") || "");
-    if (!cfg || !pass || pass !== cfg.value) return json({ ok: false, error: "bad_passcode" }, 403);
+    // v7m (2026-11-13, "heathers 2320 ... 1198 for me"): each sorter has a PIN; a PIN works as the passcode and says who is sorting
+    const [pc] = await sql`select value from pipeline.config where key = 'sorter_pins'`;
+    let pins: Record<string, string> = {}; try { pins = JSON.parse(String(pc?.value || "{}")); } catch (_) { pins = {}; }
+    const pinWho = pass && pins[pass] ? String(pins[pass]) : "";
+    if (!cfg || !pass || (pass !== cfg.value && !pinWho)) return json({ ok: false, error: "bad_passcode" }, 403);
     let b: any; try { b = await req.json(); } catch (_) { return json({ ok: false, error: "bad request" }, 400); }
     const act = String(b.action || "");
+    if (act === "whoami") return json({ ok: true, who: pinWho || "papa" });
     if (act === "boot") {
       const [r] = await sql`select pipeline.station_boot(${Math.min(2000, Number(b.limit) || 400)}) as b`;
       return json({ ok: true, boot: r.b });
@@ -174,7 +180,7 @@ Deno.serve(async (req) => {
     // v7k (2026-11-12, "always give me a new one so I dont overlap"): one shared bin numbering line.
     //   bin_mine {who} -> that person's current bin (a new one if full); bin_new {who, from} -> next unused number;
     //   bin_put {id, bin|null, who} -> a Quick check LIST goes in that bin (full -> next bin handed out as "next").
-    const who = String(b.who || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 40) || "station";
+    const who = pinWho || String(b.who || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 40) || "station";
     if (act === "bin_mine") { const [r] = await sql`select pipeline.bin_mine(${who}) s`; return json({ ok: true, ...r.s }); }
     if (act === "bin_new") { const [r] = await sql`select pipeline.bin_new(${who}, ${Number(b.from) > 0 ? Math.floor(Number(b.from)) : null}::int) s`; return json({ ok: true, ...r.s }); }
     // v7l (2026-11-12, "it can not be reused once selected"): a bin is checked out to one person. bin_take {bin, who} only
