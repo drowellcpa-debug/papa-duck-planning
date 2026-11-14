@@ -1,3 +1,4 @@
+// v7s 2026-11-14: 🧺 Morning Basket pile - low-value books that suit a homeschool morning basket go to BASKET (with a theme) instead of Goodwill.
 // v7r 2026-11-14: a book with no price proof is LISTED and flagged (price_flag -> Drafts chip), not left as Your call; photo-read title kept.
 // v7q 2026-11-14: off-eBay price ignores crazy-high asks - other sellers' outliers, and an Amazon buy box with no sales (Rosebud I Remember: $209.08 Amazon, 0 sales; AbeBooks $17.75).
 // v7i 2026-11-12: Vinted on/off switch (config vinted_on).
@@ -139,9 +140,10 @@ Deno.serve(async (req) => {
     //   Cover photo or ISBN -> Scout brain in Clean-up mode (he already owns the book) -> LIST / SELL / GOODWILL / TOSS. Read-only for listings.
     // v7c (2026-11-11): Papa Duck "I would like to do my personal Vinted instead of Goodwill for my CDs, etc" - "no more than 1 item per day ... or a lot of CDs".
     //   Scout only knows LIST/SELL/GOODWILL/TOSS piles, so the Vinted box (and Maybe later) are written here.
-    if (act === "pile" && ["VINTED", "MAYBE"].includes(String(b.pile))) {
+    if (act === "pile" && ["VINTED", "MAYBE", "BASKET"].includes(String(b.pile))) {
       const pid = Number(b.id) || 0;
       await sql`update pipeline.cleanup_piles set pile = ${String(b.pile)} where id = ${pid}`;
+      if (b.pile === "BASKET" && b.theme) await sql`update pipeline.cleanup_piles set basket_theme = ${String(b.theme).slice(0, 40)} where id = ${pid}`;
       // v7d (2026-11-11): the Vinted box keeps the snapped photo -> storage p/vinted/<id>.jpg (Launch Pad Vinted sorting box, lots, V-numbers).
       if (b.pile === "VINTED" && b.image && pid) {
         try {
@@ -392,7 +394,7 @@ Deno.serve(async (req) => {
           const ar = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
             headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
             body: JSON.stringify({ model: String((await sql`select value from pipeline.config where key = 'claude_model'`)[0]?.value || "claude-sonnet-4-6"), max_tokens: 200, messages: [{ role: "user", content:
-              `Papa Duck Homeschool is a Christian, family-friendly book shop. Rule of thumb: would a homeschool parent reasonably assign or shelve this book for a high schooler? If yes, it is ok.\nNOT ok ONLY if one of these is clearly true: sexual content or erotica, or a sexually suggestive cover; occult, witchcraft or New Age/shamanic practice as the main focus (e.g. Carlos Castaneda's Don Juan books); horror or gore as the main focus; glorifies drug use; HEAVY profanity throughout.\nThese are OK - do not flag: serious history of any kind including war, the Holocaust and politics (e.g. Night); classics and school reading-list books; political or economic history from any viewpoint (e.g. A People's History, To the Finland Station); mild or absurd humor (e.g. Cruel Shoes); ordinary biographies and memoirs; ordinary adult fiction with some mature themes. Do not flag just because you are unsure.\n${JSON.stringify({ title: j.ident.title, author: j.ident.author, publisher: j.ident.publisher, year: j.ident.year })}\nRespond ONLY JSON: {"ok":true,"note":"short reason if not ok"}` }] }) });
+              `Papa Duck Homeschool is a Christian, family-friendly book shop. Rule of thumb: would a homeschool parent reasonably assign or shelve this book for a high schooler? If yes, it is ok.\nNOT ok ONLY if one of these is clearly true: sexual content or erotica, or a sexually suggestive cover; occult, witchcraft or New Age/shamanic practice as the main focus (e.g. Carlos Castaneda's Don Juan books); horror or gore as the main focus; glorifies drug use; HEAVY profanity throughout.\nThese are OK - do not flag: serious history of any kind including war, the Holocaust and politics (e.g. Night); classics and school reading-list books; political or economic history from any viewpoint (e.g. A People's History, To the Finland Station); mild or absurd humor (e.g. Cruel Shoes); ordinary biographies and memoirs; ordinary adult fiction with some mature themes. Do not flag just because you are unsure.\nAlso: would this book suit a homeschool family's MORNING BASKET (books read together in the morning)? If clearly yes, set basket to ONE theme: "Poetry & Hymns", "Read-Aloud Classics", "Nature Study", "Bible & Character", "Shakespeare & Classics", "Art & Picture Study", "History Read-Alouds", "Advent & Christmas". Otherwise basket is "". Textbooks, workbooks, adult novels, manuals and reference books are "".\n${JSON.stringify({ title: j.ident.title, author: j.ident.author, publisher: j.ident.publisher, year: j.ident.year })}\nRespond ONLY JSON: {"ok":true,"note":"short reason if not ok","basket":""}` }] }) });
           const aj = await ar.json();
           const txt = (aj.content || []).map((x: any) => x.text || "").join("");
           const fj = JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}") + 1));
@@ -406,6 +408,13 @@ Deno.serve(async (req) => {
               j.reason = j.verdict === "LIST" ? `List at $${Number(j.list).toFixed(2)}.` : (j.list != null ? `Only worth about $${Number(j.list).toFixed(2)}.` : "Not worth listing.");
               if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = ${j.verdict}, reason = ${j.reason} where id = ${Number(j.pile_id)}`;
             }
+          }
+          // v7s (2026-11-14, "Yes can you set this up" - Morning Basket lots): a Goodwill book that suits a morning basket goes to the 🧺 box
+          const theme = String(fj?.basket || "").trim().slice(0, 40);
+          if (theme && !j.family && j.verdict === "GOODWILL" && !isItem) {
+            j.verdict = "BASKET"; j.basket_theme = theme;
+            j.reason = `Worth more in a 🧺 Morning Basket lot (${theme}) than alone.`;
+            if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = 'BASKET', basket_theme = ${theme}, reason = ${j.reason} where id = ${Number(j.pile_id)}`;
           }
           j.family_checked = true;
         } catch (_) { j.family_checked = false; }

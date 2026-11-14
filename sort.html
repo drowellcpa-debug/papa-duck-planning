@@ -10,7 +10,7 @@
      +1 each time, so on a roll in order they just press Enter). Uses station-api (same passcode as the Book Station). -->
 <style>
 :root{--ink:#14201a;--muted:#5d6b63;--bg:#f4f6f3;--card:#fff;--line:#d9e0db;--brand:#1E5B43;
-  --list:#1f8a4c;--vinted:#7b3fa0;--sell:#1f6fb8;--goodwill:#6b7570;--toss:#c0392b;--ask:#c98a00}
+  --list:#1f8a4c;--vinted:#7b3fa0;--sell:#1f6fb8;--goodwill:#6b7570;--toss:#c0392b;--ask:#c98a00;--basket:#a0522d}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{min-height:100vh;display:flex;flex-direction:column}
@@ -32,7 +32,7 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 18p
 .res .title{font-size:.95rem;opacity:.9;max-width:100%;overflow-wrap:anywhere}
 .res .big{font-size:3rem;font-weight:900;background:#fff3b0;color:#4a2a63;border:3px dashed #4a2a63;border-radius:10px;padding:2px 18px}
 .LIST{background:var(--list)} .VINTED{background:var(--vinted)} .SELL{background:var(--sell)} .GOODWILL{background:var(--goodwill)}
-.TOSS{background:var(--toss)} .ASK{background:var(--ask)} .RETAKE{background:#fff;color:var(--ink);border:3px solid var(--ask)}
+.BASKET{background:var(--basket)} .TOSS{background:var(--toss)} .ASK{background:var(--ask)} .RETAKE{background:#fff;color:var(--ink);border:3px solid var(--ask)}
 .stk{display:flex;gap:8px;width:100%;max-width:420px}
 .stk input{flex:1;min-width:0;font-size:1.6rem;font-weight:800;padding:12px;border-radius:12px;border:0;text-align:center}
 .stk button{background:#fff;color:var(--list)}
@@ -82,7 +82,7 @@ let cur = null, tally = {};
 // 2026-11-12 Papa Duck: "if they mess up on a sticker does it give them the ability to see what they scanned in last and fix it?"
 let recent = []; try { recent = JSON.parse(ls.get(RECENT_KEY) || '[]'); } catch(e){ recent = []; }
 function remember(bin, title, pd, box){ if (!cur) return; recent = [{ id: cur.pile_id, bin, title: title || '', pd: pd || '', box: box || null }].concat(recent.filter((r) => r.id !== cur.pile_id)).slice(0, 15); ls.set(RECENT_KEY, JSON.stringify(recent)); }
-const DOT = { LIST: '🟢', VINTED: '🟣', SELL: '🔵', GOODWILL: '⚪', TOSS: '🔴', ASK: '🟡' };
+const DOT = { LIST: '🟢', VINTED: '🟣', SELL: '🔵', GOODWILL: '⚪', TOSS: '🔴', ASK: '🟡', BASKET: '🧺' };
 function recentHtml(){
   if (!recent.length) return '';
   return `<div class="recent"><h2>Last books sorted</h2>` + recent.slice(0, 10).map((r, i) => `<div class="rrow"><span class="dot">${DOT[r.bin] || '•'}</span>
@@ -99,8 +99,8 @@ async function api(action, body){
 }
 function count(bin){ tally[bin] = (tally[bin] || 0) + 1; ls.set(TALLY_KEY, JSON.stringify(tally)); showTally(); }
 function showTally(){
-  const n = (k) => tally[k] || 0, total = ['LIST','VINTED','SELL','GOODWILL','TOSS','ASK'].reduce((a, k) => a + n(k), 0);
-  $('tally').innerHTML = total ? `Today: <b>${total}</b> sorted<br>🟢 ${n('LIST')} · 🟣 ${n('VINTED')} · 🔵 ${n('SELL')} · ⚪ ${n('GOODWILL')}` : 'Today: 0 sorted';
+  const n = (k) => tally[k] || 0, total = ['LIST','VINTED','SELL','GOODWILL','TOSS','ASK','BASKET'].reduce((a, k) => a + n(k), 0);
+  $('tally').innerHTML = total ? `Today: <b>${total}</b> sorted<br>🟢 ${n('LIST')} · 🟣 ${n('VINTED')} · 🔵 ${n('SELL')} · 🧺 ${n('BASKET')} · ⚪ ${n('GOODWILL')}` : 'Today: 0 sorted';
 }
 
 function passScreen(msg){
@@ -151,7 +151,7 @@ function home(note){
     <p class="hint">No barcode? Tap 📷 and take a photo of the cover or the copyright page.</p>
     <div id="out">${note || `<div class="legend" style="margin-top:8px">
       <span style="background:var(--list)">🟢 LIST box + sticker</span><span style="background:var(--vinted)">🟣 VINTED bag</span>
-      <span style="background:var(--sell)">🔵 SELL BACK box</span><span style="background:var(--goodwill)">⚪ GOODWILL box</span>
+      <span style="background:var(--sell)">🔵 SELL BACK box</span><span style="background:var(--basket)">🧺 MORNING BASKET box</span><span style="background:var(--goodwill)">⚪ GOODWILL box</span>
       <span style="background:var(--toss)">🔴 SET ASIDE for Dad</span></div>`}</div>${recentHtml()}`;
   wireBin(); if (binN == null) loadBin();
   document.querySelectorAll('[data-fix]').forEach((b) => b.onclick = () => { const r = recent[Number(b.dataset.fix)]; cur = { pile_id: r.id }; showList(r.title, '', r.pd, r.box); });
@@ -216,6 +216,10 @@ async function check(body){
         : `<div class="what">Put it in the Vinted box.</div>`}
       <div class="title">${esc(title)}</div></div>`);
   }
+  // 2026-11-14 Papa Duck: Morning Basket lots - low-value books that suit a homeschool morning basket get bundled by theme
+  const basketDone = (theme) => { count('BASKET'); remember('BASKET', title);
+    home(`<div class="res BASKET"><div class="bin">🧺 MORNING BASKET</div><div class="what">Put it in the MORNING BASKET box.</div>${theme ? `<div class="big" style="font-size:1.4rem">${esc(theme)}</div>` : ''}<div class="title">${esc(title)}</div></div>`); };
+  if (v === 'BASKET') return basketDone(j.basket_theme || '');
   if (v === 'TOSS' || v === 'ASK') { try { if (j.pile_id) await api('pile', { id: j.pile_id, pile: 'MAYBE' }); } catch(e){} }
   // 2026-11-14 Papa Duck: "Ask Dad should not show on scan app" - an unsure book is decided right here, with its title, price and why.
   if (v === 'ASK') {
@@ -240,7 +244,10 @@ async function check(body){
   }[v] || ['🟡 ASK DAD', 'Put it in the ASK DAD box.'];
   const binKey = map[0].includes('SELL') ? 'SELL' : map[0].includes('GOODWILL') ? 'GOODWILL' : v === 'TOSS' ? 'TOSS' : 'ASK';
   count(binKey); remember(binKey, title);
-  home(`<div class="res ${v === 'SELL' || v === 'GOODWILL' || v === 'TOSS' ? v : 'ASK'}"><div class="bin">${map[0]}</div><div class="what">${esc(map[1])}</div><div class="title">${esc(title)}</div></div>`);
+  home(`<div class="res ${v === 'SELL' || v === 'GOODWILL' || v === 'TOSS' ? v : 'ASK'}"><div class="bin">${map[0]}</div><div class="what">${esc(map[1])}</div><div class="title">${esc(title)}</div>
+    ${v === 'GOODWILL' && j.pile_id ? `<button id="tobasket" style="margin-top:8px;background:#fff;color:var(--basket)">🧺 Morning Basket instead</button>` : ''}</div>`);
+  if ($('tobasket')) $('tobasket').onclick = async () => { try { await api('pile', { id: j.pile_id, pile: 'BASKET' }); } catch(e){}
+    tally.GOODWILL = Math.max(0, (tally.GOODWILL || 0) - 1); basketDone(''); };
 }
 
 function showList(title, err, fixing, fixBox){
