@@ -1,4 +1,5 @@
 // v7i 2026-11-12: Vinted on/off switch (config vinted_on).
+// v7n 2026-11-13: 10-digit scan that finds nothing as an ISBN is retried as the rebuilt UPC-A (Farset G47).
 // v7m 2026-11-13: sorter PINs (config sorter_pins) work as the passcode and set who; action whoami.
 // v7l 2026-11-12: bins checked out to one person (bin_take), bin_pd for drafts sent without a Quick check.
 // v7k 2026-11-12: shared bin numbering - bin_mine / bin_new / bin_put.
@@ -257,6 +258,20 @@ Deno.serve(async (req) => {
       }
       let r = await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: String(pin?.value || ""), ...fwd }) });
       let j = await r.json().catch(() => null);
+      // v7n (2026-11-13, Farset G47 CD read as 9362494841 - a 10-digit number that happens to pass the ISBN-10 check): the scanner
+      //   drops the first and last digit of UPC barcodes. When a 10-digit number finds nothing as an ISBN, try it as the rebuilt UPC-A.
+      if (act === "check" && fwd.isbn && /^\d{10}$/.test(fwd.isbn) && j && !(j.ident && j.ident.title)) {
+        const b11 = "0" + fwd.isbn; let t = 0; for (let i = 0; i < 11; i++) t += +b11[i] * (i % 2 ? 1 : 3);
+        const upc = b11 + String((10 - t % 10) % 10);
+        const ru = await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: String(pin?.value || ""), ...fwd, isbn: upc }) });
+        const ju = await ru.json().catch(() => null);
+        if (ru.ok && ju && ju.ok !== false && !ju.error && ju.ident && ju.ident.title) {
+          if (j.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: j.pile_id }) }).catch(() => null);
+          r = ru; j = ju; fwd.isbn = upc;
+        } else if (ju && ju.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: ju.pile_id }) }).catch(() => null);
+      }
       // v7b (2026-11-10, "quick check for grand old opry is saying goodwill?"): a photo check that found nothing gets one more try by name
       //   across all of eBay (the photo path searches Books only), before anyone is told Goodwill.
       if (act === "check" && (fwd.images || fwd.ident) && j && j.list == null && (j.verdict === "GOODWILL" || j.verdict === "SELL")) {
