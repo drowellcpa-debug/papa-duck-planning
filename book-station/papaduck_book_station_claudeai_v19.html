@@ -4199,8 +4199,9 @@ $('qcgo').addEventListener('click', async () => {
     if (d.length === 10) { let t = 0; for (let i = 0; i < 10; i++) t += (d[i] === 'X' ? 10 : +d[i]) * (10 - i); return t % 11 === 0; }
     if (d.length === 13) { let t = 0; for (let i = 0; i < 13; i++) t += +d[i] * (i % 2 ? 3 : 1); return t % 10 === 0; }
     return true; };
-  if ((isbn.length === 10 || (isbn.length === 13 && /^97[89]/.test(isbn))) && !isbnOk(isbn)) {
-    $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;border:3px solid var(--warn);background:#fff7e6;font-weight:800;color:var(--warn)">⚠️ That ISBN doesn\'t look right (' + qcEsc(isbn) + ') - check the numbers and try again.</div>';
+  if (!window.qcSkipIsbn && (isbn.length === 10 || (isbn.length === 13 && /^97[89]/.test(isbn))) && !isbnOk(isbn)) {
+    $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;border:3px solid var(--warn);background:#fff7e6;font-weight:800;color:var(--warn)">⚠️ That number doesn\'t look like a real ISBN (' + qcEsc(isbn) + '). If you typed it, check the numbers. If you scanned it (CDs and videos use other codes): <button type="button" id="qcanyway">Check it anyway</button></div>';
+    $('qcanyway').onclick = () => { window.qcSkipIsbn = true; $('qcisbn').value = isbn; $('qcgo').click(); window.qcSkipIsbn = false; };
     return;
   }
   const q = { id: ++qcSeq, label: isbn ? isbn : 'Photo ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }), state: 'wait', file: file };
