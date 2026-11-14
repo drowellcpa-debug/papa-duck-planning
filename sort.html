@@ -71,7 +71,7 @@ const PASS_KEY = 'pdStationPass', STK_KEY = 'pdSortNextSticker', TALLY_KEY = 'pd
 let binNo = Number(ls0('pdSortBin')) || 0, binN = null, binCap = 18;
 // "it can not be reused once selected": each bin is checked out to one sorter - the page asks who is sorting once per phone
 let WHO = (ls0('pdSortWho') || '').replace(/^sort-.*/, '');
-// 2026-11-13 "heathers 2320 ... 1198 for me": the PIN typed at sign-in says who is sorting (server maps PIN -> name)
+// 2026-11-13 per-person PINs: the PIN typed at sign-in says who is sorting (server maps PIN -> name)
 async function askWho(){ try { const r = await api('whoami'); WHO = String(r.who || 'sorter'); } catch(e){ WHO = 'sorter'; }
   try { localStorage.setItem('pdSortWho', WHO); } catch(e){} }
 function ls0(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
