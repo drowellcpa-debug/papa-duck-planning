@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
   try {
     const [cfg] = await sql`select value from pipeline.config where key = 'station_passcode'`;
     const pass = String(req.headers.get("x-station-pass") || "");
-    // v7m (2026-11-13, "heathers 2320 ... 1198 for me"): each sorter has a PIN; a PIN works as the passcode and says who is sorting
+    // v7m (2026-11-13, per-person PINs): each sorter has a PIN; a PIN works as the passcode and says who is sorting
     const [pc] = await sql`select value from pipeline.config where key = 'sorter_pins'`;
     let pins: Record<string, string> = {}; try { pins = JSON.parse(String(pc?.value || "{}")); } catch (_) { pins = {}; }
     const pinWho = pass && pins[pass] ? String(pins[pass]) : "";
