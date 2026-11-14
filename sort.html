@@ -145,14 +145,14 @@ function wireBin(){
 function home(note){
   cur = null;
   $('app').innerHTML = binBarHtml() + `
-    <div class="scan"><input id="isbn" inputmode="numeric" autocomplete="off" placeholder="Scan or type the ISBN" aria-label="Barcode or ISBN">
+    <div class="scan"><input id="isbn" inputmode="numeric" autocomplete="off" placeholder="Scan or type ISBN" aria-label="Barcode or ISBN">
       <button class="go" id="isbngo" aria-label="Check this number" style="padding:0 14px">🔎</button>
       <button class="cam" id="cam" aria-label="Take a photo">📷</button></div>
     <p class="hint">No barcode? Tap 📷 and take a photo of the cover or the copyright page.</p>
     <div id="out">${note || `<div class="legend" style="margin-top:8px">
       <span style="background:var(--list)">🟢 LIST box + sticker</span><span style="background:var(--vinted)">🟣 VINTED bag</span>
       <span style="background:var(--sell)">🔵 SELL BACK box</span><span style="background:var(--goodwill)">⚪ GOODWILL box</span>
-      <span style="background:var(--ask)">🟡 ASK DAD box</span><span style="background:var(--toss)">🔴 SET ASIDE for Dad</span></div>`}</div>${recentHtml()}`;
+      <span style="background:var(--toss)">🔴 SET ASIDE for Dad</span></div>`}</div>${recentHtml()}`;
   wireBin(); if (binN == null) loadBin();
   document.querySelectorAll('[data-fix]').forEach((b) => b.onclick = () => { const r = recent[Number(b.dataset.fix)]; cur = { pile_id: r.id }; showList(r.title, '', r.pd, r.box); });
   const inp = $('isbn'); inp.focus();
@@ -217,6 +217,21 @@ async function check(body){
       <div class="title">${esc(title)}</div></div>`);
   }
   if (v === 'TOSS' || v === 'ASK') { try { if (j.pile_id) await api('pile', { id: j.pile_id, pile: 'MAYBE' }); } catch(e){} }
+  // 2026-11-14 Papa Duck: "Ask Dad should not show on scan app" - an unsure book is decided right here, with its title, price and why.
+  if (v === 'ASK') {
+    const bb = j.buyback && Number(j.buyback.price) > 0 ? j.buyback : null;
+    home(`<div class="res ASK"><div class="bin">🟡 YOUR CALL</div><div class="title">${esc(title)}</div><div class="what">${esc(j.reason || '')}</div>
+      <div style="display:grid;gap:8px;margin-top:10px">
+        <button id="yc_list" style="background:var(--list);color:#fff">🟢 List it${j.list != null ? ' at $' + Number(j.list).toFixed(2) : ''}</button>
+        ${bb ? `<button id="yc_sell" style="background:var(--sell);color:#fff">🔵 Sell back to ${esc(bb.vendor)} for $${Number(bb.price).toFixed(2)}</button>` : ''}
+        <button id="yc_gw" style="background:#fff;color:#333">⚪ Goodwill</button></div></div>`);
+    const put = async (pile, key) => { try { await api('pile', { id: j.pile_id, pile }); } catch(e){} count(key); remember(key, title);
+      home(`<div class="res ${key}"><div class="bin">${key === 'SELL' ? '🔵 SELL BACK' : '⚪ GOODWILL'}</div><div class="what">Put it in the ${key === 'SELL' ? 'SELL BACK' : 'GOODWILL'} box.</div><div class="title">${esc(title)}</div></div>`); };
+    $('yc_list').onclick = async () => { try { if (j.pile_id) await api('pile', { id: j.pile_id, pile: 'LIST' }); } catch(e){} showList(title); };
+    if ($('yc_sell')) $('yc_sell').onclick = () => put('SELL', 'SELL');
+    $('yc_gw').onclick = () => put('GOODWILL', 'GOODWILL');
+    return;
+  }
   const map = {
     SELL: ['🔵 SELL BACK', 'Put it in the SELL BACK box.'],
     GOODWILL: ['⚪ GOODWILL', 'Put it in the GOODWILL box.'],

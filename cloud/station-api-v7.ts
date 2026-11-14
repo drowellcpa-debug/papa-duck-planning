@@ -1,3 +1,4 @@
+// v7q 2026-11-14: off-eBay price ignores crazy-high asks - other sellers' outliers, and an Amazon buy box with no sales (Rosebud I Remember: $209.08 Amazon, 0 sales; AbeBooks $17.75).
 // v7i 2026-11-12: Vinted on/off switch (config vinted_on).
 // v7p 2026-11-13: looser family check (high-schooler rule of thumb); it overrides Scout's photo flag.
 // v7o 2026-11-13: bin_pd = pipeline.bin_assign_pd (count at send to Drafts; returns status + next bin).
@@ -342,12 +343,33 @@ Deno.serve(async (req) => {
         j.verdict = "RETAKE";
         j.reason = `Couldn't find this book from the photo${j.ident && j.ident.title ? ' (read it as "' + j.ident.title + '")' : ""}. Scan or type the ISBN — it's on the back or the copyright page.`;
       }
+      // v7q (2026-11-14, "Yes" - fix it so one crazy-high seller can't throw off the price): with no eBay copies Scout prices from the
+      //   other sellers' asks (average or median). Drop any ask more than 3x the cheapest copy, then price again; only ever lowers.
+      if (act === "check" && Number(j.grid?.ebay?.n || 0) === 0 && Array.isArray(j.comps) && j.comps.length >= 1 && j.list != null) {
+        const pool = j.comps.map((c: any) => Number(c.price)).filter((v: number) => v > 0).sort((a: number, b: number) => a - b);
+        const keep = pool.filter((v: number) => v <= pool[0] * 3);
+        //   An Amazon used buy box with no sales in 90 days is just an asking price too: it can't lift the price past 3x the cheapest copy.
+        const amzOnly = Number(j.list) > pool[0] * 3 && !Number(j.grid?.amazon?.sales90 || 0);
+        if (keep.length && (keep.length < pool.length || amzOnly)) {
+          const avg = keep.reduce((t: number, v: number) => t + v, 0) / keep.length;
+          const med = keep.length % 2 ? keep[(keep.length - 1) / 2] : (keep[keep.length / 2 - 1] + keep[keep.length / 2]) / 2;
+          const fix = Math.ceil(Math.max(avg, med)) - 0.01;
+          if (fix > 0 && fix < Number(j.list)) {
+            const was = Number(j.list);
+            j.list = fix; j.market = fix;
+            j.reason = String(j.reason || "").replace(/List at \$[\d.]+/, `List at $${fix.toFixed(2)}`) + ` (skipped a crazy-high asking price of $${was.toFixed(2)})`;
+            if (j.pile_id) await sql`update pipeline.cleanup_piles set list_price = ${fix}, reason = ${j.reason} where id = ${Number(j.pile_id)}`;
+          }
+        }
+      }
       // v6 (2026-11-09): "A Walk in the Clouds ... it thought it was $35" - LIST priced from only 1 eBay copy and no sales.
       //   One or two copies with nothing sold is not enough to trust a price: say so and let him decide.
       const en = Number(j.grid?.ebay?.n || 0), es = Number(j.soldN || 0);
       if (act === "check" && j.verdict === "LIST" && es === 0 && en <= 2) {
         j.verdict = "CHECK";
-        j.reason = `Only ${en} on eBay and none sold, so $${Number(j.list || 0).toFixed(2)} is just one seller's asking price, not a real value. Most likely a low seller — your call.`;
+        j.reason = en === 0 && Number(j.altLow || 0) > 0
+          ? `None on eBay and no sales. Other sellers ask from $${Number(j.altLow).toFixed(2)}, so about $${Number(j.list || 0).toFixed(2)} — slow seller, your call.`
+          : `Only ${en} on eBay and none sold, so $${Number(j.list || 0).toFixed(2)} is just one seller's asking price, not a real value. Most likely a low seller — your call.`;
       }
       // Papa Duck 2026-11-09: "also family friendly check there as well". A photo check already asks it (Scout's identify);
       // an ISBN-only check looks the book up by number, so ask Claude about the title here.
