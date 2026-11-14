@@ -193,6 +193,8 @@ async function check(body){
   cur = j;
   const title = j.ident && j.ident.title ? j.ident.title : '';
   let v = String(j.verdict || '').toUpperCase();
+  // 2026-11-13: under the $7.99 minimum it is Goodwill anyway - skip the family set-aside
+  if (j.family && j.list != null && Number(j.list) < 7.99) { j.family = ''; v = 'GOODWILL'; try { if (j.pile_id) await api('pile', { id: j.pile_id, pile: 'GOODWILL' }); } catch(e){} }
   if (j.family) v = 'TOSS';
   if (v === 'CHECK') v = 'ASK';
   if (v === 'RETAKE') return home(`<div class="res RETAKE"><div class="bin">🔁 TRY AGAIN</div><div class="what">Couldn't tell which book this is.</div>

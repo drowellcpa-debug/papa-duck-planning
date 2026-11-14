@@ -4202,6 +4202,11 @@ $('qcgo').addEventListener('click', async () => {
     else { const d = await qcShrink(file); body.image = d.split(',')[1]; }
     q.r = await ((a, b) => api(a, b, 2))('check', body);
     q.state = 'done';
+    // 2026-11-13 ("still called up family even though price was 5.99"): under the $7.99 minimum it is Goodwill anyway - skip the family question
+    if (q.r && q.r.family && q.r.list != null && Number(q.r.list) < 7.99) {
+      q.r.family = ''; q.r.verdict = 'GOODWILL'; q.r.reason = 'Only worth about $' + Number(q.r.list).toFixed(2) + ' - under your $7.99 minimum.';
+      if (q.r.pile_id) { try { await api('pile', { id: q.r.pile_id, pile: 'GOODWILL' }); } catch(e){} }
+    }
     if (q.r && String(q.r.verdict || '') === 'LIST' && !q.r.family) await qcBinPut(q.r, true);
   } catch(e) { q.state = 'err'; q.err = String(e.message || e); }
   qcRenderQ();
