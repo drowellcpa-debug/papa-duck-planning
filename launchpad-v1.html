@@ -233,7 +233,7 @@ function nightDone(n) {
   const v = verify; if (!v || !v.ok || !v.channels) return false;
   const ch = Object.values(v.channels);
   if (!ch.length || ch.some((x) => x.listed !== x.total || (x.problems || []).length)) return false;
-  return !(live || []).some((r) => r.st !== "ok");
+  return !(live || []).some((r) => r.st !== "ok" && r.st !== "pulled");
 }
 function jobState(list) {
   if (!list.length) return "none";
@@ -1247,13 +1247,13 @@ function verifyCard() {
   const liveCell = (c) => {
     const x = v.channels[c]; if (!x || !x.listed) return `<span class="muted">—</span>`;
     if (c === "ebay" || c === "ebay_other" || c === "etsy") return `<span class="ok">✅ ${x.listed} live</span>`;
-    const L = live.filter((r) => r.ch === c), ok = L.filter((r) => r.st === "ok").length;
+    const L = live.filter((r) => r.ch === c), ok = L.filter((r) => r.st === "ok" || r.st === "pulled").length;
     if (!L.length) return `<span class="muted">${liveBusy ? "checking…" : "not checked yet"}</span>`;
     const bad = L.filter((r) => r.st === "problem").length;
-    return `<span class="${ok === x.listed ? "ok" : ""}">${ok === x.listed ? "✅" : bad ? "⚠️" : "⏳"} ${ok} of ${x.listed}${c === "abe" ? " with photos" : " buyable"}</span>`;
+    return `<span class="${ok === x.listed ? "ok" : ""}">${ok === x.listed ? "✅" : bad ? "⚠️" : "⏳"} ${ok} of ${x.listed}${c === "abe" ? " with photos" : " done"}${L.some((r) => r.st === "pulled") ? ` (${L.filter((r) => r.st === "pulled").length} pulled)` : ""}</span>`;
   };
   const liveRows = CHS.filter((c) => v.channels[c]).map((c) => `<span><b>${names[c]}</b></span>` + cells[c] + liveCell(c)).join("");
-  const waitAbe = live.filter((r) => r.ch === "abe" && r.st !== "ok"), waitAmz = live.filter((r) => r.ch === "amazon" && r.st !== "ok");
+  const waitAbe = live.filter((r) => r.ch === "abe" && r.st !== "ok"), waitAmz = live.filter((r) => r.ch === "amazon" && r.st !== "ok" && r.st !== "pulled"), pulled = live.filter((r) => r.st === "pulled");
   const lastLive = live.length ? new Date(live.reduce((a, r) => r.at > a ? r.at : a, "")).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
   const liveNote = (waitAbe.length || waitAmz.length) ? `<div class="notice" style="font-weight:400;border:2px solid var(--yellow);background:var(--yellow-bg)">
       ${waitAbe.length ? `<b>AbeBooks photos not showing yet (${waitAbe.length}):</b> ${waitAbe.map((r) => esc(r.pd)).join(", ")}<br>` : ""}
@@ -1262,6 +1262,7 @@ function verifyCard() {
   return `<section class="card" aria-label="Confirmation">${head}
     <div style="display:grid;grid-template-columns:minmax(80px,1fr) minmax(0,1.1fr) minmax(0,1.2fr) minmax(0,1.5fr);gap:8px 12px;font-size:1.02rem">
       <span class="muted">Channel</span><span class="muted">Sent</span><span class="muted">Airtable updated</span><span class="muted">Live on the store</span>${liveRows}</div>${liveNote}
+    ${pulled.length ? `<div class="notice" style="font-weight:400"><b>🚫 Pulled from Amazon (${pulled.length}):</b> ${pulled.map((r) => esc(r.pd)).join(", ")} <span class="muted">· still live on eBay, AbeBooks and Etsy. Done, put it away with the rest.</span></div>` : ""}
     ${probs.length ? `<div class="notice bad" style="font-weight:400"><b>Needs a look:</b><br>${probs.map(esc).join("<br>")}</div>` : `<p class="ok" style="margin:0">Everything listed so far is in Airtable with the right item numbers, price and photos.</p>`}
     <p class="muted" style="margin:0;font-size:.88rem">Read straight from Airtable at ${esc(t)} · ${v.airtable_records} of ${v.books} books have a record.</p>
     <div class="row"><button class="ghost" id="sumbtn">📋 Copy tonight's summary for Claude</button></div>
@@ -1272,7 +1273,7 @@ function nightSummary() {
   const L = [`Launch Pad night ${n.night} — ${n.pds.length} books, ${n.pds[0]} to ${n.pds[n.pds.length - 1]}, ${money(st.total)}`];
   for (const c of ["ebay", "ebay_other", "abe", "etsy", "amazon"]) {
     const x = v.channels[c]; if (!x) continue;
-    const lv = live.filter((r) => r.ch === c), ok = lv.filter((r) => r.st === "ok").length;
+    const lv = live.filter((r) => r.ch === c), ok = lv.filter((r) => r.st === "ok" || r.st === "pulled").length;
     L.push(`${names[c]}: sent ${x.listed}/${x.total} · Airtable ${x.airtable}/${x.listed}` + (c === "abe" || c === "amazon" ? ` · live ${ok}/${x.listed}` : "") + ` · jobs ${(nj[c] || []).map((j) => j.id).join(",")}`);
   }
   const ans = (st.questions || []).filter((q) => q.answer).map((q) => `${q.pd} ${q.kind}: ${q.answer.choice}${q.answer.price ? " $" + q.answer.price : ""}`);
@@ -1282,7 +1283,8 @@ function nightSummary() {
   const g = gaps.flatMap((x) => (x.missing || []).map((m) => `${m.pd} (${m.why})`));
   if (g.length) L.push("PD check: " + g.join(", "));
   const probs = Object.entries(v.channels).flatMap(([c, x]) => x.problems.map((p) => `${names[c]}: ${p}`));
-  const waits = live.filter((r) => r.st !== "ok").map((r) => `${names[r.ch]} ${r.pd} ${r.st}`);
+  const pl = live.filter((r) => r.st === "pulled").map((r) => r.pd); if (pl.length) L.push("Pulled from Amazon: " + pl.join(", "));
+  const waits = live.filter((r) => r.st !== "ok" && r.st !== "pulled").map((r) => `${names[r.ch]} ${r.pd} ${r.st}`);
   L.push(probs.length || waits.length ? "Open: " + [...probs, ...waits].join("; ") : "Open: nothing — all confirmed.");
   return L.join("\n");
 }
