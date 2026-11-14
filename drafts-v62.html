@@ -907,6 +907,8 @@ function rowHtml(d){
   }
   if (d.location && d.location !== "Garage") chips += '<span class="chip">📍 ' + esc(d.location) + "</span>";
   if (d.bin) chips += '<span class="chip">📦 Bin ' + esc(d.bin) + "</span>";   // 2026-11-12 "add Bin#"
+  // 2026-11-14 Papa Duck: "if it cant decide on price it should be listed, flag it, and have it show flagged on drafts"
+  if ((d.answers || {}).price_flag && d.status !== "sent" && d.price_override == null) chips += '<span class="chip q" title="' + esc(d.answers.price_flag) + '">🚩 Price check: ' + esc(d.answers.price_flag) + "</span>";
   // v56 (2026-10-31): Papa Duck "also list the cost that i paid for it if known"
   const costPaid = (() => { const st = (d.answers || {}).station || {}; const n = parseFloat(String(st.cost || "").replace(/[^0-9.]/g, "")); return isFinite(n) && n > 0 ? "Paid $" + n.toFixed(2) : ""; })();
   const meta = [id.author, id.publication_year, (d.photos || []).filter((p) => !p.removed).length + " photos", d.is_set ? "Set" : "", costPaid].filter(Boolean).join(" · ");

@@ -248,6 +248,7 @@ function showList(title, err, fixing, fixBox){
   $('app').innerHTML = `<div class="res LIST" style="margin-top:4px"><div class="bin">🟢 LIST</div>
     ${!fixing && binNo ? `<div class="what">Goes in</div><div class="binbig">BIN ${binNo}</div>` : ''}
     <div class="what">${fixing ? 'Fix the sticker number for this book.' : 'Put the next sticker on a tab, then type its number.'}</div><div class="title">${esc(title)}</div>
+    ${!fixing && cur && cur.price_flag ? `<div class="what" style="background:#fff3b0;color:#5a3d00;border-radius:8px;padding:6px 10px">🚩 Price flagged - Dad checks it in Drafts</div>` : ''}
     ${err ? `<div class="err">${esc(err)}</div>` : ''}
     <div class="stk"><input id="stk" inputmode="numeric" autocomplete="off" placeholder="Sticker #" value="${esc(next)}"><button id="stkgo">Save</button></div>
     <div class="hint" style="color:#e9fff1">${fixing ? 'Type the number that is really on the sticker, then Save.' : next ? 'The next number on the roll is filled in. Just press Save if it matches.' : 'Type the number printed on the sticker.'}</div>

@@ -1,3 +1,4 @@
+// v7r 2026-11-14: a book with no price proof is LISTED and flagged (price_flag -> Drafts chip), not left as Your call; photo-read title kept.
 // v7q 2026-11-14: off-eBay price ignores crazy-high asks - other sellers' outliers, and an Amazon buy box with no sales (Rosebud I Remember: $209.08 Amazon, 0 sales; AbeBooks $17.75).
 // v7i 2026-11-12: Vinted on/off switch (config vinted_on).
 // v7p 2026-11-13: looser family check (high-schooler rule of thumb); it overrides Scout's photo flag.
@@ -246,7 +247,7 @@ Deno.serve(async (req) => {
             if (d.length === 12) { let t = 0; for (let i = 0; i < 12; i++) t += +d[i] * (i % 2 ? 1 : 3); return t % 10 === 0; }   // v7: UPC-A on CDs / tapes
             return false;
           };
-          if (okIsbn(ri)) { fwd.isbn = ri; b.read_isbn = ri; }
+          if (okIsbn(ri)) { fwd.isbn = ri; b.read_isbn = ri; b.read_title = String(read?.title || "").slice(0, 200); b.read_author = String(read?.author || "").slice(0, 120); }
           // v7: CD / tape / record / VHS with no readable barcode - search eBay in every category by artist + album + format
           //   (the photo path treated a tape set as a book and searched only Books, so "Grand Old Country - 4 Tape Set" found nothing).
           else if (read && (read.kind === "media" || /8[- ]?track|stereo 8|cassette|\btapes?\b|\bcds?\b|vinyl|\blp\b|vhs|dvd/i.test(String(read.title || "") + " " + String(read.search || ""))) && (read.search || read.title)) {
@@ -366,16 +367,25 @@ Deno.serve(async (req) => {
       //   One or two copies with nothing sold is not enough to trust a price: say so and let him decide.
       const en = Number(j.grid?.ebay?.n || 0), es = Number(j.soldN || 0);
       if (act === "check" && j.verdict === "LIST" && es === 0 && en <= 2) {
-        j.verdict = "CHECK";
-        j.reason = en === 0 && Number(j.altLow || 0) > 0
-          ? `None on eBay and no sales. Other sellers ask from $${Number(j.altLow).toFixed(2)}, so about $${Number(j.list || 0).toFixed(2)} — slow seller, your call.`
-          : `Only ${en} on eBay and none sold, so $${Number(j.list || 0).toFixed(2)} is just one seller's asking price, not a real value. Most likely a low seller — your call.`;
+        // v7r (2026-11-14, "if it cant decide on price it should be listed, flag it, and have it show flagged on drafts"): LIST it with a
+        //   price flag. The flag rides the pile -> sticker PD / Book Station draft (trigger piles_flag_push) -> Drafts shows 🚩 Price check.
+        j.verdict = "LIST";
+        j.price_flag = en === 0 && Number(j.altLow || 0) > 0
+          ? `No eBay copies or sales. Other sellers ask from $${Number(j.altLow).toFixed(2)}, priced about $${Number(j.list || 0).toFixed(2)}. Check the price.`
+          : `Only ${en} on eBay and none sold, so about $${Number(j.list || 0).toFixed(2)} is a guess. Check the price.`;
+        j.reason = `List at $${Number(j.list || 0).toFixed(2)}. 🚩 Price flagged for Dad to check in Drafts.`;
+        if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = 'LIST', price_flag = ${j.price_flag}, reason = ${j.reason} where id = ${Number(j.pile_id)}`;
       }
       // Papa Duck 2026-11-09: "also family friendly check there as well". A photo check already asks it (Scout's identify);
       // an ISBN-only check looks the book up by number, so ask Claude about the title here.
       // v7g (2026-11-11, "A Separate Reality" passed the Quick check, flagged in Drafts): the careful family check now runs on EVERY
       //   check, photo or ISBN, not only when the book was looked up by number.
       // v7p (2026-11-13, "yes I agree make this change"): looser family check, and it always has the last word over Scout's photo flag.
+      // v7r: the photo read the ISBN and the title, but the ISBN lookup found no title (Rosebud I Remember) - keep the title from the photo
+      if (act === "check" && b.read_title && j.ident && !j.ident.title) {
+        j.ident.title = b.read_title; if (!j.ident.author) j.ident.author = b.read_author || "";
+        if (j.pile_id) await sql`update pipeline.cleanup_piles set title = ${b.read_title}, author = coalesce(nullif(author, ''), ${b.read_author || ""}) where id = ${Number(j.pile_id)}`;
+      }
       const scoutFam = String(j.family || "");
       if (act === "check" && j.ident && j.ident.title) {
         try {
