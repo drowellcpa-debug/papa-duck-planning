@@ -4157,7 +4157,7 @@ function qcShow(r){
     '<div>' + qcEsc(r.reason || '') + '</div>' + (v === 'LIST' && r._bin ? '<div style="margin-top:8px;text-align:center"><span style="font-weight:700">Goes in</span> <span style="font-size:2rem;font-weight:900;color:var(--ok);background:#fff8e1;border:2px dashed var(--ok);border-radius:8px;padding:0 14px">BIN ' + r._bin + '</span></div>' : '') + (v !== 'RETAKE' ? prices : '') + famBox + btns + '</div>';
   const L = $('qclist'); if (L) L.onclick = qcCarryOn;
   document.querySelectorAll('#qcout [data-qcp]').forEach(b => b.onclick = () => qcPile(b.dataset.qcp));
-  const ok = $('qcfamok'); if (ok) ok.onclick = () => { r.family = ''; r.verdict = r.list != null && (r.soldN > 0) ? 'LIST' : (r.verdict === 'TOSS' ? 'CHECK' : r.verdict); r.reason = 'Family check OK by you. ' + (r.list != null ? 'List at ' + qcMoney(r.list) + '.' : ''); r.family_checked = true; if (r.verdict === 'LIST') { qcBinPut(r, true).then(() => qcShow(r)); } qcShow(r); };
+  const ok = $('qcfamok'); if (ok) ok.onclick = () => { r.family = ''; /* 2026-11-13 ("night was 5.99 and it said to list it"): OK on the family check no longer skips the $7.99 minimum */ r.verdict = r.list != null && (r.soldN > 0) && Number(r.list) >= 7.99 ? 'LIST' : (r.list != null && Number(r.list) < 7.99 ? 'GOODWILL' : (r.verdict === 'TOSS' ? 'CHECK' : r.verdict)); r.reason = 'Family check OK by you. ' + (r.verdict === 'LIST' ? 'List at ' + qcMoney(r.list) + '.' : r.verdict === 'GOODWILL' ? 'But only worth about ' + qcMoney(r.list) + ', under your $7.99 minimum - Goodwill.' : ''); r.family_checked = true; if (r.verdict === 'LIST') { qcBinPut(r, true).then(() => qcShow(r)); } qcShow(r); };
   const no = $('qcfamno'); if (no) no.onclick = () => qcPile('TOSS');
 }
 
