@@ -4191,7 +4191,7 @@ function qcRenderQ(){
 }
 let qcCur = null;
 $('qcgo').addEventListener('click', async () => {
-  const isbn = $('qcisbn').value.replace(/[^0-9Xx]/g, '');
+  let isbn = $('qcisbn').value.replace(/[^0-9Xx]/g, '');
   const file = qcFile;
   if (!file && !isbn) { $('qcout').innerHTML = '<div style="color:var(--err);font-weight:700">Snap the cover or scan the ISBN first.</div>'; return; }
   // 2026-11-12 ("i gave it the isbn" - 9780790054140 typed for 9780790005140): an ISBN with a bad check digit is a typo - say so right away
@@ -4199,6 +4199,11 @@ $('qcgo').addEventListener('click', async () => {
     if (d.length === 10) { let t = 0; for (let i = 0; i < 10; i++) t += (d[i] === 'X' ? 10 : +d[i]) * (10 - i); return t % 11 === 0; }
     if (d.length === 13) { let t = 0; for (let i = 0; i < 13; i++) t += +d[i] * (i % 2 ? 3 : 1); return t % 10 === 0; }
     return true; };
+  // 2026-11-13 Farset G47 drops the first and last digit of video/CD UPC barcodes (sends 10 digits) - rebuild the full UPC-A
+  if ((isbn.length === 10 || isbn.length === 11) && /^\d+$/.test(isbn) && !isbnOk(isbn)) {
+    const b = isbn.length === 10 ? '0' + isbn : isbn; let t = 0; for (let i = 0; i < 11; i++) t += +b[i] * (i % 2 ? 1 : 3);
+    isbn = b + String((10 - t % 10) % 10);
+  }
   if (!window.qcSkipIsbn && (isbn.length === 10 || (isbn.length === 13 && /^97[89]/.test(isbn))) && !isbnOk(isbn)) {
     $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;border:3px solid var(--warn);background:#fff7e6;font-weight:800;color:var(--warn)">⚠️ That number doesn\'t look like a real ISBN (' + qcEsc(isbn) + '). If you typed it, check the numbers. If you scanned it (CDs and videos use other codes): <button type="button" id="qcanyway">Check it anyway</button></div>';
     $('qcanyway').onclick = () => { window.qcSkipIsbn = true; $('qcisbn').value = isbn; $('qcgo').click(); window.qcSkipIsbn = false; };
