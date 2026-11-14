@@ -147,7 +147,7 @@ function wireBin(){
   if ($('whoswitch')) $('whoswitch').onclick = () => { ls.set(PASS_KEY, ''); passScreen('Type the PIN of the person sorting now.'); };
   const l = document.querySelector('.binbar .lbl'); if (l && binNo) { l.style.cursor = 'pointer'; l.onclick = ask; }
 }
-const PAGE_V = '2026-11-14d';   // must match version.json "sort"
+const PAGE_V = '2026-11-14e';   // must match version.json "sort"
 let vChecked = 0;
 async function checkVersion(){ if (Date.now() - vChecked < 120000) return; vChecked = Date.now();
   try { const v = await (await fetch('version.json?t=' + Date.now(), { cache: 'no-store' })).json(); if (v && v.sort && v.sort !== PAGE_V) location.reload(); } catch(e){} }
@@ -172,6 +172,18 @@ function home(note){
       recent = recent.filter((r) => r.id !== id); ls.set(RECENT_KEY, JSON.stringify(recent)); window.lastScan = null;
       if (r0 && r0.pd) { const n = Number(String(r0.pd).replace(/\D/g, '')); if (n && Number(ls.get(STK_KEY)) === n + 1) ls.set(STK_KEY, String(n)); }
       cur = null; home(`<div class="res RETAKE"><div class="bin">↩️ CANCELLED</div><div class="what">That scan is erased. Scan the book again.</div></div>`); };
+  }
+  // 2026-11-14 Papa Duck: "Sometimes I want to list it instead of goodwill I need override"
+  if (note && last && last.pile_id && $('out')) {
+    const r0 = recent.find((r) => r.id === last.pile_id);
+    if (r0 && r0.bin !== 'LIST') {
+      const o = document.createElement('button'); o.id = 'listanyway'; o.textContent = '🟢 List it anyway'; o.style.cssText = 'margin-top:10px;margin-right:8px;background:var(--list);color:#fff';
+      const u = $('undoscan'); if (u) $('out').insertBefore(o, u); else $('out').appendChild(o);
+      o.onclick = async () => { try { await api('pile', { id: last.pile_id, pile: 'LIST' }); } catch(e){}
+        if (tally[r0.bin]) { tally[r0.bin]--; ls.set(TALLY_KEY, JSON.stringify(tally)); showTally(); }
+        recent = recent.filter((r) => r.id !== last.pile_id); ls.set(RECENT_KEY, JSON.stringify(recent));
+        cur = last; showList(r0.title || ''); };
+    }
   }
   wireBin(); if (binN == null) loadBin();
   document.querySelectorAll('[data-fix]').forEach((b) => b.onclick = () => { const r = recent[Number(b.dataset.fix)]; cur = { pile_id: r.id }; showList(r.title, '', r.pd, r.box); });
