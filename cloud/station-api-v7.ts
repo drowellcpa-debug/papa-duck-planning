@@ -1,4 +1,5 @@
 // v7i 2026-11-12: Vinted on/off switch (config vinted_on).
+// v7p 2026-11-13: looser family check (high-schooler rule of thumb); it overrides Scout's photo flag.
 // v7o 2026-11-13: bin_pd = pipeline.bin_assign_pd (count at send to Drafts; returns status + next bin).
 // v7n 2026-11-13: 10-digit scan that finds nothing as an ISBN is retried as the rebuilt UPC-A (Farset G47).
 // v7m 2026-11-13: sorter PINs (config sorter_pins) work as the passcode and set who; action whoami.
@@ -352,16 +353,28 @@ Deno.serve(async (req) => {
       // an ISBN-only check looks the book up by number, so ask Claude about the title here.
       // v7g (2026-11-11, "A Separate Reality" passed the Quick check, flagged in Drafts): the careful family check now runs on EVERY
       //   check, photo or ISBN, not only when the book was looked up by number.
-      if (act === "check" && j.ident && j.ident.title && !j.family) {
+      // v7p (2026-11-13, "yes I agree make this change"): looser family check, and it always has the last word over Scout's photo flag.
+      const scoutFam = String(j.family || "");
+      if (act === "check" && j.ident && j.ident.title) {
         try {
           const ar = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
             headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
             body: JSON.stringify({ model: String((await sql`select value from pipeline.config where key = 'claude_model'`)[0]?.value || "claude-sonnet-4-6"), max_tokens: 200, messages: [{ role: "user", content:
-              `Papa Duck Homeschool is a Christian, family-friendly book shop. Would a Christian homeschool parent be surprised to find this book in the shop (erotica or sexual content, sexually suggestive cover, graphic violence or gore, heavy profanity, occult/witchcraft/sorcery/shamanism or New Age spirituality focus, horror focus, drug glorification including psychedelic "spiritual" drug use, crude humor)? Judge by what the book is known for, e.g. Carlos Castaneda's Don Juan books are NOT a fit. Mainstream adult fiction with some mature themes is fine unless known for explicit content.\n${JSON.stringify({ title: j.ident.title, author: j.ident.author, publisher: j.ident.publisher, year: j.ident.year })}\nRespond ONLY JSON: {"ok":true,"note":"short reason if not ok"}` }] }) });
+              `Papa Duck Homeschool is a Christian, family-friendly book shop. Rule of thumb: would a homeschool parent reasonably assign or shelve this book for a high schooler? If yes, it is ok.\nNOT ok ONLY if one of these is clearly true: sexual content or erotica, or a sexually suggestive cover; occult, witchcraft or New Age/shamanic practice as the main focus (e.g. Carlos Castaneda's Don Juan books); horror or gore as the main focus; glorifies drug use; HEAVY profanity throughout.\nThese are OK - do not flag: serious history of any kind including war, the Holocaust and politics (e.g. Night); classics and school reading-list books; political or economic history from any viewpoint (e.g. A People's History, To the Finland Station); mild or absurd humor (e.g. Cruel Shoes); ordinary biographies and memoirs; ordinary adult fiction with some mature themes. Do not flag just because you are unsure.\n${JSON.stringify({ title: j.ident.title, author: j.ident.author, publisher: j.ident.publisher, year: j.ident.year })}\nRespond ONLY JSON: {"ok":true,"note":"short reason if not ok"}` }] }) });
           const aj = await ar.json();
           const txt = (aj.content || []).map((x: any) => x.text || "").join("");
           const fj = JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}") + 1));
           if (fj && fj.ok === false) j.family = String(fj.note || "May not fit your family-friendly shop");
+          else if (fj && fj.ok === true && scoutFam) {
+            // Scout's photo read flagged it, the looser check clears it: give the book its normal answer back
+            j.family = "";
+            if (j.verdict === "TOSS") {
+              const minL = Number(j.soldN || 0) > 0 ? 7.99 : 12;
+              j.verdict = j.list != null && Number(j.list) >= minL ? "LIST" : "GOODWILL";
+              j.reason = j.verdict === "LIST" ? `List at $${Number(j.list).toFixed(2)}.` : (j.list != null ? `Only worth about $${Number(j.list).toFixed(2)}.` : "Not worth listing.");
+              if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = ${j.verdict}, reason = ${j.reason} where id = ${Number(j.pile_id)}`;
+            }
+          }
           j.family_checked = true;
         } catch (_) { j.family_checked = false; }
       } else if (act === "check") j.family_checked = true;
