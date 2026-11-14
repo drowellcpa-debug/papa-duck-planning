@@ -82,7 +82,7 @@ let cur = null, tally = {};
 // 2026-11-12 Papa Duck: "if they mess up on a sticker does it give them the ability to see what they scanned in last and fix it?"
 let recent = []; try { recent = JSON.parse(ls.get(RECENT_KEY) || '[]'); } catch(e){ recent = []; }
 function remember(bin, title, pd, box){ if (!cur) return; recent = [{ id: cur.pile_id, bin, title: title || '', pd: pd || '', box: box || null }].concat(recent.filter((r) => r.id !== cur.pile_id)).slice(0, 15); ls.set(RECENT_KEY, JSON.stringify(recent)); }
-const DOT = { LIST: '🟢', VINTED: '🟣', SELL: '🔵', GOODWILL: '⚪', TOSS: '🔴', ASK: '🟡', BASKET: '🧺' };
+const DOT = { LIST: '🟢', VINTED: '🟣', SELL: '🔵', GOODWILL: '⚪', TOSS: '🔴', ASK: '🟡', BASKET: '🧺', LOT: '📚' };
 function recentHtml(){
   if (!recent.length) return '';
   return `<div class="recent"><h2>Last books sorted</h2>` + recent.slice(0, 10).map((r, i) => `<div class="rrow"><span class="dot">${DOT[r.bin] || '•'}</span>
@@ -99,7 +99,7 @@ async function api(action, body){
 }
 function count(bin){ tally[bin] = (tally[bin] || 0) + 1; ls.set(TALLY_KEY, JSON.stringify(tally)); showTally(); }
 function showTally(){
-  const n = (k) => tally[k] || 0, total = ['LIST','VINTED','SELL','GOODWILL','TOSS','ASK','BASKET'].reduce((a, k) => a + n(k), 0);
+  const n = (k) => tally[k] || 0, total = ['LIST','VINTED','SELL','GOODWILL','TOSS','ASK','BASKET','LOT'].reduce((a, k) => a + n(k), 0);
   $('tally').innerHTML = total ? `Today: <b>${total}</b> sorted<br>🟢 ${n('LIST')} · 🟣 ${n('VINTED')} · 🔵 ${n('SELL')} · 🧺 ${n('BASKET')} · ⚪ ${n('GOODWILL')}` : 'Today: 0 sorted';
 }
 
@@ -195,7 +195,23 @@ async function check(body){
     if (e.code === 'bad_passcode') return passScreen('That PIN did not work.');
     return home(`<div class="res RETAKE"><div class="bin">🔁 TRY AGAIN</div><div class="what">${esc(e.message || 'The check did not answer.')}</div></div>`);
   }
+  return decide(j);
+}
+async function decide(j){
   cur = j;
+  // 2026-11-14 Papa Duck ("I dont have tapes"): a read-along book - ask if the tape is with it. No tape = Read-Along lot box.
+  if (j.readalong && !j.tapeAsked) {
+    const t = (j.ident && j.ident.title) || 'Read-along book';
+    home(`<div class="res ASK"><div class="bin">📼 READ-ALONG</div><div class="title">${esc(t)}</div><div class="what">Is the tape (or record) with it?</div>
+      <div style="display:grid;gap:8px;margin-top:10px;width:100%;max-width:420px">
+        <button id="tape_yes" style="background:var(--list);color:#fff">✅ Yes, the tape is here</button>
+        <button id="tape_no" style="background:#fff;color:#333">❌ No tape - book only</button></div></div>`);
+    $('tape_yes').onclick = () => { j.tapeAsked = true; decide(j); };
+    $('tape_no').onclick = async () => { try { if (j.pile_id) await api('pile', { id: j.pile_id, pile: 'LOT', theme: 'Read-Along (no tapes)' }); } catch(e){}
+      count('LOT'); remember('LOT', t);
+      home(`<div class="res BASKET"><div class="bin">📚 READ-ALONG LOT</div><div class="what">Put it in the READ-ALONG LOT stack (books with no tapes).</div><div class="title">${esc(t)}</div></div>`); };
+    return;
+  }
   // 2026-11-14 Papa Duck: "the title and price should show up" - every result shows the book's title and list price
   const title = (j.ident && j.ident.title ? j.ident.title : 'Title not found') + (j.list != null && Number(j.list) > 0 ? ` · $${Number(j.list).toFixed(2)}` : '');
   let v = String(j.verdict || '').toUpperCase();

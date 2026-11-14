@@ -4100,9 +4100,10 @@ async function qcPile(p){
   // 2026-11-11: the 🛍️ Vinted box keeps the snapped photo (for the Launch Pad Vinted sorting box / lots).
   if (qcLast._bin) qcBinPut(qcLast, false);
   const xb = { id: qcLast.pile_id, pile: p };
+  if (p === 'LOT') xb.theme = 'Read-Along (no tapes)';   // 2026-11-14 read-along book with no tape
   if (p === 'VINTED') { const f = (qcCur && qcCur.file) || qcFile; if (f) { try { xb.image = (await qcShrink(f)).split(',')[1]; } catch(e){} } }
   let pr = null; try { pr = await qcApi('pile', xb); } catch(e){}
-  if (qcCur) { qcCur.pile = ({GOODWILL:'Goodwill', VINTED:'Vinted box', SELL:'Sell back', MAYBE:'Maybe later', TOSS:'Toss', BASKET:'🧺 Morning Basket'}[p] || p); qcRenderQ(); }
+  if (qcCur) { qcCur.pile = ({GOODWILL:'Goodwill', VINTED:'Vinted box', SELL:'Sell back', MAYBE:'Maybe later', TOSS:'Toss', BASKET:'🧺 Morning Basket', LOT:'📚 Read-Along lot'}[p] || p); qcRenderQ(); }
   // 2026-11-11: "put them in their pre-assigned V number so ... I will know what bag to put it in" - show the bag big; a full bag says so.
   if (p === 'VINTED' && pr && pr.vnum) {
     if (qcCur) { qcCur.pile = 'Bag ' + pr.vnum; qcRenderQ(); }
@@ -4116,7 +4117,7 @@ async function qcPile(p){
     const ok = $('qcbagok'); if (ok) ok.onclick = qcReset;
     return;
   }
-  $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;background:#eef1f5;font-weight:700">Put in the ' + qcEsc({GOODWILL:'Goodwill', VINTED:'Vinted box', SELL:'Sell back', MAYBE:'Maybe later', TOSS:'Toss', BASKET:'🧺 Morning Basket'}[p] || p) + ' pile. Next book!</div>';
+  $('qcout').innerHTML = '<div style="padding:10px;border-radius:10px;background:#eef1f5;font-weight:700">Put in the ' + qcEsc({GOODWILL:'Goodwill', VINTED:'Vinted box', SELL:'Sell back', MAYBE:'Maybe later', TOSS:'Toss', BASKET:'🧺 Morning Basket', LOT:'📚 Read-Along lot'}[p] || p) + ' pile. Next book!</div>';
   setTimeout(qcReset, 1500);
 }
 function qcCarryOn(){
@@ -4150,10 +4151,13 @@ function qcShow(r){
       (v === 'VINTED' || v === 'GOODWILL' || v === 'SELL' || v === 'CHECK' ? '<button type="button" data-qcp="VINTED" style="min-height:48px;grid-column:1 / -1;border:3px solid #7b3fa0;color:#7b3fa0;font-weight:800">🛍️ Vinted box' + (v === 'VINTED' ? '' : ' (kids books, lots…)') + '</button>' : '') +
       '<button type="button" data-qcp="BASKET" style="min-height:48px;grid-column:1 / -1;border:3px solid #a0522d;color:#a0522d;font-weight:800">🧺 Morning Basket box</button>' + '<button type="button" data-qcp="GOODWILL" style="min-height:48px">📦 Goodwill</button><button type="button" data-qcp="SELL" style="min-height:48px">💵 Sell back</button>' +
       '<button type="button" data-qcp="MAYBE" style="min-height:48px">🕒 Maybe later box</button><button type="button" id="qclist" style="min-height:48px">📸 List it anyway</button></div>';
+  // 2026-11-14 Papa Duck ("I dont have tapes"): read-along book - no tape = Read-Along lot stack
+  const tapeBox = r.readalong ? '<div style="margin-top:8px;padding:10px;border-radius:10px;border:3px solid var(--warn);background:#fff7e6"><b>📼 Read-along book.</b> If the tape (or record) is missing, it goes in the lot stack.' +
+    '<div style="margin-top:8px"><button type="button" data-qcp="LOT" style="min-height:44px">❌ No tape - Read-Along lot</button></div></div>' : '';
   $('qcout').innerHTML = '<div style="border:4px solid ' + look[1] + ';border-radius:12px;padding:12px">' +
     (title ? '<div style="font-weight:700;margin-bottom:4px">' + qcEsc(title) + '</div>' : '') +
     '<div style="font-size:1.7em;font-weight:900;color:' + look[1] + '">' + look[0] + '</div>' +
-    '<div>' + qcEsc(r.reason || '') + '</div>' + (v === 'LIST' && r._bin ? '<div style="margin-top:8px;text-align:center"><span style="font-weight:700">Goes in</span> <span style="font-size:2rem;font-weight:900;color:var(--ok);background:#fff8e1;border:2px dashed var(--ok);border-radius:8px;padding:0 14px">BIN ' + r._bin + '</span></div>' : '') + (v !== 'RETAKE' ? prices : '') + famBox + btns + '</div>';
+    '<div>' + qcEsc(r.reason || '') + '</div>' + (v === 'LIST' && r._bin ? '<div style="margin-top:8px;text-align:center"><span style="font-weight:700">Goes in</span> <span style="font-size:2rem;font-weight:900;color:var(--ok);background:#fff8e1;border:2px dashed var(--ok);border-radius:8px;padding:0 14px">BIN ' + r._bin + '</span></div>' : '') + (v !== 'RETAKE' ? prices : '') + tapeBox + famBox + btns + '</div>';
   const L = $('qclist'); if (L) L.onclick = qcCarryOn;
   document.querySelectorAll('#qcout [data-qcp]').forEach(b => b.onclick = () => qcPile(b.dataset.qcp));
   const ok = $('qcfamok'); if (ok) ok.onclick = () => { r.family = ''; /* 2026-11-13 ("night was 5.99 and it said to list it"): OK on the family check no longer skips the $7.99 minimum */ r.verdict = r.list != null && (r.soldN > 0) && Number(r.list) >= 7.99 ? 'LIST' : (r.list != null && Number(r.list) < 7.99 ? 'GOODWILL' : (r.verdict === 'TOSS' ? 'CHECK' : r.verdict)); r.reason = 'Family check OK by you. ' + (r.verdict === 'LIST' ? 'List at ' + qcMoney(r.list) + '.' : r.verdict === 'GOODWILL' ? 'But only worth about ' + qcMoney(r.list) + ', under your $7.99 minimum - Goodwill.' : ''); r.family_checked = true; if (r.verdict === 'LIST') { qcBinPut(r, true).then(() => qcShow(r)); } qcShow(r); };

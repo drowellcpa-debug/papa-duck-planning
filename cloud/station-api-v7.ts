@@ -1,3 +1,4 @@
+// v7u 2026-11-14: read-along books (book + tape/record kits) are marked readalong; the scan asks "Tape included?" - no tape = LOT pile "Read-Along (no tapes)".
 // v7t 2026-11-14: Morning Basket family friendly = "no cult or sex or profanity" (classics and Shakespeare plays are fine).
 // v7s 2026-11-14: 🧺 Morning Basket pile - low-value books that suit a homeschool morning basket go to BASKET (with a theme) instead of Goodwill.
 // v7r 2026-11-14: a book with no price proof is LISTED and flagged (price_flag -> Drafts chip), not left as Your call; photo-read title kept.
@@ -141,10 +142,10 @@ Deno.serve(async (req) => {
     //   Cover photo or ISBN -> Scout brain in Clean-up mode (he already owns the book) -> LIST / SELL / GOODWILL / TOSS. Read-only for listings.
     // v7c (2026-11-11): Papa Duck "I would like to do my personal Vinted instead of Goodwill for my CDs, etc" - "no more than 1 item per day ... or a lot of CDs".
     //   Scout only knows LIST/SELL/GOODWILL/TOSS piles, so the Vinted box (and Maybe later) are written here.
-    if (act === "pile" && ["VINTED", "MAYBE", "BASKET"].includes(String(b.pile))) {
+    if (act === "pile" && ["VINTED", "MAYBE", "BASKET", "LOT"].includes(String(b.pile))) {
       const pid = Number(b.id) || 0;
       await sql`update pipeline.cleanup_piles set pile = ${String(b.pile)} where id = ${pid}`;
-      if (b.pile === "BASKET" && b.theme) await sql`update pipeline.cleanup_piles set basket_theme = ${String(b.theme).slice(0, 40)} where id = ${pid}`;
+      if ((b.pile === "BASKET" || b.pile === "LOT") && b.theme) await sql`update pipeline.cleanup_piles set basket_theme = ${String(b.theme).slice(0, 40)} where id = ${pid}`;
       // v7d (2026-11-11): the Vinted box keeps the snapped photo -> storage p/vinted/<id>.jpg (Launch Pad Vinted sorting box, lots, V-numbers).
       if (b.pile === "VINTED" && b.image && pid) {
         try {
@@ -238,12 +239,13 @@ Deno.serve(async (req) => {
               headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
               body: JSON.stringify({ model: String(m?.value || "claude-sonnet-4-6"), max_tokens: 300, messages: [{ role: "user", content: [
                 { type: "image", source: { type: "base64", media_type: "image/jpeg", data: String(b.image) } },
-                { type: "text", text: 'This photo is a book\'s cover, back, title page or copyright page, or a CD, cassette, 8-track, record, VHS or DVD. Read any ISBN printed on it exactly (old books print it with spaces, e.g. "ISBN 0 85151 076 0"; a barcode\'s 978 number counts too). On music or video, put the 12-digit UPC barcode number (the digits under the bars) in isbn. Plus the title and author/artist if shown. Set kind to "media" for a CD, cassette, 8-track, record, VHS or DVD (else "book"); for media, search = the best short eBay search words: artist or series + album name + format word (CD / cassette / 8 track / vinyl LP / VHS / DVD) + set count if a set, e.g. "Grand Old Country 4 cassette tape set". Never guess a digit. Respond ONLY JSON: {"kind":"book","isbn":"","title":"","author":"","search":""}' } ] }] }) });
+                { type: "text", text: 'This photo is a book\'s cover, back, title page or copyright page, or a CD, cassette, 8-track, record, VHS or DVD. Read any ISBN printed on it exactly (old books print it with spaces, e.g. "ISBN 0 85151 076 0"; a barcode\'s 978 number counts too). On music or video, put the 12-digit UPC barcode number (the digits under the bars) in isbn. Plus the title and author/artist if shown. Set kind to "media" for a CD, cassette, 8-track, record, VHS or DVD (else "book"); for media, search = the best short eBay search words: artist or series + album name + format word (CD / cassette / 8 track / vinyl LP / VHS / DVD) + set count if a set, e.g. "Grand Old Country 4 cassette tape set". Set readalong to true if the cover says Read-Along, Book and Tape or Book and Record. Never guess a digit. Respond ONLY JSON: {"kind":"book","isbn":"","title":"","author":"","search":"","readalong":false}' } ] }] }) });
             const aj = await ar.json();
             const txt = (aj.content || []).map((x: any) => x.text || "").join("");
             read = JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}") + 1));
           } catch (_) { read = null; }
           const ri = String(read?.isbn || "").replace(/[^0-9Xx]/g, "");
+          b.read_along = read?.readalong === true;   // v7u: the cover says Read-Along / Book and Tape
           const okIsbn = (d: string) => {
             if (d.length === 10) { let t = 0; for (let i = 0; i < 10; i++) t += (d[i] === "X" || d[i] === "x" ? 10 : +d[i]) * (10 - i); return t % 11 === 0; }
             if (d.length === 13) { let t = 0; for (let i = 0; i < 13; i++) t += +d[i] * (i % 2 ? 3 : 1); return t % 10 === 0; }
@@ -395,7 +397,7 @@ Deno.serve(async (req) => {
           const ar = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
             headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
             body: JSON.stringify({ model: String((await sql`select value from pipeline.config where key = 'claude_model'`)[0]?.value || "claude-sonnet-4-6"), max_tokens: 200, messages: [{ role: "user", content:
-              `Papa Duck Homeschool is a Christian, family-friendly book shop. Rule of thumb: would a homeschool parent reasonably assign or shelve this book for a high schooler? If yes, it is ok.\nNOT ok ONLY if one of these is clearly true: sexual content or erotica, or a sexually suggestive cover; occult, witchcraft or New Age/shamanic practice as the main focus (e.g. Carlos Castaneda's Don Juan books); horror or gore as the main focus; glorifies drug use; HEAVY profanity throughout.\nThese are OK - do not flag: serious history of any kind including war, the Holocaust and politics (e.g. Night); classics and school reading-list books; political or economic history from any viewpoint (e.g. A People's History, To the Finland Station); mild or absurd humor (e.g. Cruel Shoes); ordinary biographies and memoirs; ordinary adult fiction with some mature themes. Do not flag just because you are unsure.\nAlso: would this book suit a homeschool family's MORNING BASKET (books read together in the morning: poetry, hymns, classics, Shakespeare, nature, Bible, art, history read-alouds)? It must have NO occult or witchcraft, NO sexual content and NO profanity. Classics and Shakespeare plays are fine. If clearly yes, set basket to ONE theme: "Poetry & Hymns", "Read-Aloud Classics", "Nature Study", "Bible & Character", "Shakespeare & Classics", "Art & Picture Study", "History Read-Alouds", "Advent & Christmas". If in doubt, basket is "". Textbooks, workbooks, adult novels, manuals and reference books are "".\n${JSON.stringify({ title: j.ident.title, author: j.ident.author, publisher: j.ident.publisher, year: j.ident.year })}\nRespond ONLY JSON: {"ok":true,"note":"short reason if not ok","basket":""}` }] }) });
+              `Papa Duck Homeschool is a Christian, family-friendly book shop. Rule of thumb: would a homeschool parent reasonably assign or shelve this book for a high schooler? If yes, it is ok.\nNOT ok ONLY if one of these is clearly true: sexual content or erotica, or a sexually suggestive cover; occult, witchcraft or New Age/shamanic practice as the main focus (e.g. Carlos Castaneda's Don Juan books); horror or gore as the main focus; glorifies drug use; HEAVY profanity throughout.\nThese are OK - do not flag: serious history of any kind including war, the Holocaust and politics (e.g. Night); classics and school reading-list books; political or economic history from any viewpoint (e.g. A People's History, To the Finland Station); mild or absurd humor (e.g. Cruel Shoes); ordinary biographies and memoirs; ordinary adult fiction with some mature themes. Do not flag just because you are unsure.\nAlso: would this book suit a homeschool family's MORNING BASKET (books read together in the morning: poetry, hymns, classics, Shakespeare, nature, Bible, art, history read-alouds)? It must have NO occult or witchcraft, NO sexual content and NO profanity. Classics and Shakespeare plays are fine. If clearly yes, set basket to ONE theme: "Poetry & Hymns", "Read-Aloud Classics", "Nature Study", "Bible & Character", "Shakespeare & Classics", "Art & Picture Study", "History Read-Alouds", "Advent & Christmas". If in doubt, basket is "". Textbooks, workbooks, adult novels, manuals and reference books are "".\nAlso set readalong to true if this is a READ-ALONG book that came as a kit with a cassette tape or record (e.g. Disney Storyteller "24 Page Read-Along Book and Tape", Disneyland Records read-along), else false.\n${JSON.stringify({ title: j.ident.title, author: j.ident.author, publisher: j.ident.publisher, year: j.ident.year })}\nRespond ONLY JSON: {"ok":true,"note":"short reason if not ok","basket":"","readalong":false}` }] }) });
           const aj = await ar.json();
           const txt = (aj.content || []).map((x: any) => x.text || "").join("");
           const fj = JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}") + 1));
@@ -411,8 +413,10 @@ Deno.serve(async (req) => {
             }
           }
           // v7s (2026-11-14, "Yes can you set this up" - Morning Basket lots): a Goodwill book that suits a morning basket goes to the 🧺 box
+          // v7u (2026-11-14, "I dont have tapes" - Disney read-along books): flag read-along kits so the scan asks whether the tape is there
+          j.readalong = !!b.read_along || fj?.readalong === true || /read-?along|book (and|&) (tape|cassette|record)/i.test(String(j.ident.title || "") + " " + String(j.ident.subtitle_or_series || ""));
           const theme = String(fj?.basket || "").trim().slice(0, 40);
-          if (theme && !j.family && j.verdict === "GOODWILL" && !isItem) {
+          if (theme && !j.readalong && !j.family && j.verdict === "GOODWILL" && !isItem) {
             j.verdict = "BASKET"; j.basket_theme = theme;
             j.reason = `Worth more in a 🧺 Morning Basket lot (${theme}) than alone.`;
             if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = 'BASKET', basket_theme = ${theme}, reason = ${j.reason} where id = ${Number(j.pile_id)}`;
