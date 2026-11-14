@@ -129,7 +129,12 @@ async function loadBin(){
   if (!WHO) await askWho();
   try {
     if (!binNo) { const m = await api('bin_mine', { who: WHO }); binNo = Number(m.bin); ls.set(BIN_KEY, String(binNo)); binN = Number(m.n) || 0; binCap = Number(m.cap) || 18; }
-    else { const r = await api('bin', { bin: binNo }); binN = Number(r.n) || 0; binCap = Number(r.cap) || 18; }
+    else {
+      // 2026-11-14: the remembered bin must still be checked out to this person - otherwise go back to their current bin
+      let r = null; try { r = await api('bin_take', { bin: binNo, who: WHO }); } catch(e){ r = null; }
+      if (!r) { r = await api('bin_mine', { who: WHO }); binNo = Number(r.bin); ls.set(BIN_KEY, String(binNo)); }
+      binN = Number(r.n) || 0; binCap = Number(r.cap) || 18;
+    }
   } catch(e){}
   const bb = document.querySelector('.binbar'); if (bb) { bb.outerHTML = binBarHtml(); wireBin(); }
 }
@@ -142,7 +147,12 @@ function wireBin(){
   if ($('whoswitch')) $('whoswitch').onclick = () => { ls.set(PASS_KEY, ''); passScreen('Type the PIN of the person sorting now.'); };
   const l = document.querySelector('.binbar .lbl'); if (l && binNo) { l.style.cursor = 'pointer'; l.onclick = ask; }
 }
+const PAGE_V = '2026-11-14d';   // must match version.json "sort"
+let vChecked = 0;
+async function checkVersion(){ if (Date.now() - vChecked < 120000) return; vChecked = Date.now();
+  try { const v = await (await fetch('version.json?t=' + Date.now(), { cache: 'no-store' })).json(); if (v && v.sort && v.sort !== PAGE_V) location.reload(); } catch(e){} }
 function home(note){
+  if (!note) checkVersion();
   const last = cur; cur = null;
   $('app').innerHTML = binBarHtml() + `
     <div class="scan"><input id="isbn" inputmode="numeric" autocomplete="off" placeholder="Scan or type ISBN" aria-label="Barcode or ISBN">
