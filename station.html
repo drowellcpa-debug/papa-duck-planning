@@ -936,6 +936,7 @@
       <button type="button" class="sizebtn" id="szhc"  data-wt="2">📗 Hardcover novel<small>1.5–2 lb → 2 lb</small></button>
       <button type="button" class="sizebtn" id="sztb"  data-wt="5">📘 College textbook<small>3–5 lb → 5 lb</small></button>
       <button type="button" class="sizebtn" id="szbig" data-wt="">📦 Larger than a college textbook<small>weigh it + measure the box</small></button>
+      <button type="button" class="sizebtn" id="szmedia" data-wt="1" style="display:none">💿 CD / DVD / media<small>~1 lb — change it below if heavier</small></button>
     </div>
 
     <div class="row" style="margin-top:2px;gap:18px">
@@ -2169,6 +2170,13 @@ function scrSet(k){
 document.querySelectorAll('.scrbtn').forEach(function(b){ b.addEventListener('click', function(){ scrSet(b.dataset.scr); }); });
 $('cdtoggle').addEventListener('change', () => {
   $('mediasubwrap').style.display = $('cdtoggle').checked ? 'block' : 'none';
+  // 2026-11-15 Papa Duck: "when I click cd or other media I should not have to click paperback to get the weight to show up.
+  //   paperback hardback etc are book related" - media hides the book sizes and fills ~1 lb (he can type a heavier weight).
+  const med = $('cdtoggle').checked;
+  BOOK_SIZES.forEach(function(k){ $(k).style.display = med ? 'none' : ''; });
+  $('szmedia').style.display = med ? '' : 'none';
+  if (med) selectSize('szmedia');
+  else if (sizeClass === 'szmedia') resetSizePicker();
   if (!$('cdtoggle').checked) scrSet('');
   if (!$('cdtoggle').checked){
     $('mediaextratoggle').checked = false;
@@ -2328,8 +2336,10 @@ const SIZE_CLASSES = {
   szpb:  { name:'Paperback',                        wt:1  },
   szhc:  { name:'Hardcover novel',                   wt:2  },
   sztb:  { name:'College textbook',                 wt:5  },
-  szbig: { name:'Larger than a college textbook',   wt:null }
+  szbig: { name:'Larger than a college textbook',   wt:null },
+  szmedia: { name:'CD / DVD / media',               wt:1  }   /* 2026-11-15 Papa Duck: media should not need a book size to get its weight */
 };
+const BOOK_SIZES = ['szpb','szhc','sztb','szbig'];
 let sizeClass = null;
 function selectSize(id){
   sizeClass = id;
@@ -2348,6 +2358,7 @@ function selectSize(id){
 Object.keys(SIZE_CLASSES).forEach(k => $(k).addEventListener('click', ()=> selectSize(k)));
 function resetSizePicker(){
   sizeClass = null;
+  if (!$('cdtoggle').checked){ BOOK_SIZES.forEach(function(k){ $(k).style.display = ''; }); $('szmedia').style.display = 'none'; }
   Object.keys(SIZE_CLASSES).forEach(k => $(k).classList.remove('on'));
   $('wtwrap').style.display = 'none';
   $('shiphint').style.display = 'none';
