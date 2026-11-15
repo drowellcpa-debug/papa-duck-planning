@@ -947,11 +947,21 @@
       </label>
       <div id="mediasubwrap" style="display:none;margin:0 0 4px 22px;padding:5px 8px;border-left:2px solid var(--ship);background:rgba(92,200,232,.06);border-radius:0 6px 6px 0">
         <!-- 2026-11-10 Papa Duck: "I have no way to test records, CD or Cassettes, I will look for visible scratches and indicate that ... make it a bubble that stands out" -->
-        <div id="scrbubble" style="border:3px solid var(--media);border-radius:14px;background:rgba(168,90,36,.10);padding:8px 10px;margin:2px 0 8px">
-          <div style="font-weight:800;color:var(--media);margin-bottom:6px">👀 Look at the disc / tape — any visible scratches?</div>
+        <!-- 2026-11-15 Papa Duck: "when i click CD should it not say vhs, record, cassette tape, 8 track, etc and then questions relating to that" -->
+        <div style="font-weight:800;color:var(--media);margin:2px 0 4px">What kind is it?</div>
+        <div id="mtypes" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <button type="button" class="mtbtn" data-mt="cd">💿 CD</button>
+          <button type="button" class="mtbtn" data-mt="dvd">📀 DVD / Blu-ray</button>
+          <button type="button" class="mtbtn" data-mt="vhs">📼 VHS</button>
+          <button type="button" class="mtbtn" data-mt="cass">📻 Cassette</button>
+          <button type="button" class="mtbtn" data-mt="8tr">🎞️ 8-track</button>
+          <button type="button" class="mtbtn" data-mt="vinyl">🎵 Record (vinyl)</button>
+        </div>
+        <div id="scrbubble" style="display:none;border:3px solid var(--media);border-radius:14px;background:rgba(168,90,36,.10);padding:8px 10px;margin:2px 0 8px">
+          <div id="scrq" style="font-weight:800;color:var(--media);margin-bottom:6px">👀 Look at the disc — any visible scratches?</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button type="button" class="scrbtn" data-scr="none" style="min-height:44px;padding:6px 14px;border-radius:999px;border:2px solid var(--ok);background:#fff;color:var(--ok);font-weight:800;font-size:1em">✅ No visible scratches</button>
-            <button type="button" class="scrbtn" data-scr="some" style="min-height:44px;padding:6px 14px;border-radius:999px;border:2px solid var(--err);background:#fff;color:var(--err);font-weight:800;font-size:1em">⚠️ Visible scratches</button>
+            <button type="button" class="scrbtn" data-scr="none" style="min-height:44px;padding:6px 14px;border-radius:999px;border:2px solid var(--ok);background:#fff;color:var(--ok);font-weight:800;font-size:1em"><span id="scrok">✅ No visible scratches</span></button>
+            <button type="button" class="scrbtn" data-scr="some" style="min-height:44px;padding:6px 14px;border-radius:999px;border:2px solid var(--err);background:#fff;color:var(--err);font-weight:800;font-size:1em"><span id="scrbad">⚠️ Visible scratches</span></button>
           </div>
           <div style="font-size:0.88em;color:var(--dim);margin-top:5px">Always listed as <b>not tested (no player)</b>. Your pick goes into Notes.</div>
         </div>
@@ -2161,10 +2171,40 @@ function setBooksForBlock(){
 $('qtyinput').addEventListener('input', () => { autoPoolFromQty(); updateQtyNote(); refreshPoolUI(); refreshUploadGate(); });
 
 // 2026-11-10: scratch bubble for CDs / tapes / records - writes one line into Notes (flows to Drafts and the listing)
+// 2026-11-15: the question fits the kind of media (CD scratches / VHS mold / tape tight / record warp)
+const MEDIA_TYPES = {
+  cd:    { name:'CD',             q:'👀 Look at the disc - any visible scratches?',                         ok:'✅ No visible scratches',            bad:'⚠️ Visible scratches',
+           okTxt:'no visible scratches on the disc',                                 badTxt:'VISIBLE SCRATCHES on the disc' },
+  dvd:   { name:'DVD / Blu-ray',  q:'👀 Look at the disc - any visible scratches?',                         ok:'✅ No visible scratches',            bad:'⚠️ Visible scratches',
+           okTxt:'no visible scratches on the disc',                                 badTxt:'VISIBLE SCRATCHES on the disc' },
+  vhs:   { name:'VHS tape',       q:'👀 Look through the window - tape clean, no mold or white spots?',     ok:'✅ Clean, no mold',                  bad:'⚠️ Mold spots or damaged tape',
+           okTxt:'tape looks clean through the window, no mold seen',                badTxt:'MOLD SPOTS OR DAMAGED TAPE seen through the window' },
+  cass:  { name:'Cassette tape',  q:'👀 Look at the tape - tight on the reels, nothing loose or broken?',    ok:'✅ Tape tight, nothing loose',       bad:'⚠️ Loose, tangled or broken tape',
+           okTxt:'tape is tight on the reels, nothing loose or broken',              badTxt:'LOOSE, TANGLED OR BROKEN TAPE' },
+  '8tr': { name:'8-track tape',   q:'👀 Look at the tape - nothing loose or broken, pad still there?',      ok:'✅ Tape OK, nothing loose',          bad:'⚠️ Loose / broken tape or pad gone',
+           okTxt:'tape looks intact, nothing loose or broken',                       badTxt:'LOOSE OR BROKEN TAPE, OR THE PRESSURE PAD IS GONE' },
+  vinyl: { name:'Vinyl record',   q:'👀 Look at the record - any scratches or warping?',                    ok:'✅ No visible scratches or warp',    bad:'⚠️ Scratches or warping',
+           okTxt:'no visible scratches or warping on the vinyl',                     badTxt:'VISIBLE SCRATCHES OR WARPING on the vinyl' }
+};
+let mediaType = '';
+function mtSet(k){
+  mediaType = k || '';
+  document.querySelectorAll('.mtbtn').forEach(function(b){ const on = b.dataset.mt === mediaType;
+    b.style.background = on ? 'var(--media)' : '#fff'; b.style.color = on ? '#fff' : 'var(--media)'; });
+  const t = MEDIA_TYPES[mediaType];
+  $('scrbubble').style.display = t ? 'block' : 'none';
+  if (t){ $('scrq').textContent = t.q; $('scrok').textContent = t.ok; $('scrbad').textContent = t.bad; }
+  scrSet('');
+}
+document.querySelectorAll('.mtbtn').forEach(function(b){
+  b.style.cssText = 'min-height:40px;padding:5px 12px;border-radius:999px;border:2px solid var(--media);background:#fff;color:var(--media);font-weight:700;font-size:.95em';
+  b.addEventListener('click', function(){ mtSet(b.dataset.mt); });
+});
 const SCR_TXT = { none: 'Discs/tapes: no visible scratches. Not tested (no player).', some: 'Discs/tapes: VISIBLE SCRATCHES. Not tested (no player).' };
 function scrSet(k){
-  const n = $('notesinput'); let v = (n.value || '').replace(/\s*Discs\/tapes: [^.]*\. Not tested \(no player\)\./g, '').trim();
-  if (k) v = (v ? v + ' ' : '') + SCR_TXT[k];
+  const n = $('notesinput'); let v = (n.value || '').replace(/\s*(Discs\/tapes|CD|DVD \/ Blu-ray|VHS tape|Cassette tape|8-track tape|Vinyl record): [^.]*\. Not tested \(no player\)\./g, '').trim();
+  const t = MEDIA_TYPES[mediaType];
+  if (k) v = (v ? v + ' ' : '') + (t ? t.name + ': ' + (k === 'none' ? t.okTxt : t.badTxt) + '. Not tested (no player).' : SCR_TXT[k]);
   n.value = v; n.dispatchEvent(new Event('input'));
   document.querySelectorAll('.scrbtn').forEach(function(b){ const on = b.dataset.scr === k; b.style.background = on ? (k === 'none' ? 'var(--ok)' : 'var(--err)') : '#fff'; b.style.color = on ? '#fff' : (b.dataset.scr === 'none' ? 'var(--ok)' : 'var(--err)'); });
 }
@@ -2178,7 +2218,7 @@ $('cdtoggle').addEventListener('change', () => {
   $('szmedia').style.display = med ? '' : 'none';
   if (med) selectSize('szmedia');
   else if (sizeClass === 'szmedia') resetSizePicker();
-  if (!$('cdtoggle').checked) scrSet('');
+  if (!$('cdtoggle').checked) mtSet('');
   if (!$('cdtoggle').checked){
     $('mediaextratoggle').checked = false;
     $('mediaextranote').style.display = 'none';
@@ -3325,7 +3365,7 @@ function stationTell(item){
   if (item.set && (item.setBooks || []).length){
     L.push('- SET of ' + item.setBooks.length + ' — every title must appear in the listing: ' + item.setBooks.map(function(b){ return (b.title || '?') + (b.author ? ' (' + b.author + ')' : ''); }).join('; '));
   } else if (item.set) L.push('- This is a multi-book set' + (item.setCount ? ' of ' + item.setCount : '') + '.');
-  if (item.media) L.push('- Item type: CD / DVD / media' + (item.mediaExtra ? ', with a non-media item: ' + item.mediaExtra : '') + '.');
+  if (item.media) L.push('- Item type: ' + (item.mediaType ? item.mediaType + ' (media)' : 'CD / DVD / media') + (item.mediaExtra ? ', with a non-media item: ' + item.mediaExtra : '') + '.');
   if (item.game) L.push('- Item type: game / non-book item.');
   if (item.blur) L.push('- A name or address in the photos has been blurred: say in Block 1 AND Block 2 that it was obscured for the prior owner\'s privacy, and never print the name.');
   if (item.notes && item.notes.trim()) L.push('- His notes: ' + item.notes.trim());
@@ -3450,7 +3490,7 @@ $('newbookbtn').addEventListener('click', () => {
   $('libtoggle').checked = false;
   $('cdtoggle').checked = false;
   $('mediasubwrap').style.display = 'none';
-  try { scrSet(''); } catch (e) {}
+  try { mtSet(''); } catch (e) {}
   $('mediaextratoggle').checked = false;
   $('mediaextranote').style.display = 'none';
   $('mediaextranote').value = '';
@@ -3586,7 +3626,7 @@ function renderArchView(when){
 window.closeArchView = function(){ pdArchView = null; $('archview').innerHTML=''; };
 function saveToHistory(label, urls, ovr, ident, qty, cost, notes, isSet, setCount, isLib, big, isMedia, isGame, grade, cdet, vflags, mediaExtra, isBatch, isAmazon, asin, amzPrice, fnames, chanOnlyV, chanPriceV, vendorV, setBooksV, familyV){
   const h = getHist();
-  h.unshift({ label, urls, ovr: !!ovr, ident: ident||null, qty: qty||'1', cost: cost||'', notes: notes||'', set: !!isSet, setCount: setCount||'', lib: !!isLib, big: big||null, media: !!isMedia, game: !!isGame, grade: grade||'', cdet: cdet||[], vflags: vflags||[], mediaExtra: mediaExtra||'', batch: !!isBatch, pool: poolChoice, amazon: !!isAmazon, asin: asin||'', amzPrice: amzPrice||'', fnames: fnames||[], chanOnly: chanOnlyV||'', chanPrice: chanPriceV||'', vendor: vendorV||'', setBooks: setBooksV||[], family: familyV||null, dj: djCond||'', insc: inscAction||'', blur: pdBlur.on ? { zone:pdBlur.zone, mode:pdBlur.mode, scope:pdBlur.scope, words:pdZoneWords() } : null, ts: new Date().toLocaleString() });
+  h.unshift({ label, urls, ovr: !!ovr, ident: ident||null, qty: qty||'1', cost: cost||'', notes: notes||'', set: !!isSet, setCount: setCount||'', lib: !!isLib, big: big||null, media: !!isMedia, game: !!isGame, grade: grade||'', cdet: cdet||[], vflags: vflags||[], mediaExtra: mediaExtra||'', mediaType: (isMedia && MEDIA_TYPES[mediaType]) ? MEDIA_TYPES[mediaType].name : '', batch: !!isBatch, pool: poolChoice, amazon: !!isAmazon, asin: asin||'', amzPrice: amzPrice||'', fnames: fnames||[], chanOnly: chanOnlyV||'', chanPrice: chanPriceV||'', vendor: vendorV||'', setBooks: setBooksV||[], family: familyV||null, dj: djCond||'', insc: inscAction||'', blur: pdBlur.on ? { zone:pdBlur.zone, mode:pdBlur.mode, scope:pdBlur.scope, words:pdZoneWords() } : null, ts: new Date().toLocaleString() });
   writeHist(h);
   renderHistory();
   return h[0];
