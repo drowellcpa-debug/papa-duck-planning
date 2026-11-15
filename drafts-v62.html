@@ -95,6 +95,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px soli
 .etsybox .et{font-weight:700}
 .etsybox .ew{font-size:.86rem;color:var(--muted)}
 .etsybox .seg button[aria-pressed="true"].eon{background:#F1641E;border-color:#F1641E;color:#fff}
+.pick{display:inline-flex;gap:0;border:1px solid var(--line,#ccc);border-radius:999px;overflow:hidden;font-size:.78rem;font-weight:700}
+.pick span{padding:3px 9px;cursor:pointer;color:var(--muted);background:var(--sunk)}
+.pick span.on{background:var(--ok-bg);color:var(--ok)}
 .chip.price.wait{background:var(--sunk);color:var(--muted);font-family:var(--body);font-size:.75rem}
 .scanhead .runsum{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;justify-content:flex-end;font-family:var(--body);font-size:.84rem}
 .scanhead .runsum .profit{font-family:var(--mono);font-weight:700;font-size:1.05rem;color:var(--ok);background:var(--ok-bg);border-radius:8px;padding:2px 9px}
@@ -694,7 +697,11 @@ function renderList(){
     $("main").insertAdjacentHTML("afterbegin", '<div class="amzall"><button type="button" id="amzall">🔄 Got Amazon approvals? Recheck all ' + nr + ' restricted books</button></div>');
     $("amzall").onclick = () => recheckAmazon(null);
   }
-  document.querySelectorAll(".row").forEach((el) => el.addEventListener("click", () => openDraft(Number(el.dataset.id))));
+  document.querySelectorAll(".row").forEach((el) => el.addEventListener("click", (ev) => {
+    const pk = ev.target.closest && ev.target.closest("[data-pick]");
+    if (pk) { ev.stopPropagation(); pickPrice(Number(pk.dataset.pid), Number(pk.dataset.pick)); return; }
+    openDraft(Number(el.dataset.id));
+  }));
   loadCovers(items);
 }
 let coverRun = 0;
@@ -708,6 +715,14 @@ async function loadCovers(items){
     const c = photoCache[cov.drive_id];
     document.querySelectorAll('[data-cov="' + cov.drive_id + '"]').forEach((el) => { if (c && c !== "error") el.innerHTML = '<img alt="" src="' + c + '">'; });
   }
+}
+// 2026-11-15: Real / Fast price selector on the card front - saves the chosen price as his price
+async function pickPrice(id, v){
+  const d = drafts.find((x) => x.id === id); if (!d || !(v > 0)) return;
+  edit(d).price_override = v.toFixed(2);
+  render();
+  try { await save(id, { action: "save", price_override: v.toFixed(2) }); d.price_override = Number(v.toFixed(2)); delete edits[id].price_override; setStatus("Price set to " + usd(v)); }
+  catch (e) { setStatus("Couldn't save the price - tap again"); }
 }
 // ---------- price + profit shown on the list (his ask 2026-09-27) ----------
 function priceOf(d){
@@ -914,6 +929,14 @@ function rowHtml(d){
     const pr = priceOf(d);
     // v53 (2026-10-31): Papa Duck "can you have it indicate done? I am lost at know if ready or final" - one clear status per card
     if (d.price_stale) chips += '<span class="chip price wait">⏳ Claude is writing it — wait</span>';
+    else if (d.pricing && Number(d.pricing.fast) > 0 && Number(d.pricing.real) > Number(d.pricing.fast)) {
+      // 2026-11-15 Papa Duck: "show the real price and then I choose list fast price with a selector right on the front of the listing in draft"
+      const rv = Number(d.pricing.real), fv = Number(d.pricing.fast), onFast = pr != null && Math.abs(pr - fv) < 0.005, onReal = pr != null && Math.abs(pr - rv) < 0.005;
+      chips += '<span class="pick" title="Tap to choose the price">' +
+        '<span data-pick="' + rv + '" data-pid="' + d.id + '" class="' + (onReal ? "on" : "") + '">Real ' + usd(rv) + "</span>" +
+        '<span data-pick="' + fv + '" data-pid="' + d.id + '" class="' + (onFast ? "on" : "") + '">⚡ Fast ' + usd(fv) + "</span></span>";
+      if (!onFast && !onReal && pr != null) chips += '<span class="chip price">' + usd(pr) + "</span>";
+    }
     else chips += pr != null ? '<span class="chip price">' + usd(pr) + (qtyOf(d) > 1 ? " ×" + qtyOf(d) : "") + "</span>" : '<span class="chip price wait">pricing…</span>';
     chips += etsyChip(d) + amzChip(d);
     { const ff = fbaFit(d); if (ff && ff.level === "good") chips += '<span class="chip fbagood" title="' + esc(ff.why) + '">📦 FBA good fit</span>'; }
