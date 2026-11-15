@@ -11,3 +11,6 @@ begin
     from (select c.bin from pipeline.bin_claims c where c.who = p_who and c.at > now() - interval '21 days' order by c.bin desc limit 8) x;
   return s || jsonb_build_object('mine', m);
 end $function$;
+-- 2026-11-14 later: "I will pick the bin I am taking pictures of as well, it would be mine or Heathers" - bin_mine also returns 'all'
+-- (everyone's open bins with who + count). Book Station dropdown lists all open bins; picking Heather's bin uses the 'bin' status action
+-- (no checkout) and the draft gets that bin via bin_pd. See migration bin_mine_all_open_bins.
