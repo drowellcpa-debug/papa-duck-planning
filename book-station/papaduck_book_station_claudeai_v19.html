@@ -4077,12 +4077,31 @@ function qcBinRender(){
   el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;border:2px solid #e0b84a;border-radius:10px;padding:8px 10px">' +
     '<span style="flex:1;font-weight:800">📦 Your bin: Bin ' + qcBin.bin + ' <span style="font-weight:600;color:var(--dim)">· ' + Number(qcBin.n || 0) + ' of ' + Number(qcBin.cap || 18) + ' books</span>' +
     (qcBinNote ? '<div style="color:#8a5a00;font-weight:800;margin-top:2px">' + qcEsc(qcBinNote) + '</div>' : '') + '</span>' +
-    '<button type="button" id="qcbinnew" style="min-height:44px;font-weight:800">🆕 New bin</button></div>';
-  const b = $('qcbinnew'); if (b) b.onclick = async () => {
-    try { const r = await qcApi('bin_new', { who: QC_WHO, from: qcBin ? qcBin.bin : null }); qcBin = r; qcBinNote = 'Start Bin ' + r.bin + ' - write ' + r.bin + ' on an empty bin.'; qcBinRender(); } catch(e){}
+    '<select id="qcbinpick" style="min-height:44px;font-weight:700;max-width:46%">' +
+      (qcBin.mine || [{ bin: qcBin.bin, n: qcBin.n }]).map((x) => '<option value="' + x.bin + '"' + (Number(x.bin) === Number(qcBin.bin) ? ' selected' : '') + '>Bin ' + x.bin + ' · ' + (Number(x.bin) === Number(qcBin.bin) ? Number(qcBin.n || 0) : x.n) + '</option>').join('') +
+      '<option value="new">🆕 New bin</option></select></div>';
+  // 2026-11-14 Papa Duck: "I will have multiple bins open, I need the ability to pick from open or create a new" (garage + office)
+  const sel = $('qcbinpick'); if (sel) sel.onchange = async () => {
+    const v = sel.value; const mine = qcBin.mine;
+    try {
+      if (v === 'new') { const r = await qcApi('bin_new', { who: QC_WHO }); qcBin = r; qcBinNote = 'Start Bin ' + r.bin + ' - write ' + r.bin + ' on an empty bin.'; }
+      else { const r = await qcApi('bin_take', { bin: Number(v), who: QC_WHO }); qcBin = r; qcBinNote = ''; }
+      try { localStorage.setItem('pd_qc_bin', String(qcBin.bin)); } catch(e){}
+      const m = await qcApi('bin_mine', { who: QC_WHO }); qcBin.mine = m.mine || mine;
+    } catch(e){ qcBinNote = (e && e.message) || 'Could not switch bins'; }
+    qcBinRender();
   };
 }
-async function qcBinLoad(){ try { qcBin = await qcApi('bin_mine', { who: QC_WHO }); qcBinRender(); } catch(e){ setTimeout(qcBinLoad, 15000); } }
+async function qcBinLoad(){
+  try {
+    const m = await qcApi('bin_mine', { who: QC_WHO });
+    let keep = null; try { keep = Number(localStorage.getItem('pd_qc_bin')) || null; } catch(e){}
+    if (keep && keep !== Number(m.bin) && (m.mine || []).some((x) => Number(x.bin) === keep)) {
+      try { const r = await qcApi('bin_take', { bin: keep, who: QC_WHO }); qcBin = r; qcBin.mine = m.mine; } catch(e){ qcBin = m; }
+    } else qcBin = m;
+    qcBinRender();
+  } catch(e){ setTimeout(qcBinLoad, 15000); }
+}
 // 2026-11-13 ("how do we avoid this discrepancy?"): a Quick check LIST only SHOWS which bin it goes in; the bin count goes up when the book is SENT to Drafts
 async function qcBinPut(r, on){
   if (!r) return;

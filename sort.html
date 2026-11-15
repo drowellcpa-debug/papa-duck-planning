@@ -115,11 +115,11 @@ function passScreen(msg){
 function binBarHtml(){
   if (!binNo) return `<div class="binbar"><span class="lbl">📦 Getting your bin…<small>one moment</small></span></div>`;
   const nm = WHO ? WHO.charAt(0).toUpperCase() + WHO.slice(1) : '';
-  return `<div class="binbar"><span class="lbl">📦 ${nm ? esc(nm) + ' · ' : ''}Filling Bin ${binNo}<small>${binN == null ? 'counting…' : `${binN} of ${binCap} books`} · tap to change</small></span><button id="binplus" style="font-size:.95rem">🆕 New bin</button><button id="whoswitch" style="font-size:.85rem" title="Someone else sorting">👤 Switch</button></div>`;
+  return `<div class="binbar"><span class="lbl">📦 ${nm ? esc(nm) + ' · ' : ''}Filling Bin ${binNo}<small>${binN == null ? 'counting…' : `${binN} of ${binCap} books`} · tap to pick another bin</small></span><button id="binplus" style="font-size:.95rem">🆕 New bin</button><button id="whoswitch" style="font-size:.85rem" title="Someone else sorting">👤 Switch</button></div>`;
 }
 // "always give me a new one so I dont overlap" - a new bin is the next number nobody has used (shared with the Book Station)
 async function newBin(){
-  try { const r = await api('bin_new', { who: WHO, from: binNo || null }); binNo = Number(r.bin); binN = Number(r.n) || 0; binCap = Number(r.cap) || binCap; ls.set(BIN_KEY, String(binNo)); }
+  try { const r = await api('bin_new', { who: WHO }); binNo = Number(r.bin); binN = Number(r.n) || 0; binCap = Number(r.cap) || binCap; ls.set(BIN_KEY, String(binNo)); }
   catch(e){ alert("Couldn't get a new bin number. Try again."); return; }
   const bb = document.querySelector('.binbar'); if (bb) { bb.outerHTML = binBarHtml(); wireBin(); }
   alert('Start Bin ' + binNo + '. Write ' + binNo + ' on an empty bin.');
@@ -139,15 +139,35 @@ async function loadBin(){
   const bb = document.querySelector('.binbar'); if (bb) { bb.outerHTML = binBarHtml(); wireBin(); }
 }
 function wireBin(){
-  const ask = async () => { const v = prompt('Which of YOUR bins are you filling? (number)', binNo || ''); const n = parseInt(v, 10); if (!(n > 0)) return;
-    try { const r = await api('bin_take', { bin: n, who: WHO }); binNo = n; ls.set(BIN_KEY, String(n)); binN = Number(r.n) || 0; binCap = Number(r.cap) || binCap; const bb = document.querySelector('.binbar'); if (bb) { bb.outerHTML = binBarHtml(); wireBin(); } }
-    catch(e){ alert(e.message || 'That bin is not yours.'); } };
+  // 2026-11-14 Papa Duck: "I will have multiple bins open, I need the ability to pick from open or create a new" - a picker of your open bins
+  const ask = async () => {
+    const old = $('binpick'); if (old) old.remove();
+    const box = document.createElement('div'); box.id = 'binpick';
+    box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50';
+    box.innerHTML = `<div style="background:#fff;border-radius:16px 16px 0 0;padding:16px;width:100%;max-width:520px;max-height:80vh;overflow:auto">
+      <div style="font-weight:800;font-size:1.15rem;margin-bottom:8px">📦 Which bin are you filling?</div><div id="binpicklist" class="muted">Loading your bins…</div>
+      <button id="binpicknew" style="width:100%;margin-top:10px;background:var(--brand);color:#fff">🆕 Start a new bin</button>
+      <button id="binpickx" style="width:100%;margin-top:8px;background:#fff;color:#333;border:2px solid #ccc">Cancel</button></div>`;
+    document.body.appendChild(box);
+    $('binpickx').onclick = () => box.remove();
+    box.onclick = (ev) => { if (ev.target === box) box.remove(); };
+    $('binpicknew').onclick = () => { box.remove(); newBin(); };
+    let m = null; try { m = await api('bin_mine', { who: WHO }); } catch(e){}
+    const list = (m && m.mine) || [];
+    $('binpicklist').innerHTML = list.length ? list.map((x) => `<button data-bin="${x.bin}" style="width:100%;margin-top:6px;text-align:left;${Number(x.bin) === Number(binNo) ? 'border:3px solid var(--brand);font-weight:800' : 'background:#fff;color:#333;border:2px solid #ccc'}">
+        ${Number(x.bin) === Number(binNo) ? '✅ ' : ''}Bin ${x.bin} <span class="muted" style="font-weight:600">· ${x.n} book${x.n === 1 ? '' : 's'}</span></button>`).join('') : 'No open bins yet - start a new one.';
+    box.querySelectorAll('[data-bin]').forEach((btn) => btn.onclick = async () => {
+      const n = Number(btn.dataset.bin);
+      try { const r = await api('bin_take', { bin: n, who: WHO }); binNo = n; ls.set(BIN_KEY, String(n)); binN = Number(r.n) || 0; binCap = Number(r.cap) || binCap; }
+      catch(e){ alert(e.message || 'That bin is not yours.'); }
+      box.remove(); const bb = document.querySelector('.binbar'); if (bb) { bb.outerHTML = binBarHtml(); wireBin(); } });
+  };
   if ($('binset')) $('binset').onclick = ask;
   if ($('binplus')) $('binplus').onclick = newBin;
   if ($('whoswitch')) $('whoswitch').onclick = () => { ls.set(PASS_KEY, ''); passScreen('Type the PIN of the person sorting now.'); };
   const l = document.querySelector('.binbar .lbl'); if (l && binNo) { l.style.cursor = 'pointer'; l.onclick = ask; }
 }
-const PAGE_V = '2026-11-14e';   // must match version.json "sort"
+const PAGE_V = '2026-11-14f';   // must match version.json "sort"
 let vChecked = 0;
 async function checkVersion(){ if (Date.now() - vChecked < 120000) return; vChecked = Date.now();
   try { const v = await (await fetch('version.json?t=' + Date.now(), { cache: 'no-store' })).json(); if (v && v.sort && v.sort !== PAGE_V) location.reload(); } catch(e){} }
