@@ -1,0 +1,4 @@
+-- 2026-11-15 Papa Duck: "on the bins assume all items in that bin are out in the garage unless I indicate otherwise"
+-- drafts_item_gate: the non-book -> Office default now applies only when the item has NO bin. 7 binned items moved back to Garage
+-- (PD-3702, 3703, 3704, 3705, 3706, 3707, 3708). He can still pick Office on the card.
+-- (function body: see live pipeline.drafts_item_gate - only change is "new.bin is null and" in the Office line)
