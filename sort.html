@@ -61,6 +61,7 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 18p
 </style>
 </head>
 <body>
+<div id="gwbar" style="display:none;position:sticky;top:0;z-index:50;background:#c0392b;color:#fff;padding:10px 12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>
 <header><h1>🦆 Sorting Helper</h1><div class="tally" id="tally"></div></header>
 <main id="app"></main>
 <input type="file" id="file" accept="image/*" capture="environment" hidden>
@@ -97,6 +98,23 @@ async function api(action, body){
   if (j && j.ok) return j;
   const e = new Error((j && j.error) || ('The cloud answered ' + r.status)); e.code = j && j.error; throw e;
 }
+// 2026-11-15 Papa Duck: "a big warning shows up to pull it back" - the Goodwill double-check (every minute) shows here in red, right away
+async function gwPoll(){
+  if (!ls.get(PASS_KEY)) return;
+  let a = []; try { a = (await api('gw_alerts')).alerts || []; } catch(e){ return; }
+  const bar = $('gwbar'); if (!bar) return;
+  if (!a.length){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.innerHTML = a.map((x) => `<div style="margin:4px 0"><div style="font-size:1.15rem">🚨 PULL IT BACK from Goodwill: ${esc(x.title)}</div>
+    <div style="font-weight:400;font-size:.9rem;margin:2px 0 6px">${esc(String(x.detail || '').split('\n')[0].replace(/^.*found it: /, ''))}</div>
+    <button data-gwb="${x.id}" style="background:#fff;color:#c0392b;font-weight:800;padding:6px 12px;border-radius:8px;border:0;margin-right:6px">✓ Pulled it back</button>
+    <button data-gwl="${x.id}" style="background:transparent;color:#fff;border:2px solid #fff;padding:6px 12px;border-radius:8px">Leave in Goodwill</button></div>`).join('');
+  bar.style.display = 'block';
+  bar.querySelectorAll('[data-gwb],[data-gwl]').forEach((el) => el.onclick = async () => {
+    const id = Number(el.dataset.gwb || el.dataset.gwl); el.disabled = true;
+    try { await api('gw_done', { id, back: !!el.dataset.gwb }); } catch(e){}
+    gwPoll(); });
+}
+setInterval(gwPoll, 30000); setTimeout(gwPoll, 1500);
 function count(bin){ tally[bin] = (tally[bin] || 0) + 1; ls.set(TALLY_KEY, JSON.stringify(tally)); showTally(); }
 function showTally(){
   const n = (k) => tally[k] || 0, total = ['LIST','VINTED','SELL','GOODWILL','TOSS','ASK','BASKET','LOT'].reduce((a, k) => a + n(k), 0);
@@ -167,7 +185,7 @@ function wireBin(){
   if ($('whoswitch')) $('whoswitch').onclick = () => { ls.set(PASS_KEY, ''); passScreen('Type the PIN of the person sorting now.'); };
   const l = document.querySelector('.binbar .lbl'); if (l && binNo) { l.style.cursor = 'pointer'; l.onclick = ask; }
 }
-const PAGE_V = '2026-11-14f';   // must match version.json "sort"
+const PAGE_V = '2026-11-15a';   // must match version.json "sort"
 let vChecked = 0;
 async function checkVersion(){ if (Date.now() - vChecked < 120000) return; vChecked = Date.now();
   try { const v = await (await fetch('version.json?t=' + Date.now(), { cache: 'no-store' })).json(); if (v && v.sort && v.sort !== PAGE_V) location.reload(); } catch(e){} }
@@ -323,6 +341,7 @@ function showList(title, err, fixing, fixBox){
   $('app').innerHTML = `<div class="res LIST" style="margin-top:4px"><div class="bin">🟢 LIST</div>
     ${!fixing && binNo ? `<div class="what">Goes in</div><div class="binbig">BIN ${binNo}</div>` : ''}
     <div class="what">${fixing ? 'Fix the sticker number for this book.' : 'Put the next sticker on a tab, then type its number.'}</div><div class="title">${esc(title)}</div>
+    ${!fixing && cur && cur.second_look ? `<div class="what" style="background:#c0392b;color:#fff;border-radius:8px;padding:8px 10px;font-weight:800">⚠️ SECOND LOOK FOUND IT - do NOT put it in Goodwill</div>` : ''}
     ${!fixing && cur && cur.price_flag ? `<div class="what" style="background:#fff3b0;color:#5a3d00;border-radius:8px;padding:6px 10px">🚩 Price flagged - Dad checks it in Drafts</div>` : ''}
     ${err ? `<div class="err">${esc(err)}</div>` : ''}
     <div class="stk"><input id="stk" inputmode="numeric" autocomplete="off" placeholder="Sticker #" value="${esc(next)}"><button id="stkgo">Save</button></div>

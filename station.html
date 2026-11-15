@@ -536,6 +536,7 @@
 </style>
 </head>
 <body>
+<div id="gwbar" style="display:none;position:sticky;top:0;z-index:999;background:#c0392b;color:#fff;padding:10px 14px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>
 <h1>🦆 Papa Duck Book Station v61 ⚡ Direct</h1>
 <!-- v61 (2026-11-09): QUICK CHECK — first thing, before any photos. Papa Duck: "it will need to be a top of the book station app so It is the first thing I do"
      and "also family friendly check there as well". Cover photo or ISBN -> Scout (Clean-up mode, $7.99 floor for proven sellers) -> LIST / SELL / GOODWILL,
@@ -4251,6 +4252,25 @@ $('qcgo').addEventListener('click', async () => {
   qcRenderQ();
 });
 
+
+// 2026-11-15 Papa Duck: "this needs to happen at the scanner time or in the papa duck book station quick check, almost immediately
+//   and a big warning shows up to pull it back" - the Goodwill double-check (every minute) shows here in red right away.
+async function gwPoll(){
+  if (!getPass()) return;
+  let a = []; try { a = (await api('gw_alerts', {}, 1)).alerts || []; } catch(e){ return; }
+  const bar = document.getElementById('gwbar'); if (!bar) return;
+  if (!a.length){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.innerHTML = a.map(function(x){ return '<div style="margin:4px 0"><div style="font-size:1.15rem">🚨 PULL IT BACK from Goodwill: ' + esc(x.title) + '</div>'
+    + '<div style="font-weight:400;font-size:.9rem;margin:2px 0 6px">' + esc(String(x.detail || '').split('\n')[0].replace(/^.*found it: /, '')) + '</div>'
+    + '<button data-gwb="' + x.id + '" style="background:#fff;color:#c0392b;font-weight:800;padding:6px 12px;border-radius:8px;border:0;margin-right:6px">✓ Pulled it back</button>'
+    + '<button data-gwl="' + x.id + '" style="background:transparent;color:#fff;border:2px solid #fff;padding:6px 12px;border-radius:8px">Leave in Goodwill</button></div>'; }).join('');
+  bar.style.display = 'block';
+  bar.querySelectorAll('[data-gwb],[data-gwl]').forEach(function(el){ el.onclick = async function(){
+    const id = Number(el.dataset.gwb || el.dataset.gwl); el.disabled = true;
+    try { await api('gw_done', { id: id, back: !!el.dataset.gwb }, 1); } catch(e){}
+    gwPoll(); }; });
+}
+setInterval(gwPoll, 30000); setTimeout(gwPoll, 2000);
 </script>
 </body>
 </html>
