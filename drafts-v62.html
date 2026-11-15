@@ -407,7 +407,7 @@ function gwRender(){
   $("gwbtn").classList.toggle("has", gw.length > 0);
   const p = $("gwpanel"); if (p.hidden) return;
   p.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">♻️ List again</h3><button class="btn small" type="button" id="gwclose">Close</button></div>' +
-    '<div style="font-size:.88rem;color:var(--muted)">The Goodwill pile is double-checked every 15 minutes (' + esc(gwWhen()) + '). These went to Goodwill because the Quick check couldn\'t find them, and a second look says they\'re worth listing. Leave one in Goodwill if you know it\'s damaged, used up or not family-friendly.</div>' +
+    '<div style="font-size:.88rem;color:var(--muted)">The Goodwill pile is double-checked every minute (' + esc(gwWhen()) + '). These went to Goodwill because the Quick check couldn\'t find them, and a second look says they\'re worth listing. Leave one in Goodwill if you know it\'s damaged, used up or not family-friendly.</div>' +
     (gw.length ? gw.map((a) => '<div class="gwi"><b>' + esc(a.title) + '</b><span style="font-size:.9rem">' + esc(String(a.detail || "").split("\n")[0].replace(/^.*?found it: /, "")) + '</span>' +
       '<div class="actions"><button class="btn primary small" type="button" data-gwback="' + a.id + '">✓ Pulled it back</button><button class="btn small" type="button" data-gwleave="' + a.id + '">Leave in Goodwill</button></div></div>').join("")
       : '<div class="gwi">Nothing to pull back right now. 👍</div>');

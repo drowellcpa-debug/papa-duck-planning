@@ -1,0 +1,4 @@
+-- 2026-11-15 Papa Duck: "the list again can not be this delayed ... If it is every 15 minutes why was this missed?"
+-- pd-goodwill-recheck cron: every minute (was */15). goodwill_recheck(): 2 per run, 25 s timeout, skips + closes cards for books
+-- he already re-scanned onto another pile (Rosebud I Remember x2 were stale: re-scanned 20:28 UTC to LIST $17.99). Alerts 7635/7636 closed.
+-- Full function body: live pipeline.goodwill_recheck().
