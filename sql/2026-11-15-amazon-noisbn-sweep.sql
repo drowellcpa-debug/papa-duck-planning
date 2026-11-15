@@ -1,0 +1,3 @@
+-- 2026-11-15 Papa Duck "Yes I agree": all 58 live no-ISBN merchant Amazon listings taken off Amazon (amazon-delete, all ACCEPTED).
+-- List kept in pipeline.amz_noisbn_off_20261115. Drafts set amazon_on=false + amazon.removed note. Alert 8176 (handled).
+-- Cause: vintage books matched to modern reprint ASINs -> Amazon "pricing error" (PD-3681 11/14, PD-3541 11/15).
