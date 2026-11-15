@@ -201,7 +201,23 @@ function parse(res) {
   const m = txt.match(/<untrusted-data-[^>]+>\s*(\[[\s\S]*\])\s*<\/untrusted-data/);
   return JSON.parse(m ? m[1] : txt);
 }
-async function q(sql) { return parse(await mcp.callTool(SERVER, TOOL, { project_id: PROJECT, query: sql }, { cache: false })); }
+// 2026-11-14: Claude's Supabase connector sometimes says "Failed to look up the project organization" - retry up to 4 times first.
+const Q_RETRY = /look up the project organization|server_unavailable|upstream|rate_limited|timed? ?out|didn't answer|fetch failed|network/i;
+async function q(sql) {
+  let last;
+  for (let a = 0; a < 4; a++) {
+    try {
+      const res = await mcp.callTool(SERVER, TOOL, { project_id: PROJECT, query: sql }, { cache: false });
+      if (/look up the project organization/i.test(JSON.stringify((res && res.payload) || ""))) throw new Error("Failed to look up the project organization");
+      return parse(res);
+    } catch (e) {
+      last = e;
+      if (!Q_RETRY.test(String((e && (e.message || e.code)) || e) + " " + String((e && e.code) || "")) || a === 3) throw e;
+      await new Promise((ok) => setTimeout(ok, [800, 2500, 6000][a]));
+    }
+  }
+  throw last;
+}
 async function call(sql) { const rows = await q(sql); return rows[0] && rows[0].r; }
 
 function showError(e) {

@@ -474,9 +474,25 @@ function explain(e, server){
     return { kind: "bad", text: "<b>This view can't reach your connectors.</b> Open the page in the Claude app or at claude.ai while signed in." };
   return { kind: "warn", text: esc(dbMessage(e)) };
 }
+// 2026-11-14 ("Failed to look up the project organization" - Claude's Supabase connector hiccup): try up to 4 times before showing an error.
+//   That lookup fails before the query runs, so a retry never repeats a save.
+const SQL_RETRY = /look up the project organization|server_unavailable|upstream|rate_limited|timed? ?out|didn't answer|fetch failed|network/i;
 async function sql(query){
-  const r = await mcp.callTool(SUPA, "execute_sql", { project_id: PROJECT, query }, { cache: false });
-  return sqlRows(r);
+  let last;
+  for (let a = 0; a < 4; a++) {
+    try {
+      const r = await mcp.callTool(SUPA, "execute_sql", { project_id: PROJECT, query }, { cache: false });
+      const raw = JSON.stringify((r && (r.payload ?? r)) || "");
+      if (SQL_RETRY.test(raw) && /look up the project organization/i.test(raw)) throw new Error("Failed to look up the project organization");
+      return sqlRows(r);
+    } catch (e) {
+      last = e;
+      const msg = String((e && (e.message || e.code)) || e) + " " + String((e && e.code) || "");
+      if (!SQL_RETRY.test(msg) || a === 3) throw e;
+      await new Promise((ok) => setTimeout(ok, [800, 2500, 6000][a]));
+    }
+  }
+  throw last;
 }
 function jsonLit(obj){
   const s = JSON.stringify(obj);

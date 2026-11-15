@@ -3808,7 +3808,21 @@ function sqlRows(res){
 }
 async function sbSql(query){
   if (!mcp) throw new Error('Supabase is not connected for this page');
-  return sqlRows(await mcp.callTool('Supabase', 'execute_sql', { project_id: SB_PROJECT, query: query }, { cache: false }));
+  // 2026-11-14: retry Claude's Supabase connector hiccups ("Failed to look up the project organization") up to 4 times
+  const RX = /look up the project organization|server_unavailable|upstream|rate_limited|timed? ?out|didn't answer|fetch failed|network/i;
+  let last;
+  for (let a = 0; a < 4; a++) {
+    try {
+      const res = await mcp.callTool('Supabase', 'execute_sql', { project_id: SB_PROJECT, query: query }, { cache: false });
+      if (/look up the project organization/i.test(JSON.stringify((res && res.payload) || ''))) throw new Error('Failed to look up the project organization');
+      return sqlRows(res);
+    } catch (e) {
+      last = e;
+      if (!RX.test(String((e && (e.message || e.code)) || e) + ' ' + String((e && e.code) || '')) || a === 3) throw e;
+      await new Promise((ok) => setTimeout(ok, [800, 2500, 6000][a]));
+    }
+  }
+  throw last;
 }
 function dq(s){ let tag; do { tag = 'q' + Math.random().toString(36).slice(2, 9); } while (String(s).indexOf(tag) !== -1); return '$' + tag + '$' + s + '$' + tag + '$'; }
 // start a cloud job and wait for its answer
