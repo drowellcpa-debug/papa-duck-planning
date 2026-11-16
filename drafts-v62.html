@@ -432,7 +432,7 @@ let drafts = [];
 let tab = "check";
 let view = { mode: "list", id: null };
 let edits = {};          // per-draft unsaved edits
-let photoCache = {};     // drive_id -> data URL | "error"
+let photoCache = {}, photoFailAt = {}, photoRetryT = null;     // drive_id -> data URL | "error"
 let selPhoto = 0;
 let blastConfirm = false, fblastConfirm = false, notConfirm = null, allOpen = false, lpConfirm = false, lpBusy = false, lpVerified = null;
 const LAUNCH_PAD = "https://claude.ai/artifact/DiKnn9WmWgGqCp41ZPDT73";
@@ -853,7 +853,7 @@ async function loadCovers(items){
   for (const d of items) {
     if (run !== coverRun || view.mode !== "list") return;
     const cov = (d.photos || []).filter((p) => !p.removed)[0];
-    if (!cov || photoCache[cov.drive_id]) continue;
+    if (!cov || (photoCache[cov.drive_id] && photoCache[cov.drive_id] !== "error")) continue;
     await loadPhoto(cov, true);
     const c = photoCache[cov.drive_id];
     document.querySelectorAll('[data-cov="' + cov.drive_id + '"]').forEach((el) => { if (c && c !== "error") el.innerHTML = '<img alt="" src="' + c + '">'; });
@@ -1762,6 +1762,8 @@ function findImage(x, depth){
   return out;
 }
 async function loadPhoto(p, quiet){
+  // 2026-11-15 ("it was not showing me the pictures"): a connector hiccup used to mark a photo failed for good - now it tries again after 20 s
+  if (p && photoCache[p.drive_id] === "error" && Date.now() - (photoFailAt[p.drive_id] || 0) > 20000) delete photoCache[p.drive_id];
   if (!p || !mcp || photoCache[p.drive_id]) return;
   const pid = String(p.drive_id || "");
   if (pid.indexOf("none:") === 0) { photoCache[pid] = "error"; return; }
@@ -1773,7 +1775,9 @@ async function loadPhoto(p, quiet){
       const row = sqlRows(r)[0];
       if (!row || !row.b64) throw new Error("no image data");
       photoCache[pid] = "data:" + (row.mime || "image/jpeg") + ";base64," + row.b64;
-    } catch (e) { photoCache[pid] = "error"; }
+    } catch (e) { photoCache[pid] = "error"; photoFailAt[pid] = Date.now(); if (!photoRetryT) photoRetryT = setTimeout(async () => { photoRetryT = null;
+      if (view.mode === "detail" && current()) { const d = current(); for (const q of merged(d).photos) if (photoCache[q.drive_id] === "error") await loadPhoto(q, true); if (view.mode === "detail" && current() === d) renderDetail(d); }
+      else render(); }, 21000); }
     if (!quiet && view.mode === "detail" && current()) renderDetail(current());
     return;
   }
@@ -1784,7 +1788,7 @@ async function loadPhoto(p, quiet){
     if (!b64) throw new Error("no image data");
     photoCache[p.drive_id] = "data:" + mt + ";base64," + b64;
   } catch (e) {
-    photoCache[p.drive_id] = "error";
+    photoCache[p.drive_id] = "error"; photoFailAt[p.drive_id] = Date.now();
     if (!quiet && e && e.code && e.code !== "tool_error"){ const x = explain(e, DRIVE); setNotice(x.kind, x.text); }
   }
   if (!quiet && view.mode === "detail" && current()) renderDetail(current());
