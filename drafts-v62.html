@@ -303,6 +303,17 @@ body.nobar .wrap{padding-bottom:40px}
 .binbtn b{font-family:var(--mono);font-size:1.4rem}.binbtn small{font-weight:600;font-size:.68rem;color:var(--muted)}
 .binpanel{position:fixed;left:12px;right:12px;top:12px;bottom:12px;max-width:760px;margin:0 auto;z-index:11;background:var(--surface);border:3px solid #8a5a00;border-radius:12px;padding:14px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.25);display:grid;align-content:start;gap:10px}
 .binpanel[hidden]{display:none}
+.justin{margin-top:6px;border:3px solid var(--ok);background:#fff;border-radius:10px;padding:8px 6px;text-align:center;display:grid;gap:3px}
+.justin[hidden]{display:none}
+.justin .ji-h{font-size:.72rem;font-weight:800;color:var(--ok);letter-spacing:.04em}
+.justin .ji-d{font-size:2.2rem;line-height:1}
+.justin .ji-pd{font-family:var(--mono);font-weight:800;font-size:1.25rem;color:var(--ok)}
+.justin .ji-t{font-size:.78rem;line-height:1.2;max-height:3.6em;overflow:hidden}
+.justin .ji-b{font-size:.8rem;font-weight:800;color:#8a5a00}
+.justin .ji-old{font-size:.7rem;color:var(--muted);border-top:1px solid #e6e6e6;padding-top:3px;font-family:var(--mono)}
+.justin.pop{animation:jipop .9s ease-out}
+.justin.win{background:var(--ok);color:#fff}.justin.win .ji-h,.justin.win .ji-pd,.justin.win .ji-b{color:#fff}
+@keyframes jipop{0%{transform:scale(1.25);box-shadow:0 0 0 8px rgba(46,125,50,.35)}100%{transform:scale(1);box-shadow:none}}
 .binchips{display:flex;flex-wrap:wrap;gap:6px}
 .binchip{border:2px solid #8a5a00;background:#fff;color:#8a5a00;border-radius:999px;padding:5px 11px;font-weight:700;cursor:pointer;font-size:.88rem}
 .binchip.on{background:#8a5a00;color:#fff}.binchip.full{border-color:var(--ok);color:var(--ok)}.binchip.full.on{background:var(--ok);color:#fff}
@@ -390,6 +401,7 @@ body.nobar .wrap{padding-bottom:40px}
   <div class="tr amz"><span>FBA</span><b id="t-fba">0</b></div>
   <button class="btn fbabtn small" id="fblast" type="button" hidden>🚀 Blast off FBA only</button>
   <button class="gwbtn" id="gwbtn" type="button" aria-label="List again from the Goodwill pile"><span>♻️ List again</span><b id="t-gw">0</b><small id="gwwhen">checking…</small></button>
+  <div class="justin" id="justin" hidden aria-live="polite"></div>
   <button class="binbtn" id="binbtn" type="button" aria-label="Bin check"><span>📦 Bin check</span><b id="t-bin">–</b><small id="binwhen">tap to open</small></button>
 </aside>
 <div class="gwpanel" id="gwpanel" hidden role="dialog" aria-label="List again"></div>
@@ -447,9 +459,32 @@ const BIN_MARK = { waiting: "⬜", drafted: "🦆", sent: "🦆", listed: "🦆"
 const BIN_WORD = { waiting: "not scanned yet", drafted: "in Drafts", sent: "sent", listed: "listed", pulled: "pulled" };
 async function binLoad(){
   if (binBusy) return; binBusy = true;
-  try { const r = await sql("select pipeline.bin_board() as b"); bins = (r && r[0] && r[0].b) || []; if (typeof bins === "string") bins = JSON.parse(bins); }
+  try { const r = await sql("select pipeline.bin_board() as b"); let nb = (r && r[0] && r[0].b) || []; if (typeof nb === "string") nb = JSON.parse(nb); binSet(nb); }
   catch (e) { /* keep the last board */ }
-  binBusy = false; binRender();
+  binBusy = false;
+}
+// 2026-11-15 Papa Duck: "when it sees a [PD] can you have it show up in a prominent spot on the screen on the right so I can see it as the books come in"
+let binSeen = null, arrivals = [];
+function binSet(nb){
+  const now = {};
+  nb.forEach((b) => (b.items || []).forEach((it) => { now[it.pd] = { st: it.state, title: it.title, bin: b.bin, done: b.done, total: b.total }; }));
+  if (binSeen) {
+    const fresh = Object.keys(now).filter((pd) => now[pd].st !== "waiting" && binSeen[pd] && binSeen[pd].st === "waiting");
+    fresh.forEach((pd) => arrivals.unshift({ pd, ...now[pd], at: Date.now() }));
+    arrivals = arrivals.slice(0, 4);
+    bins = nb;
+    if (fresh.length) justIn();
+  }
+  binSeen = now; bins = nb; binRender();
+}
+function justIn(){
+  const j = $("justin"), a = arrivals[0]; if (!a) { j.hidden = true; return; }
+  const b = bins.find((x) => x.bin === a.bin) || a, win = b.done >= b.total;
+  j.className = "justin" + (win ? " win" : "");
+  j.innerHTML = '<div class="ji-h">' + (win ? "🎉 BIN COMPLETE" : "JUST IN") + '</div><div class="ji-d">🦆</div><div class="ji-pd">' + esc(a.pd) + '</div><div class="ji-t">' + esc(a.title || "") + '</div>' +
+    '<div class="ji-b">Bin ' + a.bin + ' · ' + b.done + ' of ' + b.total + '</div>' +
+    (arrivals.length > 1 ? '<div class="ji-old">' + arrivals.slice(1).map((x) => esc(x.pd)).join(" · ") + '</div>' : "");
+  j.hidden = false; void j.offsetWidth; j.classList.add("pop");
 }
 function binRender(){
   const open = bins.filter((b) => b.done < b.total);
@@ -478,7 +513,7 @@ function binRender(){
     }
   }
   p.innerHTML = h;
-  $("binclose").onclick = () => { p.hidden = true; clearInterval(binTimer); binTimer = null; };
+  $("binclose").onclick = () => { p.hidden = true; };
   p.querySelectorAll("[data-bin]").forEach((b) => b.onclick = () => { binSel = Number(b.dataset.bin); binRender(); });
 }
 
@@ -573,7 +608,7 @@ async function load(quiet){
   try {
     const rows = await sql("select pipeline.ui_list() as data, pipeline.fba_list() as fba, (select coalesce(jsonb_agg(a), '[]'::jsonb) from jsonb_array_elements(pipeline.alerts_open()) a where a->>'source' = 'Goodwill check') as gw, (select value from pipeline.config where key = 'gw_recheck_last') as gwlast, pipeline.bin_board() as bins");
     gw = (rows[0] && rows[0].gw) || []; gwLast = (rows[0] && rows[0].gwlast) || "";
-    if (rows[0] && Array.isArray(rows[0].bins)) { bins = rows[0].bins; binRender(); }
+    if (rows[0] && Array.isArray(rows[0].bins)) binSet(rows[0].bins);
     drafts = (rows[0] && rows[0].data) || [];
     reapplyArchived();
     if (rows[0] && rows[0].fba) fba = rows[0].fba;
@@ -2043,7 +2078,9 @@ render();
   if (!mcp){ setStatus("Not connected"); setNotice("warn", "<b>This view can't reach your connectors.</b> Open the page in the Claude app or at claude.ai while signed in. Until then you're looking at an example card."); return; }
   $("gwbtn").onclick = () => { $("gwpanel").hidden = !$("gwpanel").hidden; gwRender(); };
   $("binbtn").onclick = () => { const p = $("binpanel"); p.hidden = !p.hidden;
-    if (!p.hidden) { binRender(); binLoad(); clearInterval(binTimer); binTimer = setInterval(binLoad, 15000); } else { clearInterval(binTimer); binTimer = null; } };
+    if (!p.hidden) { binRender(); binLoad(); } };
+  binTimer = setInterval(() => { if (!document.hidden) binLoad(); }, 15000);
+  $("justin").onclick = () => { const a = arrivals[0]; if (a) binSel = a.bin; $("binpanel").hidden = false; binRender(); };
   load();
 })();
 })();
