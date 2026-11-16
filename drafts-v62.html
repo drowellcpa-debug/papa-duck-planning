@@ -302,6 +302,16 @@ body.nobar .wrap{padding-bottom:40px}
 .binbtn{display:grid;gap:2px;justify-items:center;margin-top:6px;border:3px solid #8a5a00;background:#fff4dc;color:#8a5a00;border-radius:10px;padding:7px 6px;font-weight:700;font-size:.82rem;cursor:pointer}
 .binbtn b{font-family:var(--mono);font-size:1.4rem}.binbtn small{font-weight:600;font-size:.68rem;color:var(--muted)}
 .binpanel{position:fixed;left:12px;right:12px;top:12px;bottom:12px;max-width:760px;margin:0 auto;z-index:11;background:var(--surface);border:3px solid #8a5a00;border-radius:12px;padding:14px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.25);display:grid;align-content:start;gap:10px}
+.tttbox{margin:10px 0 4px;border:3px solid #8a5a00;border-radius:14px;background:#fffaf0;padding:10px 12px;display:grid;gap:8px}
+.tttbox[hidden]{display:none}
+.tttbox .th{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.tttbox .th h2{margin:0;font-size:1.15rem;color:#5b3b00}
+.tttbox .ttt{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+.tttbox .won{border-top:2px dashed #d9c49a;padding-top:8px;display:grid;gap:6px}
+.tttbox .won h3{margin:0;font-size:.95rem;color:var(--ok)}
+.trophy{border:2px solid var(--ok);background:#e3f4e6;color:var(--ok);border-radius:12px;padding:6px 12px;font-weight:800;cursor:pointer}
+.trophy.on{background:var(--ok);color:#fff}
+.tttwin{background:var(--ok);color:#fff;border-radius:12px;padding:12px;text-align:center;font-weight:800;font-size:1.25rem;animation:jipop 1s ease-out}
 .binpanel[hidden]{display:none}
 .justin{margin-top:6px;border:3px solid var(--ok);background:#fff;border-radius:10px;padding:8px 6px;text-align:center;display:grid;gap:3px}
 .justin[hidden]{display:none}
@@ -381,6 +391,7 @@ body.nobar .wrap{padding-bottom:40px}
     </div>
   </header>
   <div id="notices"></div>
+  <section class="tttbox" id="tttbox" hidden aria-label="Tic-Tac-Duck bin board"></section>
   <main id="main"></main>
 </div>
 
@@ -471,6 +482,7 @@ function binSet(nb){
   if (binSeen) {
     const fresh = Object.keys(now).filter((pd) => now[pd].st !== "waiting" && binSeen[pd] && binSeen[pd].st === "waiting");
     fresh.forEach((pd) => arrivals.unshift({ pd, ...now[pd], at: Date.now() }));
+    if (fresh.length) tttSel = now[fresh[0]].bin;
     arrivals = arrivals.slice(0, 4);
     bins = nb;
     if (fresh.length) justIn();
@@ -486,7 +498,39 @@ function justIn(){
     (arrivals.length > 1 ? '<div class="ji-old">' + arrivals.slice(1).map((x) => esc(x.pd)).join(" · ") + '</div>' : "");
   j.hidden = false; void j.offsetWidth; j.classList.add("pop");
 }
+// 2026-11-15 Papa Duck: "I want to see bin 8 show up in a prominent window with the ducks showing up on tick tack duck, and when completed,
+//   they move to bin completed box 'won game'"
+let tttSel = null, tttMin = false;
+try { tttMin = localStorage.getItem("pdTttMin") === "1"; } catch (e) {}
+function tttRender(){
+  const box = $("tttbox"); if (!box) return;
+  box.hidden = !(view.mode === "list") || !bins.length;
+  if (box.hidden) return;
+  const open = bins.filter((b) => b.done < b.total), won = bins.filter((b) => b.done >= b.total);
+  if (tttSel == null || !bins.some((b) => b.bin === tttSel)) tttSel = (open[0] || won[0] || {}).bin ?? null;
+  const cur = bins.find((b) => b.bin === tttSel);
+  let h = '<div class="th"><h2>🦆 Tic-Tac-Duck' + (cur ? ' · Bin ' + cur.bin + ' · ' + cur.done + ' of ' + cur.total : '') + '</h2>' +
+    '<button class="btn small" type="button" id="tttmin">' + (tttMin ? "Show board" : "Hide board") + '</button></div>';
+  if (!tttMin) {
+    if (open.length) h += '<div class="binchips">' + open.map((b) => '<button type="button" class="binchip' + (b.bin === tttSel ? " on" : "") + '" data-ttt="' + b.bin + '">Bin ' + b.bin + " · " + b.done + "/" + b.total + "</button>").join("") + "</div>";
+    if (cur) {
+      const pct = Math.round(100 * cur.done / Math.max(1, cur.total));
+      h += '<div class="binbar2"><i style="width:' + pct + '%"></i></div>';
+      if (cur.done >= cur.total) h += '<div class="tttwin">🏆🦆 You won! Bin ' + cur.bin + ' — all ' + cur.total + ' books are in Drafts.</div>';
+      h += '<div class="ttt">' + (cur.items || []).map((it) => '<div class="sq ' + (it.state === "waiting" ? "waiting" : it.state === "pulled" ? "pulled" : "done") + '" title="' + esc(BIN_WORD[it.state] || "") + '">' +
+        '<div class="mk">' + (BIN_MARK[it.state] || "⬜") + '</div><div class="pd">' + esc(String(it.pd || "").replace(/^PD-/, "")) + '</div><div class="tt">' + esc(it.title || "") + "</div></div>").join("") + "</div>";
+      const waiting = (cur.items || []).filter((it) => it.state === "waiting");
+      if (waiting.length && waiting.length <= 6) h += '<div style="font-size:.95rem"><b>Still to scan:</b> ' + waiting.map((it) => esc(it.pd)).join(", ") + "</div>";
+    }
+  }
+  h += '<div class="won"><h3>🏆 Won games' + (won.length ? "" : " — none yet") + '</h3>' +
+    (won.length ? '<div class="binchips">' + won.map((b) => '<button type="button" class="trophy' + (b.bin === tttSel ? " on" : "") + '" data-ttt="' + b.bin + '">🏆 Bin ' + b.bin + " · " + b.total + "/" + b.total + "</button>").join("") + "</div>" : "") + "</div>";
+  box.innerHTML = h;
+  $("tttmin").onclick = () => { tttMin = !tttMin; try { localStorage.setItem("pdTttMin", tttMin ? "1" : "0"); } catch (e) {} tttRender(); };
+  box.querySelectorAll("[data-ttt]").forEach((b) => b.onclick = () => { tttSel = Number(b.dataset.ttt); if (tttMin) { tttMin = false; } tttRender(); });
+}
 function binRender(){
+  try { tttRender(); } catch (e) {}
   const open = bins.filter((b) => b.done < b.total);
   $("t-bin").textContent = open.length ? open.length : "✓";
   $("binwhen").textContent = open.length ? (open.length === 1 ? "bin to scan" : "bins to scan") : "all bins done";
@@ -749,6 +793,7 @@ function render(){
   $("fblast").hidden = example || (fw.go.length + fw.held.length === 0 && !fblastConfirm);
   $("fblast").textContent = fblastConfirm ? "Yes, send " + fw.go.length + " to Amazon" : "🚀 Blast off FBA only";
   if (view.mode === "detail" && current()) renderDetail(current()); else renderList();
+  try { tttRender(); } catch (e) {}
   $("bar").hidden = !(view.mode === "list" && (tab === "check" || tab === "station"));   // blast off only on the To check list, never while reviewing a book
   document.body.classList.toggle("nobar", $("bar").hidden);
   updateTally();
@@ -2077,10 +2122,9 @@ render();
   try { mcp = await window.claude.use("mcp"); } catch (_) { mcp = null; }
   if (!mcp){ setStatus("Not connected"); setNotice("warn", "<b>This view can't reach your connectors.</b> Open the page in the Claude app or at claude.ai while signed in. Until then you're looking at an example card."); return; }
   $("gwbtn").onclick = () => { $("gwpanel").hidden = !$("gwpanel").hidden; gwRender(); };
-  $("binbtn").onclick = () => { const p = $("binpanel"); p.hidden = !p.hidden;
-    if (!p.hidden) { binRender(); binLoad(); } };
+  $("binbtn").onclick = () => { tttMin = false; if (view.mode !== "list") { view = { mode: "list", id: null }; render(); } tttRender(); binLoad(); $("tttbox").scrollIntoView({ behavior: "smooth", block: "start" }); };
   binTimer = setInterval(() => { if (!document.hidden) binLoad(); }, 15000);
-  $("justin").onclick = () => { const a = arrivals[0]; if (a) binSel = a.bin; $("binpanel").hidden = false; binRender(); };
+  $("justin").onclick = () => { const a = arrivals[0]; if (a) tttSel = a.bin; tttMin = false; tttRender(); $("tttbox").scrollIntoView({ behavior: "smooth", block: "start" }); };
   load();
 })();
 })();
