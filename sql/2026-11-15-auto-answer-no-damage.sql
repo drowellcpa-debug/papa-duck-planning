@@ -1,0 +1,5 @@
+-- 2026-11-15 Papa Duck: "it is asking me about cracks and scratches - assume I would tell you if that is the case, can you have it answer this automatically"
+-- pipeline.drafts_auto_answer(): catch-all - any condition / damage / all-there question (crack, chip, scratch, tear, warp, mold, missing,
+--   present, intact, surface, condition ...) he said nothing about gets the good answer (first option when it is the "no damage / all there /
+--   clean" one). If his Book Station notes mention that damage, it is left for him. Re-run on all open drafts: 11 questions answered.
+-- Full body: live pipeline.drafts_auto_answer().
