@@ -3,3 +3,4 @@
 -- pipeline.bin_board(): every stickered LIST book per bin (cleanup_piles, last 60 days) with its Drafts state
 --   (waiting / drafted / sent / listed / pulled) + drafts carrying that bin with no Quick check sticker (extra). Drafts "📦 Bin check" panel.
 -- Full body: live pipeline.bin_board().
+-- 2026-11-15 v2 ("bin 8 should show on the list"): books scanned straight into the Book Station with a bin (no Quick check sticker) count as that bin's ducks; a bin shows while any book in it is waiting or still in Drafts.
