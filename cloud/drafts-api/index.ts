@@ -1,3 +1,6 @@
+// v2 (2026-11-16, "ok ready for the next move"): also serves the Launch Pad web page (launchpad.html) - same rule: only function calls from an
+//   allowlist with plain literal arguments (numbers, true/false/null, quoted text, ::jsonb, number arrays), plus the page's exact refresh query
+//   and its two todo updates. Never free-form SQL.
 // Papa Duck — Edge Function "drafts-api" v1 (2026-11-15). Drafts WITHOUT the claude.ai connector (Launch Pad todo 88).
 // Papa Duck: "can we move this to the new way quickly?" after the connector dropped and Drafts lost its pictures.
 // The Drafts page (Netlify drafts.html) calls this directly over HTTPS, the same way the Book Station calls station-api.
@@ -16,6 +19,28 @@ const ONEID = /^select pipeline\.(fba_send|fba_reprint|fba_retry|fba_undo|amazon
 const GW = /^select pipeline\.goodwill_pull\((\d{1,12}), (true|false)\) as r$/;
 const BLOCKS = /^select pricing->>'b1' as b1, pricing->>'b2' as b2, photos from pipeline\.drafts where id = (\d{1,12})$/;
 const SAVE = /^select pipeline\.ui_save\((\d{1,12}), \$(pd[a-z0-9]{1,12})\$([\s\S]*)\$\2\$::jsonb\) as r$/;
+
+// ---- Launch Pad (v2) ----
+const LP_FN = new Set(["audit.report_full","bd.add_book","bd.board","bd.bought","bd.drop_book","bd.recheck_amz","bd.snooze","bd.unsnooze",
+  "pipeline.alert_done","pipeline.check_find","pipeline.dispatch_start","pipeline.fba_ship_choose","pipeline.fba_ship_label","pipeline.fba_ship_retry",
+  "pipeline.fba_ship_start","pipeline.goodwill_pull","pipeline.launch_answer","pipeline.launch_autofix","pipeline.launch_check_start","pipeline.launch_create",
+  "pipeline.launch_gaps","pipeline.launch_go","pipeline.launch_history","pipeline.launch_reconsider_answer","pipeline.launch_state","pipeline.launch_verify",
+  "pipeline.mark_cancelled","pipeline.mark_shipped","pipeline.offer_answer","pipeline.todo_find","pipeline.todo_recount","pipeline.todos_open",
+  "pipeline.unrestrict_applied","pipeline.unrestrict_recheck","pipeline.vinted_box","pipeline.vinted_lot_make","pipeline.vinted_lot_ready",
+  "pipeline.vinted_lot_remove","pipeline.vinted_lot_save","pipeline.vinted_lot_write","pipeline.week_check","pipeline.week_keep","pipeline.week_print",
+  "pipeline.week_print_draft","pipeline.bin_board"]);
+const LIT = "(?:-?\\d+(?:\\.\\d+)?|null|true|false|'(?:[^']|'')*'(?:::jsonb)?|array\\[(?:\\d+(?:,\\d+)*)?\\]::bigint\\[\\])";
+const LP_CALL = new RegExp("^select ((?:pipeline|bd|audit)\\.[a-z_]+)\\((" + LIT + "(?:, ?" + LIT + ")*)?\\)(?: as [a-z]+)?$", "s");
+const norm = (x: string) => x.replace(/\s+/g, " ").trim();
+const LP_MAIN = norm(`with nn as (select max(id) id from pipeline.launch_nights where status not like 'dry%')
+      select pipeline.launch_state() as s, pipeline.dispatch_status(40) as j,
+        (select result from pipeline.launch_verify v, nn where v.night_id = nn.id) as v,
+        (select pipeline.launch_gaps(nn.id) from nn) as g,
+        (select jsonb_agg(jsonb_build_object('ch', c.channel, 'pd', c.pd, 'st', c.state, 'd', c.detail, 'at', c.checked_at) order by c.pd) from pipeline.launch_live_check c, nn where c.night_id = nn.id) as lc,
+        pipeline.week_board() as w, pipeline.to_ship() as ts, pipeline.alerts_open() as al, pipeline.sales_board() as sb, pipeline.fba_track_board() as ft, pipeline.fba_ship_state() as fs`);
+const LP_TODO = /^update pipeline\.todos set answer = (\d{1,6}), answered_at = now\(\), done_at = case when \1 = 0 then now\(\) else null end where id = (\d{1,9}) and kind = 'claude'; select pipeline\.todos_open\(\) as t$/;
+const LP_CHECK = /^update pipeline\.todos set answer = 1, answered_at = now\(\), done_at = now\(\), applied = 'done' where id = (\d{1,9}) and kind = 'check'; select pipeline\.todos_open\(\) as t$/;
+const LP_RECON = /^update pipeline\.launch_reconsider set answer = null, answered_at = null where id = (\d{1,9}) and night_id = (\d{1,9}) returning id$/;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -47,7 +72,18 @@ Deno.serve(async (req) => {
       let patch: any; try { patch = JSON.parse(m[3]); } catch (_) { return json({ ok: false, error: "bad save data" }, 400); }
       rows = await sql`select pipeline.ui_save(${Number(m[1])}::bigint, ${sql.json(patch)}::jsonb) as r`;
     }
-    else return json({ ok: false, error: "not an allowed Drafts request" }, 400);
+    else if (norm(q) === LP_MAIN) rows = await sql.unsafe(LP_MAIN);
+    else if ((m = q.match(LP_CALL)) && LP_FN.has(m[1])) rows = await sql.unsafe(q);
+    else if ((m = q.match(LP_TODO))) {
+      await sql`update pipeline.todos set answer = ${Number(m[1])}, answered_at = now(), done_at = case when ${Number(m[1])} = 0 then now() else null end where id = ${Number(m[2])} and kind = 'claude'`;
+      rows = await sql`select pipeline.todos_open() as t`;
+    }
+    else if ((m = q.match(LP_CHECK))) {
+      await sql`update pipeline.todos set answer = 1, answered_at = now(), done_at = now(), applied = 'done' where id = ${Number(m[1])} and kind = 'check'`;
+      rows = await sql`select pipeline.todos_open() as t`;
+    }
+    else if ((m = q.match(LP_RECON))) rows = await sql`update pipeline.launch_reconsider set answer = null, answered_at = null where id = ${Number(m[1])} and night_id = ${Number(m[2])} returning id`;
+    else return json({ ok: false, error: "not an allowed request" }, 400);
     return json({ ok: true, rows: [...rows] });
   } catch (e) {
     return json({ ok: false, error: String((e as Error)?.message || e).slice(0, 400) }, 500);

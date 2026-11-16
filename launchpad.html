@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- BUILT by tools/build-launchpad-web.py from launchpad-v1.html - edit launchpad-v1.html, then re-run the build. -->
+<title>Papa Duck Launch Pad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Atkinson+Hyperlegible+Mono:wght@400;600&display=swap">
+<style>
+/* Papa Duck Launch Pad v1 (2026-10-24): questions first, then Prayerfully Reconsider, then the build, then one blinking step at a time. */
+:root {
+  --bg: #f3f5f2; --panel: #ffffff; --ink: #1d2420; --muted: #5d6a63; --line: #d5ddd8;
+  --brand: #1e5b43; --brand-ink: #ffffff; --head: #1e5b43; --head-ink: #ffffff; --head-muted: #d7e8df;
+  --yellow: #f2c230; --yellow-bg: #fff8e1; --yellow-ink: #5c4300; --green: #2f9e5b; --green-ink: #ffffff; --green-text: #1f7a45;
+  --red: #b03a3a; --red-bg: #fdecec; --gray: #dfe5e1; --gray-ink: #4c5752;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "Atkinson Hyperlegible Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141a17; --panel: #1c2420; --ink: #e8efea; --muted: #a3b3aa; --line: #2f3a35;
+  --brand: #4fbf9c; --brand-ink: #0d1411; --head: #163f2f; --head-ink: #ffffff; --head-muted: #b8d3c6;
+  --yellow: #e0b53a; --yellow-bg: #2b2510; --yellow-ink: #f5dd8a; --green: #3fbf72; --green-ink: #06140c; --green-text: #6fd99a;
+  --red: #e46262; --red-bg: #3a1c1c; --gray: #2c3632; --gray-ink: #b9c6bf; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141a17; --panel: #1c2420; --ink: #e8efea; --muted: #a3b3aa; --line: #2f3a35;
+  --brand: #4fbf9c; --brand-ink: #0d1411; --head: #163f2f; --head-ink: #ffffff; --head-muted: #b8d3c6;
+  --yellow: #e0b53a; --yellow-bg: #2b2510; --yellow-ink: #f5dd8a; --green: #3fbf72; --green-ink: #06140c; --green-text: #6fd99a;
+  --red: #e46262; --red-bg: #3a1c1c; --gray: #2c3632; --gray-ink: #b9c6bf; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 17px; line-height: 1.45 }
+header.top { background: var(--head); color: var(--head-ink); padding: 14px max(16px, 2vw); display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between }
+.brandline { display: flex; align-items: center; gap: 12px; min-width: 0 }
+.brandline h1 { margin: 0; font-size: 1.45rem }
+.sub { margin: 0; font-size: .92rem; color: var(--head-muted) }
+.sbadge { display:inline-block; font-weight:800; font-size:.78rem; letter-spacing:.02em; padding:1px 8px; border-radius:999px; color:#fff; background:#5b6b63; vertical-align:1px }
+.sbadge.ebay, .sbadge.ebay_other { background:#2f6fd6 } .sbadge.etsy { background:#d4571c } .sbadge.amazon { background:#232f3e } .sbadge.abe { background:#b3261e }
+.shiplist { display:grid; gap:6px; margin:10px 0 }
+.shiprow { display:grid; grid-template-columns: 5.6em 1fr 8.5em; gap:10px; align-items:center; border:1px solid var(--line); border-radius:10px; padding:8px 10px }
+.shiprow.abe { border:2px solid var(--yellow); background:var(--yellow-bg) }
+.shiprow .st { min-width:0; overflow-wrap:anywhere } .shiprow .st .muted { font-size:.9rem }
+.shiprow button { width:100%; justify-self:end }
+.shiphead { font-weight:800; margin-top:8px; padding:4px 2px; border-bottom:2px solid var(--line) }
+@media (max-width:480px){ .shiprow { grid-template-columns: 4.6em 1fr 6.4em; gap:8px; padding:8px } .shiprow button { padding-left:4px; padding-right:4px; font-size:.85rem } }
+.conn { font-size: .88rem; color: var(--head-muted); display:flex; align-items:center; gap:8px }
+.lclock { flex:none } .lclock .hand { transform-origin: 12px 12px; transition: transform .2s linear }
+.conn .ago.stale { color: #E8A33D; font-weight: 700 }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 18px max(16px, 2vw) 40px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start }
+@media (max-width: 980px) { .wrap { grid-template-columns: 1fr } }
+main { display: flex; flex-direction: column; gap: 16px; min-width: 0 }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0 }
+.card.ask { border: 2px solid var(--yellow) }
+.card h2 { margin: 0; font-size: 1.15rem }
+.kicker { margin: 0; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--yellow-ink) }
+.big { margin: 0; font-size: 1.25rem; font-weight: 700; overflow-wrap: anywhere }
+.muted { color: var(--muted) }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
+button { font: inherit; font-weight: 700; font-size: 1rem; border-radius: 8px; padding: 10px 16px; border: 2px solid var(--brand); background: var(--brand); color: var(--brand-ink); cursor: pointer; min-height: 44px }
+button.ghost { background: transparent; color: var(--brand) }
+button.lily { width: 100%; background: #2e7d32; border-color: #2e7d32; color: #fff; font-size: 1.05rem; min-height: 52px }
+a.btn { display: inline-flex; align-items: center; font-weight: 700; border-radius: 8px; padding: 10px 16px; border: 2px solid var(--brand); background: var(--brand); color: var(--brand-ink); text-decoration: none; min-height: 44px }
+.notice input { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--muted); background: transparent; color: inherit }
+button.danger { background: transparent; color: var(--red); border-color: var(--red) }
+button.quiet { background: transparent; color: var(--muted); border-color: var(--muted) }
+button:disabled { opacity: .45; cursor: default }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px }
+input[type=text] { font: inherit; padding: 10px; border: 2px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); min-height: 44px }
+label.price { display: inline-flex; gap: 6px; align-items: center; font-weight: 700 }
+label.price input { width: 7em }
+.bars { display: grid; grid-template-columns: 110px minmax(0, 1fr) 150px; gap: 8px 12px; align-items: center; font-size: .95rem }
+.bar { height: 12px; background: var(--gray); border-radius: 6px; overflow: hidden }
+.bar > i { display: block; height: 100%; background: var(--green); border-radius: 6px; transition: width .4s }
+.bar > i.part { background: var(--yellow) }
+.ok { color: var(--green-text); font-weight: 700 }
+.step { display: grid; grid-template-columns: 18px minmax(130px, 170px) minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px }
+@media (max-width: 620px) { .step { grid-template-columns: 18px 1fr } .step > .acts, .step > .info { grid-column: 1 / -1 } }
+.step .name { font-weight: 700; font-size: 1.05rem }
+.dot { width: 16px; height: 16px; border-radius: 8px; background: var(--gray) }
+.step.closed .dot { background: var(--green) }
+.step.running .dot { background: var(--yellow) }
+.step.problem .dot { background: var(--red) }
+.step.up { border: 2px solid var(--yellow); background: var(--yellow-bg); animation: glow 1.4s ease-in-out infinite }
+.step.up .dot { background: var(--yellow); animation: wink 1s steps(2) infinite }
+@keyframes glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(242,194,48,.85) } 50% { box-shadow: 0 0 0 10px rgba(242,194,48,0) } }
+@keyframes wink { 0%, 100% { opacity: 1 } 50% { opacity: .25 } }
+@media (prefers-reduced-motion: reduce) { .step.up, .step.up .dot, .bar > i { animation: none; transition: none } }
+.files { display: flex; flex-direction: column; gap: 4px; font-size: .92rem }
+.files .f { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center }
+.pill { font-size: .82rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--gray); color: var(--gray-ink) }
+.pill.closed { background: var(--green); color: var(--green-ink) }
+.pill.running { background: var(--yellow); color: #3d2f00 }
+.pill.problem { background: var(--red); color: #fff }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end }
+.rc { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 12px }
+.rc.done { border-color: var(--green) }
+.rc img, .rc .noimg { width: 96px; height: 128px; object-fit: cover; border-radius: 6px; background: var(--gray) }
+.why { margin: 0; font-size: .92rem; background: var(--red-bg); border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere }
+.mono { font-family: var(--f-mono) }
+.notice { border-radius: 10px; padding: 10px 14px; font-weight: 700 }
+.notice.bad { background: var(--red-bg); color: var(--ink); border: 2px solid var(--red) }
+.notice.good { background: var(--panel); border: 2px solid var(--green) }
+.rcol { display: flex; flex-direction: column; gap: 16px; min-width: 0 }
+aside.duck { max-height: 70vh; display: flex; flex-direction: column }
+.chat { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; min-height: 140px; max-height: 45vh }
+.msg { margin: 0; padding: 9px 12px; border-radius: 12px; max-width: 92%; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .97rem }
+.msg.me { align-self: flex-end; background: var(--brand); color: var(--brand-ink); border-bottom-right-radius: 4px }
+.msg.duck { background: var(--bg); border-bottom-left-radius: 4px }
+textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; padding: 8px; border: 2px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink) }
+.empty { color: var(--muted) }
+/* 📦 This week: FBA box + donate pile, checked off like a checker board (2026-10-28) */
+.tabs { display: flex; gap: 8px; flex-wrap: wrap }
+.tabs button { flex: 1 1 200px; background: transparent; color: var(--ink); border-color: var(--line) }
+.tabs button[aria-selected="true"] { background: var(--brand); color: var(--brand-ink); border-color: var(--brand) }
+.board { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px }
+.sq { position: relative; text-align: left; display: flex; flex-direction: column; gap: 3px; min-height: 104px; padding: 10px 10px 8px; border-radius: 10px;
+  border: 2px solid var(--line); background: var(--panel); color: var(--ink); font-weight: 400; font-size: .9rem }
+.sq .pdn { font-family: var(--f-mono); font-weight: 600; font-size: 1.15rem }
+.sq .tt { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.25 }
+.sq .meta { margin-top: auto; display: flex; justify-content: space-between; gap: 6px; font-size: .8rem; color: var(--muted) }
+.sq .meta > span:first-child { white-space: nowrap }
+.sq .meta > span:last-child { text-align: right }
+.sq:disabled { opacity: 1; cursor: default }
+.sq.cleared .pdn::after { content: " ✓" }
+.sq.armed { border-color: var(--yellow); background: var(--yellow-bg) }
+.sq.clearing { border-color: var(--yellow); background: var(--yellow-bg) }
+.sq.cleared { border-color: var(--green); background: var(--green); color: var(--green-ink) }
+.sq.cleared .meta { color: var(--green-ink) }
+.sq.bad { border-color: var(--red); background: var(--red-bg) }
+.sq .x { position: absolute; top: 4px; right: 4px; min-height: 30px; padding: 2px 8px; font-size: .8rem; border: 0; background: transparent; color: var(--muted) }
+/* a little duck hops on every square whose sticker is ready to print (Papa Duck 2026-10-28: "a duck jumping or something fun") */
+.sq.ready { border-color: var(--yellow) }
+.sq .prt { width: 100%; min-height: 36px; margin-top: 4px; padding: 4px 8px; font-size: .95rem; background: var(--panel); color: var(--ink); border: 2px solid var(--yellow) }
+.sq .prt.go { background: var(--yellow); color: #3d2f00 }
+.sqwrap { display: flex; flex-direction: column; gap: 4px }
+.sqwrap > .sq { flex: 1 }
+.keepb { min-height: 32px; padding: 2px 8px; font-size: .85rem; font-weight: 600; background: transparent; color: var(--muted); border: 1px dashed var(--muted) }
+.sq .keepb { width: 100%; margin-top: 4px }
+.keepb.go { background: var(--panel); color: var(--ink); border: 2px solid var(--brand) }
+.sq.ready .pdn { padding-right: 34px }
+.sq .hop { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; animation: hop 1.1s ease-in-out infinite; transform-origin: 50% 100% }
+@keyframes hop { 0%, 100% { transform: translateY(0) scale(1, 1) } 12% { transform: translateY(0) scale(1.1, .85) }
+  45% { transform: translateY(-9px) scale(.95, 1.08) } 70% { transform: translateY(0) scale(1.08, .9) } 82% { transform: translateY(0) scale(1, 1) } }
+@media (prefers-reduced-motion: reduce) { .sq .hop { animation: none } }
+.boxbar { height: 14px; background: var(--gray); border-radius: 7px; overflow: hidden }
+.boxbar > i { display: block; height: 100%; background: var(--green) }
+</style>
+
+<header class="top">
+  <div class="brandline">
+    <svg width="38" height="38" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="13" r="8" fill="#F2C230"/><path d="M22.5 13 L29 14.8 L22.5 16.6 Z" fill="#E07A2E"/><circle cx="18.5" cy="11.2" r="1.4" fill="#1D2420"/><path d="M6 23.5 C10 29.5 22 29.5 26 23.5 C22 21.5 10 21.5 6 23.5 Z" fill="#F2C230"/></svg>
+    <div><h1>Papa Duck Launch Pad</h1><p class="sub" id="nightline">Connecting…</p></div>
+  </div>
+  <div class="conn" id="conn"><svg class="lclock" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line class="hand" id="lhand" x1="12" y1="12" x2="12" y2="4" stroke="#F2C230" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg><span id="connt">Connecting to Supabase…</span></div>
+</header>
+<div class="wrap">
+  <div style="display:flex;flex-direction:column;gap:18px;min-width:0"><main id="main"><p class="empty">Loading tonight's blast off…</p></main>
+  <div id="bdbox"></div>
+  <div id="vbox"></div>
+  <div id="auditbox"></div></div>
+  <div class="rcol">
+  <div id="gwbox"></div>
+  <section class="card" id="findcard" aria-label="Check a find">
+    <h2 style="margin:0">🔎 Check a find</h2>
+    <p class="muted" style="margin:0;font-size:.9rem">Saw a book on Vinted? Paste the ISBN or title (or add a screenshot) and the price with shipping. I'll give you buy or pass. You still tap Buy yourself.</p>
+    <label class="muted" for="fdisbn" style="font-size:.85rem">ISBN or title</label>
+    <input id="fdisbn" type="text" placeholder="9781565770386 or Saxon Math 76">
+    <label class="muted" for="fdcost" style="font-size:.85rem">Price with shipping ($)</label>
+    <input id="fdcost" type="text" inputmode="decimal" placeholder="8.50">
+    <label class="muted" for="fdpic" style="font-size:.85rem">Screenshot or photo (optional)</label>
+    <input id="fdpic" type="file" accept="image/*">
+    <div class="row"><button id="fdgo">Check it</button><button id="fdclear" class="ghost" type="button">Clear</button></div>
+    <div id="fdout" aria-live="polite"></div>
+  </section>
+  <aside class="card duck" aria-label="Ask Grandpa Duck">
+    <h2>Ask Grandpa Duck</h2>
+    <div class="chat" id="chat" aria-live="polite"><p class="msg duck">Hi Papa Duck. Ask me anything about tonight's books, a photo that turned red, or why a book went where it did.</p></div>
+    <form id="askform" class="row" style="flex-wrap:nowrap">
+      <label for="ask" class="muted" style="position:absolute;left:-9999px">Your question</label>
+      <input id="ask" type="text" placeholder="Type a question or a problem" style="flex:1;min-width:0">
+      <button type="submit" id="askbtn">Ask</button>
+    </form>
+    <p class="muted" id="duckhint" style="margin:0;font-size:.85rem"></p>
+  </aside>
+  <div id="todobox"></div>
+  <div id="salesbox"></div>
+  </div>
+</div>
+
+<script>
+const PROJECT = "gdwxwiwckxthwcsrgywh", SERVER = "Supabase", TOOL = "execute_sql";
+let mcp = null, sample = null, st = null, jobs = [], timer = null, busy = false, note = null, showPd = false;
+let verify = null, verifyKey = "", verifying = false, gaps = [], live = [], gapOk = false, liveBusy = false, showSum = false, hist = null, histSel = null, histAt = 0;
+let keepArm = null;
+let fship = null, lilyForm = null, lilyArm = null, lilyBusy = false;
+let weekOpen = {}, histAllOpen = false; // 2026-11-03 Papa Duck: "I want to not see the ducks dancing unless I open up the box"
+let alertOpen = (() => { try { return JSON.parse(localStorage.getItem("lp_alert_open") || "{}"); } catch (e) { return {}; } })();
+let alerts = [], alertArm = null, toShip = [], shipArm = null, week = null, weekTab = "", weekArm = null, weekArmT = null, weekPrintArm = null, boxHistOpen = false, showIsbn = "", bbListOpen = false;
+const chatTurns = [];
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const money = (v) => "$" + Number(v || 0).toFixed(2);
+const lit = (s) => "'" + String(s).replace(/'/g, "''") + "'";
+
+function parse(res) {
+  let p = res && res.payload;
+  let txt = typeof p === "string" ? p : (p && typeof p.result === "string" ? p.result : JSON.stringify(p ?? ""));
+  const m = txt.match(/<untrusted-data-[^>]+>\s*(\[[\s\S]*\])\s*<\/untrusted-data/);
+  return JSON.parse(m ? m[1] : txt);
+}
+// 2026-11-14: Claude's Supabase connector sometimes says "Failed to look up the project organization" - retry up to 4 times first.
+const Q_RETRY = /look up the project organization|server_unavailable|upstream|rate_limited|timed? ?out|didn't answer|fetch failed|network/i;
+// ---------- web transport (launchpad.html on Netlify) ----------
+const DAPI = "https://gdwxwiwckxthwcsrgywh.supabase.co/functions/v1/drafts-api";
+const PASS_KEY = "pdStationPass";   // same passcode / PIN as the Book Station, Sorting Helper and Drafts on this site
+function webPass(){ try { return localStorage.getItem(PASS_KEY) || ""; } catch (e) { return ""; } }
+function askPass(msg){
+  return new Promise((done) => {
+    const w = document.createElement("div");
+    w.style.cssText = "position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:16px";
+    w.innerHTML = '<form style="background:#fff;border-radius:14px;padding:18px;max-width:340px;width:100%;display:grid;gap:10px;font-family:inherit">' +
+      '<b style="font-size:1.1rem">🚀 Papa Duck Launch Pad</b><span>' + (msg || "Type your Book Station passcode or PIN.") + '</span>' +
+      '<input id="pdpass" type="password" inputmode="numeric" autocomplete="current-password" style="font-size:1.2rem;padding:10px;border:2px solid #ccc;border-radius:10px">' +
+      '<button style="font-size:1.05rem;padding:10px;border:0;border-radius:10px;background:#1E5B43;color:#fff;font-weight:700">Open Launch Pad</button></form>';
+    document.body.appendChild(w);
+    const f = w.querySelector("form"); w.querySelector("#pdpass").focus();
+    f.onsubmit = (e) => { e.preventDefault(); const v = w.querySelector("#pdpass").value.trim(); if (!v) return;
+      try { localStorage.setItem(PASS_KEY, v); } catch (_) {} w.remove(); done(v); };
+  });
+}
+async function webSql(query){
+  const r = await fetch(DAPI, { method: "POST", headers: { "content-type": "application/json", "x-station-pass": webPass() }, body: JSON.stringify({ q: query }) });
+  let j = null; try { j = await r.json(); } catch (_) {}
+  if (r.status === 403 || (j && j.error === "bad_passcode")) {
+    try { localStorage.removeItem(PASS_KEY); } catch (_) {}
+    await askPass("That passcode didn't work. Type your Book Station passcode or PIN.");
+    return webSql(query);
+  }
+  if (!r.ok || !j || !j.ok) throw Object.assign(new Error((j && j.error) || ("the cloud answered " + r.status)), { code: r.status >= 500 ? "server_unavailable" : "tool_error" });
+  return j.rows || [];
+}
+
+async function q(sql) {
+  let last;
+  for (let a = 0; a < 4; a++) {
+    try {
+      return await webSql(sql);
+    } catch (e) {
+      last = e;
+      if (!Q_RETRY.test(String((e && (e.message || e.code)) || e) + " " + String((e && e.code) || "")) || a === 3) throw e;
+      await new Promise((ok) => setTimeout(ok, [800, 2500, 6000][a]));
+    }
+  }
+  throw last;
+}
+async function call(sql) { const rows = await q(sql); return rows[0] && rows[0].r; }
+
+function showError(e) {
+  const code = e && e.code;
+  const msg = {
+    server_not_connected: "The Supabase connector isn't connected for you. Add it in claude.ai Settings, Connectors, then reload this page.",
+    needs_reauth: "Supabase needs you to sign in again. Reconnect it in claude.ai Settings, Connectors.",
+    approval_required: "This page needs your OK to talk to Supabase. Reload and press Allow.",
+    not_in_manifest: "Supabase is turned off for this page. Turn it back on in this page's Permissions menu.",
+    server_unavailable: "Supabase didn't answer just now. The page will try again in a moment.",
+  }[code] || ("Couldn't reach Supabase: " + (e && e.message || e));
+  note = { bad: true, text: msg }; render();
+}
+function say(text, bad) { note = { bad: !!bad, text }; render(); }
+
+const CH = [["ebay", "eBay Books"], ["ebay_other", "eBay Other"], ["abe", "AbeBooks"], ["etsy", "Etsy"], ["amazon", "Amazon"]];
+function nightJobs() {
+  const j = (st && st.night && st.night.jobs) || {};
+  const ids = { ebay: [j.ebay], ebay_other: [j.ebay_other], abe: j.abe || [], etsy: [j.etsy], amazon: [j.amazon] };
+  const out = {};
+  for (const [c] of CH) out[c] = (ids[c] || []).filter(Boolean).map((id) => jobs.find((x) => x.id === Number(id))).filter(Boolean);
+  return out;
+}
+// a night is closed when every step is closed, verify is clean on every store, and nothing is still waiting on a live store
+function nightDone(n) {
+  if (!n || n.status !== "ready_to_send") return false;
+  const nj = nightJobs(), steps = CH.filter(([c]) => nj[c].length);
+  if (!steps.length || steps.some(([c]) => jobState(nj[c]) !== "closed")) return false;
+  const v = verify; if (!v || !v.ok || !v.channels) return false;
+  const ch = Object.values(v.channels);
+  if (!ch.length || ch.some((x) => x.listed !== x.total || (x.problems || []).length)) return false;
+  return !(live || []).some((r) => r.st !== "ok" && r.st !== "pulled");
+}
+function jobState(list) {
+  if (!list.length) return "none";
+  if (list.every((j) => j.status === "closed")) return "closed";
+  if (list.some((j) => j.status === "not_closed")) return "problem";
+  if (list.some((j) => j.status === "running" || j.status === "closed")) return "running";
+  return "ready";
+}
+
+// ---------- render ----------
+function render() {
+  try { gwRender(); } catch (e) {}
+  { const sb = $("salesbox"); if (sb) sb.innerHTML = salesCard(); }
+  try { renderBd(); } catch (e) { console.log("[bd]", e); }
+  try { renderAudit(); } catch (e) { console.log("[audit]", e); }
+  try { renderTodo(); } catch (e) { console.log("[todo]", e); }
+  const box = $("main");
+  if (box.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;  // don't wipe what he is typing
+  const n = st && st.night;
+  let h = note ? `<div class="notice ${note.bad ? "bad" : "good"}" role="status">${esc(note.text)}</div>` : "";
+  if (!n) {
+    $("nightline").textContent = "No blast off waiting";
+    box.innerHTML = h + `<section class="card"><h2>Nothing waiting yet</h2><p class="muted" style="margin:0">When tonight's books are ready, press the button. I gather everything in Sent, ask you anything I need, then build the files.</p>
+      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + alertCard() + shipCard() + fbaTrackCard() + weekCard() + historyCard();
+    wire(); return;
+  }
+  const qs = st.questions || [], rc = st.reconsider || [];
+  const openQ = qs.filter((x) => !x.answered_at), openR = rc.filter((x) => !x.answered_at);
+  $("nightline").textContent = `${n.status.startsWith("dry") ? "TEST RUN · " : ""}Night ${n.night.replace(/-.*/, "")} · ${n.pds.length} books · ${n.pds[0]} to ${n.pds[n.pds.length - 1]} · ${money(st.total)}`;
+
+  // 1) questions, one at a time
+  if (openQ.length) {
+    const x = openQ[0], idx = qs.indexOf(x) + 1;
+    h += `<section class="card ask" aria-label="Question"><p class="kicker">Before I build · Question ${idx} of ${qs.length}</p>
+      <p class="big">${esc(x.prompt)}</p><p style="margin:0">${esc(x.detail || "")}</p><div class="row">${qButtons(x)}</div>
+      ${openQ.length > 1 ? `<p class="muted" style="margin:0;font-size:.9rem">Then ${openQ.length - 1} more question${openQ.length > 2 ? "s" : ""}.</p>` : ""}</section>`;
+  }
+  // 2) Prayerfully Reconsider
+  if (rc.length && (n.status === "questions" || n.status === "dry_questions" || openR.length)) {
+    h += `<section class="card" id="reconsider" aria-label="Prayerfully Reconsider"><h2>🙏 Prayerfully Reconsider · ${rc.length - openR.length} of ${rc.length} answered</h2>
+      <p class="muted" style="margin:0">Every family-flagged book gets one more look, even the ones you OK'd in Drafts. Don't list takes it out of every file. Hold keeps it out tonight and leaves it in Drafts.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px">${rc.map(rcCard).join("")}</div></section>`;
+  }
+  // 3) build
+  const building = ["building", "dry_building"].includes(n.status);
+  const realGaps = gaps.reduce((a, g) => a + Number(g.real_gaps || 0), 0);
+  if (n.status === "questions" || n.status === "dry_questions" || n.status === "build_failed") h += gapCard(realGaps);
+  if (n.status === "questions" || n.status === "dry_questions" || n.status === "build_failed") {
+    const ready = !openQ.length && !openR.length && (!realGaps || gapOk);
+    h += `<section class="card" aria-label="Build"><h2>Build tonight's files</h2>
+      ${n.status === "build_failed" ? `<div class="notice bad">The build stopped: ${esc(n.meta_note || "")}</div>` : ""}
+      <p style="margin:0" class="muted">${ready ? "Everything is answered. Grandpa Duck writes each book's listing details, then the eBay, AbeBooks, Etsy and Amazon files are built." : openQ.length + openR.length ? `Answer the ${openQ.length + openR.length} open item${openQ.length + openR.length === 1 ? "" : "s"} above first.` : "Check the skipped PD numbers above first."}</p>
+      <div class="row"><button id="gobtn" ${ready ? "" : "disabled"}>${n.status === "build_failed" ? "Try the build again" : "Build the files"}</button></div></section>`;
+  }
+  // 2026-11-12 Papa Duck: "have the last scan confirmation close to summary once it is all cleared and listed"
+  if (nightDone(n)) {
+    $("nightline").textContent = `Night ${n.night.replace(/-.*/, "")} closed · all verified and listed`;
+    h += `<section class="card" aria-label="Night closed"><h2>✅ Night ${esc(n.night.replace(/-.*/, ""))} is closed · all cleared and listed</h2>
+      <p style="margin:0">${n.pds.length} books, ${esc(n.pds[0])} to ${esc(n.pds[n.pds.length - 1])}. Every store sent, Airtable correct, live on the stores. The summary is saved in 🚀 Blast offs below.</p>
+      <div class="row"><button class="ghost" id="startbtn">🚀 Start the next blast off</button><span class="muted" style="font-size:.9rem">or press 🚀 Blast off to Launch Pad in Drafts</span></div></section>`;
+    h += alertCard() + shipCard() + fbaTrackCard() + weekCard() + historyCard();
+    box.innerHTML = h; wire(); return;
+  }
+  if (building || n.status === "ready_to_send" || n.status === "dry_built") h += buildCard(n, building);
+  // 4) send, one step at a time
+  if (n.status === "ready_to_send") h += sendCard() + verifyCard();
+  if (n.status === "dry_built") h += `<section class="card"><h2>Test run finished</h2><p style="margin:0">The test files were built and checked. Nothing was sent.</p></section>`;
+  h += alertCard() + shipCard() + fbaTrackCard() + weekCard() + historyCard();
+  box.innerHTML = h;
+  wire();
+}
+
+// ---------- 📦 This week: the FBA box and the donate pile, checked off like a checker board ----------
+// Papa Duck 2026-10-28: "when I mark them off ... they will show cleared" · "once the checker board is cleared the new numbers
+// come up ready to go" · "I want fba ready before I even sit down so I can just print labels and pack the box".
+// Tap a square once = "tap again to clear"; second tap = his OK for that book (the cloud ends it on the other stores).
+const DUCK = `<svg class="hop" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="13" r="8" fill="#F2C230"/><path d="M22.5 13 L29 14.8 L22.5 16.6 Z" fill="#E07A2E"/><circle cx="18.5" cy="11.2" r="1.4" fill="#1D2420"/><path d="M6 23.5 C10 29.5 22 29.5 26 23.5 C22 21.5 10 21.5 6 23.5 Z" fill="#F2C230"/></svg>`;
+// ---------- 💵 Sales (Papa Duck 2026-11-02): "the total of sales for the day and then a bar chart for the month and year to date"
+// ("I would only start since you started the launch pad" - every sale the cloud caught since 2026-10-07; cancelled sales left out)
+let sales = null, salesView = (() => { try { return localStorage.getItem("lp_sales_view") || "month"; } catch (e) { return "month"; } })();
+function salesCard() {
+  const S = sales; if (!S) return "";
+  const D = S.day || {}, names = { ebay: "eBay", etsy: "Etsy", abe: "AbeBooks", amazon: "Amazon" };
+  const by = Object.entries(D.by || {}).sort((a, b) => b[1] - a[1]).map(([c, v]) => `<span class="sbadge ${esc(c)}">${names[c] || esc(c)}</span> ${money(v)}`).join(" &nbsp;");
+  const mName = (d, o) => new Date(d + "T12:00:00").toLocaleDateString([], o);
+  let bars = (salesView === "year" ? (S.year || []).filter((x) => !S.since || x.m >= S.since.slice(0, 7) + "-01") : (S.month || []))
+    .map((x) => ({ k: x.d || x.m, lab: x.d ? String(+x.d.slice(8)) : mName(x.m, { month: "short" }), n: x.n, t: Number(x.total || 0), now: (x.d || "") === S.today || (x.m || "").slice(0, 7) === String(S.today).slice(0, 7) && salesView === "year" }));
+  const max = Math.max(1, ...bars.map((b) => b.t));
+  const yr = salesView === "year", gap = yr ? 6 : 2, w = yr ? "0 0 38px" : "1 1 0";
+  const chart = `<div style="display:flex;align-items:flex-end;gap:${gap}px;height:140px;padding:18px 0 0;border-bottom:2px solid var(--line)" role="img" aria-label="Sales by ${yr ? "month" : "day"}">
+    ${bars.map((b) => `<div title="${esc(b.k)}: ${money(b.t)} · ${b.n} sale${b.n === 1 ? "" : "s"}" style="flex:${w};min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;position:relative">
+        ${b.t && (yr || b.t === max || b.now) ? `<span style="font-size:.7rem;white-space:nowrap;position:absolute;top:${100 - b.t / max * 100}%;transform:translateY(-110%)">${money(b.t).replace(/\.\d\d$/, "")}</span>` : ""}
+        <i style="display:block;width:100%;max-width:${yr ? 38 : 16}px;height:${Math.max(b.t ? 3 : 1, b.t / max * 100)}%;background:${b.now ? "var(--yellow)" : "var(--green)"};border-radius:3px 3px 0 0"></i></div>`).join("")}</div>
+    <div style="display:flex;gap:${gap}px">${bars.map((b, i) => `<span style="flex:${w};min-width:0;text-align:center;font-size:.68rem;color:var(--muted)">${yr || i % 5 === 0 || b.now ? esc(b.lab) : ""}</span>`).join("")}</div>`;
+  const mLabel = mName(S.today, { month: "long" });
+  return `<section class="card" aria-label="Sales">
+    <div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="display:flex;align-items:center;gap:10px"><span aria-hidden="true" style="display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--green);color:var(--green-ink);font-size:1.6rem;font-weight:800;line-height:1">$</span>Sales today · ${money(D.total)}</h2>
+      <span class="muted" style="font-size:.95rem">${D.n || 0} sale${D.n === 1 ? "" : "s"}${D.net != null && D.n ? ` · about ${money(D.net)} after fees` : ""}</span></div>
+    ${by ? `<p style="margin:0;font-size:.95rem">${by}</p>` : ""}
+    <div class="row" style="gap:12px;font-size:1rem"><span><b>${esc(mLabel)}:</b> ${money(S.mtd)}</span><span><b>Year to date:</b> ${money(S.ytd)}</span></div>
+    <div class="row" role="tablist" style="gap:6px"><button class="${salesView === "month" ? "" : "ghost"}" data-sview="month" aria-pressed="${salesView === "month"}" style="min-height:36px;padding:4px 12px;font-size:.92rem">📅 This month</button>
+      <button class="${salesView === "year" ? "" : "ghost"}" data-sview="year" aria-pressed="${salesView === "year"}" style="min-height:36px;padding:4px 12px;font-size:.92rem">📆 This year</button></div>
+    ${chart}
+    <p class="muted" style="margin:0;font-size:.82rem">Every sale the cloud caught on eBay, Etsy, AbeBooks and Amazon since ${S.since ? mName(S.since, { month: "short", day: "numeric" }) : "the Launch Pad started"}. Cancelled sales are left out. Prices are what the buyer paid for the item.</p>
+  </section>`;
+}
+// ---------- 🛍️ Vinted box (Papa Duck 2026-11-11): "lets have it go to a vinted sorting box and then the ability to click on the books that will
+//   make up a lot so the pictures are together and I can drag and drop, I will need to know the combined price and exact layout of the vinted screen
+//   and that way we can assign a [number] to the lot" -> V-numbers on painter's tape ("lets use the tape idea and I love the V mark").
+//   Personal Vinted, one listing a day. Data: pipeline.vinted_box() / vinted_lot_make(ids) / vinted_lot_save(id, jsonb).
+let vb = null, vbAt = 0, vbPick = new Set(), vbOpen = null, vbMsg = "", vbShow = false;
+const sqlS = (x) => "'" + String(x).replace(/'/g, "''") + "'";
+async function loadVb(force) {
+  if (!force && Date.now() - vbAt < 60000) return;
+  vbAt = Date.now();
+  try { const r = await q("select pipeline.vinted_box() as b"); vb = (r[0] && r[0].b) || null; } catch (e) { console.log("[vb]", e); }
+  renderVb();
+}
+const VB_COND = ["New with tags", "New without tags", "Very good", "Good", "Satisfactory"], VB_PKG = ["Small", "Medium", "Large"];
+function vbBagHtml(l) {
+  const rows = (l.item_rows || []).map((x) => `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;border-bottom:1px solid var(--line);padding:4px 0">
+      <span>${esc(x.title || "?")}${x.draft ? ' <span class="muted" style="font-size:.78rem">📷 full photos</span>' : ""}</span>
+      <button class="ghost" data-vbout="${x.id}" title="Take it out of this bag" style="min-height:28px;padding:0 10px">✕ take out</button></div>`).join("");
+  return `<div style="border:2px dashed #7b3fa0;border-radius:12px;padding:10px;margin-top:8px">
+    <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+      <span style="font-size:1.6rem;font-weight:900;background:#fff3b0;border:2px dashed #7b3fa0;padding:2px 12px;border-radius:6px">🏷️ ${esc(l.vnum)}</span>
+      <b>${esc(l.vgroup || "")} · ${(l.item_rows || []).length} of ${l.cap || "?"}</b></div>
+    <div style="margin-top:8px">${rows || '<span class="muted">Empty.</span>'}</div>
+    <button data-vbready="${l.id}" style="margin-top:10px;background:#7b3fa0;color:#fff"${vbWriting === l.id ? " disabled" : ""}>${vbWriting === l.id ? "✍️ Writing from the photos…" : "✅ Bag is ready — gather the photos and write the listing"}</button>
+    <div class="muted" style="font-size:.8rem;margin-top:4px">Tip: wait until you've shot the full photos in the Book Station (📷 full photos shows on each item).</div></div>`;
+}
+function vbLotHtml(l) {
+  if (l.status === "filling") return vbBagHtml(l);
+  const ph = (l.photos || []).map((u, i) => `<div draggable="true" data-vbph="${i}" style="position:relative;width:86px">
+      <img src="${esc(u)}" alt="" style="width:86px;height:110px;object-fit:cover;border-radius:8px;border:${i === 0 ? "3px solid #7b3fa0" : "1px solid var(--line)"}">
+      <div style="display:flex;justify-content:space-between;font-size:.75rem"><button class="ghost" data-vbmv="${i}" data-d="-1" style="min-height:24px;padding:0 6px">◀</button>${i === 0 ? "<b>cover</b>" : i + 1}<button class="ghost" data-vbmv="${i}" data-d="1" style="min-height:24px;padding:0 6px">▶</button></div>
+      <a href="${esc(u)}" target="_blank" rel="noopener" style="font-size:.75rem;display:block;text-align:center">⤓ open to save</a>
+      <button class="ghost" data-vbrm="${i}" title="Leave this photo out" style="position:absolute;top:2px;right:2px;min-height:22px;padding:0 6px;background:#fff">✕</button></div>`).join("");
+  const val = (l.item_rows || []).reduce((t, x) => t + Number(x.value || 0), 0);
+  const row = (n, lab, inner) => `<div style="display:grid;grid-template-columns:28px 1fr;gap:6px;align-items:start;margin-top:8px"><b style="color:#7b3fa0">${n}</b><div><div style="font-weight:700;font-size:.9rem">${lab}</div>${inner}</div></div>`;
+  const copy = (id) => `<button class="ghost" data-vbcopy="${id}" style="min-height:28px;padding:0 10px;margin-top:3px">📋 Copy</button>`;
+  return `<div style="border:2px solid #7b3fa0;border-radius:12px;padding:10px;margin-top:8px">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <span style="font-size:1.6rem;font-weight:900;background:#fff3b0;border:2px dashed #7b3fa0;padding:2px 12px;border-radius:6px">🏷️ ${esc(l.vnum)}</span>
+      <span class="muted" style="font-size:.85rem">Write <b>${esc(l.vnum)}</b> on painter's tape and stick it on the lot.</span></div>
+    <div class="muted" style="font-size:.82rem;margin-top:6px">Fill Vinted's "Sell an item" screen in this order (if a field looks different on Vinted, tell Claude):</div>
+    ${row("1", `Photos <span class="muted" style="font-weight:400">(${(l.photos || []).length} · drag or ◀ ▶ to order · ✕ leaves one out · first = cover · Vinted takes up to 20${(l.photos || []).length > 20 ? ' - <b style="color:var(--red)">pick your best 20</b>' : ""})</span>`, `<div id="vbph" style="display:flex;gap:8px;flex-wrap:wrap">${ph || '<span class="muted">No photos saved — snap the lot together on your phone.</span>'}</div>`)}
+    <div class="row" style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+      <button class="ghost" data-vbwrite="${l.id}"${vbWriting === l.id ? " disabled" : ""}>${vbWriting === l.id ? "✍️ Writing from the photos…" : "✍️ Rewrite from photos"}</button>
+      ${l.notes ? `<span style="font-size:.85rem;background:#fff3b0;padding:3px 8px;border-radius:6px">👀 Double-check: ${esc(l.notes)}</span>` : ""}</div>
+    ${row("2", "Title", `<input id="vbt" value="${esc(l.title || "")}" maxlength="100" style="width:100%">${copy("vbt")}`)}
+    ${row("3", "Describe your item", `<textarea id="vbd" rows="7" style="width:100%">${esc(l.description || "")}</textarea>${copy("vbd")}`)}
+    ${row("4", "Category", `<input id="vbc" value="${esc(l.category || "")}" style="width:100%">`)}
+    ${row("5", "Condition", `<select id="vbn">${VB_COND.map((c) => `<option${c === l.condition ? " selected" : ""}>${c}</option>`).join("")}</select>`)}
+    ${row("6", "Package size", `<select id="vbk">${VB_PKG.map((c) => `<option${c === l.package ? " selected" : ""}>${c}</option>`).join("")}</select> <span class="muted" style="font-size:.8rem">1–2 items Small · up to 6 Medium · more Large (go by weight)</span>`)}
+    ${row("7", "Price", `<input id="vbp" type="number" step="1" value="${esc(l.price ?? "")}" style="width:110px"> <span class="muted" style="font-size:.85rem">${(l.item_rows || []).length} item${(l.item_rows || []).length === 1 ? "" : "s"} · eBay value about $${val.toFixed(2)} · Vinted buyer pays shipping</span>`)}
+    <div class="muted" style="font-size:.85rem;margin-top:6px">In this lot: ${(l.item_rows || []).map((x) => esc(x.title || "?")).join(" · ")}</div>
+    <div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">
+      <button data-vbsave="${l.id}">💾 Save</button>
+      <button data-vbst="${l.id}" data-s="listed" style="background:#7b3fa0;color:#fff">✓ Listed on Vinted</button>
+      <button class="ghost" data-vbst="${l.id}" data-s="sold">💰 Sold</button>
+      <button class="ghost" data-vbbreak="${l.id}">↩ Break up lot</button></div></div>`;
+}
+function renderVb() {
+  const el = document.getElementById("vbox"); if (!el) return;
+  if (!vb || (!vb.items.length && !vb.lots.length)) { el.innerHTML = ""; return; }
+  const it = vb.items, lots = vb.lots, drafts = lots.filter((l) => l.status === "draft"), bags = lots.filter((l) => l.status === "filling");
+  const tiles = it.map((x) => `<label style="display:flex;flex-direction:column;gap:3px;width:118px;border:${vbPick.has(x.id) ? "3px solid #7b3fa0" : "1px solid var(--line)"};border-radius:10px;padding:5px;cursor:pointer">
+      <input type="checkbox" data-vbpick="${x.id}"${vbPick.has(x.id) ? " checked" : ""}>
+      ${x.photo ? `<img src="${esc(x.photo)}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:6px">` : `<div style="height:120px;display:grid;place-items:center;background:#f3eef7;border-radius:6px;font-size:2rem">${x.media ? "💿" : "📚"}</div>`}
+      <span style="font-size:.8rem;font-weight:700;line-height:1.2">${esc((x.title || "?").slice(0, 60))}</span>
+      <span class="muted" style="font-size:.75rem">${x.value != null ? "eBay ~$" + Number(x.value).toFixed(2) : "no eBay value"}${(x.photos || []).length > 1 ? " · 📷 " + x.photos.length : ""}</span></label>`).join("");
+  const lotRows = lots.map((l) => `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-top:6px">
+      <button class="ghost" data-vbopen="${l.id}" style="width:100%;display:flex;justify-content:space-between;gap:8px;min-height:36px">
+        <span><b style="color:#7b3fa0">${esc(l.vnum)}</b> · ${esc(l.status === "filling" ? (l.vgroup || "") : (l.title || ""))}</span>
+        <span>${l.status === "filling" ? `🛍️ bag ${(l.item_rows || []).length}/${l.cap || "?"}` : `$${esc(l.price ?? "")} · ${l.status === "listed" ? "✓ listed" : l.status === "sold" ? "💰 sold" : "to list"}`}</span></button>
+      ${vbOpen === l.id ? vbLotHtml(l) : ""}</div>`).join("");
+  el.innerHTML = `<section class="card" aria-label="Vinted box" style="border:2px solid #7b3fa0">
+    <button class="ghost" id="vbtog" style="width:100%;display:flex;justify-content:space-between;align-items:center;min-height:40px">
+      <h2 style="margin:0;color:#7b3fa0">🛍️ Vinted box <span class="muted" style="font-size:.85rem;font-weight:400">(your personal Vinted · one listing a day)</span></h2>
+      <span>${it.length} item${it.length === 1 ? "" : "s"} · ${bags.length ? bags.length + " bag" + (bags.length === 1 ? "" : "s") + " filling · " : ""}${drafts.length} lot${drafts.length === 1 ? "" : "s"} to list ${vbShow ? "▲" : "▼"}</span></button>
+    ${vbShow ? `${vbMsg ? `<div style="margin-top:6px;font-weight:700">${esc(vbMsg)}</div>` : ""}
+    ${it.length ? `<div style="font-weight:700;margin-top:8px">Pick the items that go together, then make a lot (pick 1 to list it alone):</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${tiles}</div>
+      <button id="vbmake" style="margin-top:8px;background:#7b3fa0;color:#fff"${vbPick.size ? "" : " disabled"}>📦 Make a lot from ${vbPick.size} picked</button>` : (bags.length ? '<div class="muted" style="margin-top:6px">New items go straight into their bags (below). Anything you take out of a bag waits here.</div>' : '<div class="muted" style="margin-top:6px">Nothing waiting — tap 🛍️ Vinted box in the Quick check to add items.</div>')}
+    ${lots.length ? `<div style="font-weight:700;margin-top:12px">Lots</div>${lotRows}` : ""}` : ""}</section>`;
+  wireVb(el);
+}
+function vbCur() { return vb && vb.lots.find((l) => l.id === vbOpen); }
+// 2026-11-11: "when I click set ... auto review the pictures, create the full set description" -> pipeline.vinted_lot_write (edge fn vinted-writer).
+let vbWriting = null;
+async function vbWrite(id) {
+  vbWriting = id; vbMsg = "✍️ Claude is looking at the photos and writing the listing… (about 20 seconds)"; renderVb();
+  let o = null; try { const r = await q(`select pipeline.vinted_lot_write(${Number(id)}) as r`); o = r[0] && r[0].r; } catch (_) {}
+  vbWriting = null;
+  vbMsg = o && o.ok ? "✍️ Written from the photos — read it over, change anything, then 💾 Save." : "Couldn't write it just now — you can type it, or tap ✍️ Rewrite from photos again.";
+  await loadVb(true);
+}
+function wireVb(el) {
+  const tog = el.querySelector("#vbtog"); if (tog) tog.onclick = () => { vbShow = !vbShow; renderVb(); };
+  el.querySelectorAll("[data-vbpick]").forEach((c) => c.onchange = () => { const id = Number(c.dataset.vbpick); c.checked ? vbPick.add(id) : vbPick.delete(id); renderVb(); });
+  const mk = el.querySelector("#vbmake"); if (mk) mk.onclick = async () => {
+    mk.disabled = true; mk.textContent = "Making the lot…";
+    try { const r = await q(`select pipeline.vinted_lot_make(array[${[...vbPick].map(Number).join(",")}]::bigint[]) as r`); const o = r[0] && r[0].r;
+      if (o && o.ok) { vbMsg = "🏷️ " + o.vnum + " made — write it on painter's tape."; vbOpen = o.id; vbPick.clear();
+        await loadVb(true); await vbWrite(o.id); return; } else vbMsg = (o && o.error) || "That didn't work.";
+    } catch (e) { vbMsg = "That didn't save. Try again."; }
+    await loadVb(true); };
+  el.querySelectorAll("[data-vbwrite]").forEach((b) => b.onclick = () => vbWrite(Number(b.dataset.vbwrite)));
+  el.querySelectorAll("[data-vbout]").forEach((b) => b.onclick = async () => { const l = vbCur(); if (!l) return; b.textContent = "Taking out…";
+    try { await q(`select pipeline.vinted_lot_remove(${l.id}, ${Number(b.dataset.vbout)})`); vbMsg = "Taken out — it's waiting in the box above."; } catch (_) { vbMsg = "That didn't save."; }
+    await loadVb(true); });
+  el.querySelectorAll("[data-vbready]").forEach((b) => b.onclick = async () => { const id = Number(b.dataset.vbready);
+    try { const r = await q(`select pipeline.vinted_lot_ready(${id}) as r`); const o = r[0] && r[0].r; if (!o || !o.ok) { vbMsg = (o && o.error) || "That didn't work."; await loadVb(true); return; } } catch (_) { vbMsg = "That didn't save."; await loadVb(true); return; }
+    await loadVb(true); await vbWrite(id); });
+  el.querySelectorAll("[data-vbopen]").forEach((b) => b.onclick = () => { const id = Number(b.dataset.vbopen); vbOpen = vbOpen === id ? null : id; renderVb(); });
+  el.querySelectorAll("[data-vbcopy]").forEach((b) => b.onclick = async () => { const t = el.querySelector("#" + b.dataset.vbcopy); try { await navigator.clipboard.writeText(t.value); b.textContent = "✓ Copied"; } catch (_) { t.select(); b.textContent = "Selected - copy it"; } });
+  const cur = vbCur();
+  const moveTo = async (from, to) => { const l = vbCur(); if (!l) return; const a = [...(l.photos || [])]; if (to < 0 || to >= a.length) return;
+    const [m] = a.splice(from, 1); a.splice(to, 0, m); l.photos = a; renderVb();
+    try { await q(`select pipeline.vinted_lot_save(${l.id}, ${sqlS(JSON.stringify({ photos: a }))}::jsonb)`); } catch (_) {} };
+  el.querySelectorAll("[data-vbmv]").forEach((b) => b.onclick = () => { const i = Number(b.dataset.vbmv); moveTo(i, i + Number(b.dataset.d)); });
+  el.querySelectorAll("[data-vbrm]").forEach((b) => b.onclick = async (e) => { e.preventDefault(); const l = vbCur(); if (!l) return;
+    const a = [...(l.photos || [])]; a.splice(Number(b.dataset.vbrm), 1); l.photos = a; renderVb();
+    try { await q(`select pipeline.vinted_lot_save(${l.id}, ${sqlS(JSON.stringify({ photos: a }))}::jsonb)`); } catch (_) {} });
+  let dragFrom = null;
+  el.querySelectorAll("[data-vbph]").forEach((d) => {
+    d.ondragstart = () => { dragFrom = Number(d.dataset.vbph); };
+    d.ondragover = (e) => e.preventDefault();
+    d.ondrop = (e) => { e.preventDefault(); if (dragFrom != null) moveTo(dragFrom, Number(d.dataset.vbph)); dragFrom = null; };
+  });
+  const fields = () => ({ title: el.querySelector("#vbt").value, description: el.querySelector("#vbd").value, category: el.querySelector("#vbc").value,
+    condition: el.querySelector("#vbn").value, package: el.querySelector("#vbk").value, price: el.querySelector("#vbp").value });
+  el.querySelectorAll("[data-vbsave]").forEach((b) => b.onclick = async () => { b.textContent = "Saving…";
+    try { await q(`select pipeline.vinted_lot_save(${Number(b.dataset.vbsave)}, ${sqlS(JSON.stringify(fields()))}::jsonb)`); vbMsg = "Saved."; } catch (_) { vbMsg = "That didn't save."; }
+    await loadVb(true); });
+  el.querySelectorAll("[data-vbst]").forEach((b) => b.onclick = async () => {
+    const o = Object.assign(cur ? fields() : {}, { status: b.dataset.s });
+    try { await q(`select pipeline.vinted_lot_save(${Number(b.dataset.vbst)}, ${sqlS(JSON.stringify(o))}::jsonb)`);
+      vbMsg = b.dataset.s === "listed" ? "✓ Marked listed. See you tomorrow for the next one!" : "💰 Marked sold — find the lot by its V-number on the tape."; vbOpen = null; } catch (_) { vbMsg = "That didn't save."; }
+    await loadVb(true); });
+  el.querySelectorAll("[data-vbbreak]").forEach((b) => b.onclick = async () => {
+    try { await q(`select pipeline.vinted_lot_save(${Number(b.dataset.vbbreak)}, '{"break":true}'::jsonb)`); vbMsg = "Lot broken up - the items are back in the box."; vbOpen = null; } catch (_) {}
+    await loadVb(true); });
+}
+// ---------- 🦆 Bargain Duck (Papa Duck 2026-11-03): "instead of the email have it go to our launch pad ... for our new buy or watch"
+// Its own bd.* tables + its own query, so it can never slow down or break the blast off part of this page.
+let bd = null, bdAt = 0, bdBuy = null, bdWatchOpen = false, bdRestrOpen = false, bdZzOpen = false, bdDropArm = null, bdMsg = "";
+async function loadBd(force) {
+  if (!force && Date.now() - bdAt < 120000) return;
+  bdAt = Date.now();
+  try { const r = await q("select bd.board() as b"); bd = (r[0] && r[0].b) || null; } catch (e) { console.log("[bd]", e); }
+  renderBd();
+}
+// 2026-11-03 Papa Duck: "show me more of a grid style with the purchase prices it works better for my eyes" + eBay/AbeBooks copies by grade, best grade on top
+let bdOpen = {};
+function bdNet(x) { return Number(x.sell_target || 0) * (1 - Number(bd.fee_pct ?? 0.15)) - Number(bd.fee_flat ?? 1.8); }
+// 2026-11-03 Papa Duck: "check them for me so I know that the editions are correct ... that is a big pain point"
+function edChk(o) {
+  const n = String(o.n || "");
+  if (o.src === "Amazon") return `<span style="color:var(--green)">✓ same listing</span>`;
+  if (o.src === "AbeBooks") return `<span style="color:var(--green)">✓ ISBN search</span>`;
+  if (n.startsWith("✓")) return `<span style="color:var(--green)">✓ ISBN matches</span>`;
+  if (/^⚠ no ISBN/.test(n)) return `<span style="color:#9a6700" title="${esc(n)}">⚠ no ISBN, ask seller</span>`;
+  if (/^⚠ ships from/.test(n)) return `<span style="color:#9a6700" title="${esc(n)}">⚠ overseas seller</span>`;
+  return `<span class="muted">not opened</span>`;
+}
+function bdOffers(x) {
+  const net = bdNet(x);
+  const rows = [...(x.offers || []), ...(x.used != null ? [{ src: "Amazon", g: "Used (lowest)", gr: -1, p: x.used, s: null, t: x.used, u: "https://www.amazon.com/dp/" + x.asin + "?condition=used", sel: "", n: "Lowest used on Amazon, grade varies" }] : [])];
+  if (!rows.length) return `<p class="muted" style="margin:6px 0">No copies found on eBay or AbeBooks yet.</p>`;
+  const gc = (g) => /new/i.test(g) ? "var(--green)" : /very good/i.test(g) ? "#2f7d4f" : /^good/i.test(g) ? "var(--ink)" : "var(--muted)";
+  return `<div style="overflow-x:auto;margin:6px 0 4px"><table class="bdt" style="width:100%;border-collapse:collapse;font-size:.88rem">
+    <thead><tr><th>Grade</th><th>Edition check</th><th>Where</th><th>Seller</th><th class="n">Price</th><th class="n">Ship</th><th class="n">Total</th><th class="n">Profit</th><th></th></tr></thead><tbody>
+    ${rows.map((o) => { const pr = net - Number(o.t), ok = Number(o.t) <= Number(x.buy_target);
+      return `<tr title="${esc(o.n || "")}" style="${ok ? "background:var(--green-bg,#e6f4ea)" : ""}"><td style="color:${gc(o.g)};font-weight:700;white-space:nowrap">${esc(o.g)}</td><td style="white-space:nowrap">${edChk(o)}</td><td>${esc(o.src)}</td>
+        <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.sel || "")}</td><td class="n">${money(o.p)}</td><td class="n">${o.s == null ? "?" : Number(o.s) ? money(o.s) : "free"}</td>
+        <td class="n"><b>${money(o.t)}</b></td><td class="n" style="color:${pr >= 50 ? "var(--green)" : pr < 0 ? "var(--red)" : "var(--ink)"};font-weight:700">${money(pr).replace(/\.\d\d$/, "")}</td>
+        <td><a href="${esc(o.u)}" target="_blank" rel="noopener">open ↗</a></td></tr>`; }).join("")}</tbody></table></div>`;
+}
+function bdCard() {
+  if (!bd) return "";
+  // 2026-11-03 Papa Duck: "also verify that I am not restricted on them" - Amazon's restriction check per book; restricted ones are never a buy
+  const R = bd.rows || [], today = new Date().toLocaleDateString("en-CA"), kind = (x) => x.status === "listed" ? "listed" : (x.status === "watching" && x.snooze_until && x.snooze_until > today) ? "snoozed" : (x.status === "watching" && x.amz_ok === false) ? "restricted" : x.bucket, grp = (k) => R.filter((x) => kind(x) === k);
+  const buy = grp("buy"), close = grp("close"), listNow = grp("list now"), hold = grp("holding"), listed = grp("listed"), watch = grp("watching"), restricted = grp("restricted"), snoozed = grp("snoozed");
+  const best = (x) => { const amz = x.used != null ? Number(x.used) : Infinity, ob = x.best_total != null ? Number(x.best_total) : Infinity;
+    return ob < amz ? { t: ob, w: `${esc(x.best_grade || "")} · ${esc(x.best_source)}` } : amz < Infinity ? { t: amz, w: "Amazon used" } : null; };
+  const row = (x, owned) => { const b = best(x), pr = b ? bdNet(x) - b.t : null, open = !!bdOpen[x.asin];
+    // 2026-11-03 Papa Duck: "did not mean to stop watching ... just wanted to put it out another week" -> 💤 snooze a week; ✕ now asks twice
+    const zz = x.snooze_until && x.snooze_until > today;
+    const btns = owned ? "" : zz ? `<span class="muted" style="font-size:.8rem">💤 until ${esc(new Date(x.snooze_until + "T12:00:00").toLocaleDateString([], { month: "short", day: "numeric" }))}</span><button class="bdb ghost" data-bdwake="${esc(x.asin)}">Wake</button>`
+      : `<button class="bdb" data-bdbought="${esc(x.asin)}">🛒 Bought</button><button class="bdb ghost" data-bdsnooze="${esc(x.asin)}" title="Hide it and ask me again in a week">⏰ Ask me in a week</button><button class="bdb ghost" data-bddrop="${esc(x.asin)}" title="Stop watching">${bdDropArm === x.asin ? "Tap again: stop watching" : "✕"}</button>`;
+    const mid = owned ? `<td colspan="2">${x.status === "listed" ? `Listed ${esc(x.pd || "")} at ${money(x.list_price)}` : `Paid ${money(x.cost)}${x.pd ? " · " + esc(x.pd) : " · scan it in, pick Hold Shelf"}`}</td>`
+      : `<td class="n"><b>${b ? money(b.t) : "—"}</b><div class="muted" style="font-size:.76rem;white-space:nowrap">${b ? b.w : ""}</div></td><td class="n">${money(x.buy_target)}</td>`;
+    const form = bdBuy === x.asin ? `<tr><td colspan="7"><div class="row" style="gap:6px"><label class="price">I paid $<input type="text" inputmode="decimal" id="bdcost" placeholder="${b ? b.t.toFixed(2) : ""}"></label>
+      <button data-bdsave="${esc(x.asin)}">Save</button><button class="ghost" data-bdcancel="1">Cancel</button></div></td></tr>` : "";
+    return `<tr class="bdr"><td><button class="quiet" data-bdopen="${esc(x.asin)}" aria-expanded="${open}" style="border:0;padding:0;text-align:left;color:var(--ink);font-weight:700;min-height:0">${open ? "▾" : "▸"} ${esc(String(x.title || x.asin).slice(0, 60))}</button>
+      <div style="font-size:.76rem">${x.amz_ok === true ? `<span style="color:var(--green)">✓ OK to sell on Amazon${x.amz_conds && x.amz_conds !== "new,like_new,very_good,good" ? ` <b>only as ${esc(x.amz_conds.split(",").map((c) => ({ new: "New", like_new: "Like New", very_good: "Very Good", good: "Good" }[c] || c)).join(", "))}</b>` : ""}</span>` : x.amz_ok === false ? `<span style="color:var(--red)" title="${esc(x.amz_reason || "")}">🔒 ${x.amz_link ? "Amazon needs approval" : "Amazon won't let you sell this one (no way to apply)"}</span>${x.amz_link ? ` · <a href="${esc(x.amz_link)}" target="_blank" rel="noopener">request approval ↗</a> · <button class="quiet" data-bdrecheck="${esc(x.asin)}" style="border:0;padding:0;min-height:0;font-size:.76rem;text-decoration:underline;color:var(--ink)">🔄 I got approval, recheck</button>` : ""}` : `<span class="muted">Amazon check pending</span>`}</div></td>
+      ${mid}<td class="n">${money(x.sell_target)}<div class="muted" style="font-size:.76rem;white-space:nowrap">${esc((x.season || "").replace("Back to school", "BTS"))}</div></td>
+      <td class="n" style="font-weight:800;color:${pr != null && pr >= 50 ? "var(--green)" : pr != null && pr < 0 ? "var(--red)" : "var(--ink)"}">${pr != null && !owned ? money(pr).replace(/\.\d\d$/, "") : ""}</td><td style="white-space:nowrap">${btns}</td></tr>
+      ${open ? `<tr><td colspan="7" style="padding:0 0 8px 18px">${bdOffers(x)}</td></tr>` : ""}${form}`;
+  };
+  const sec = (icon, name, list, owned, note) => list.length ? `<tr class="bdh"><td colspan="7">${icon} <b>${name}</b> (${list.length})${note ? ` <span class="muted" style="font-weight:400">· ${note}</span>` : ""}</td></tr>${list.map((x) => row(x, owned)).join("")}` : "";
+  const when = (t) => t ? new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "not yet";
+  const wsort = watch.slice().sort((a, b) => { const f = (x) => { const bb = best(x); return bb ? (bb.t - x.buy_target) / (x.buy_target || 1) : 9; }; return f(a) - f(b); });
+  return `<section class="card" aria-label="Bargain Duck">
+    <style>.bdg{width:100%;border-collapse:collapse;font-size:.92rem}.bdg th,.bdt th{text-align:left;font-size:.78rem;color:var(--muted);font-weight:600;padding:4px 6px;border-bottom:2px solid var(--line)}
+      .bdg td,.bdt td{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top}.bdg .n,.bdt .n{text-align:right;white-space:nowrap}.bdh td{background:var(--panel);padding-top:10px;border-bottom:2px solid var(--line)}
+      .bdb{min-height:30px;padding:2px 8px;font-size:.8rem;margin-left:4px}</style>
+    <div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="display:flex;align-items:center;gap:10px"><span aria-hidden="true" style="font-size:1.8rem;line-height:1">🦆</span>Bargain Duck</h2>
+      <span class="muted" style="font-size:.82rem">Amazon ${esc(when(bd.checked_at))} · eBay/AbeBooks ${esc(when(bd.offers_at))}</span></div>
+    ${bdMsg ? `<div class="notice good" role="status">${esc(bdMsg)}</div>` : ""}
+    <div style="overflow-x:auto"><table class="bdg"><thead><tr><th>Book (tap to see every copy)</th><th class="n">Cheapest good copy</th><th class="n">Buy at or under</th><th class="n">Sells for</th><th class="n">Profit</th><th></th></tr></thead><tbody>
+      ${!buy.length && !close.length ? `<tr><td colspan="7">Nothing in the buy zone today. I check every morning.</td></tr>` : ""}
+      ${sec("🟢", "Buy now", buy, false)}${sec("🟡", "Getting close", close, false)}${sec("🚀", "Time to list", listNow, true, "goes into the next blast off on its own")}
+      ${sec("📦", "On the Hold Shelf", hold, true)}${sec("✅", "Listed from the Hold Shelf", listed, true)}
+      ${snoozed.length ? `<tr class="bdh"><td colspan="7"><button class="quiet" data-bdzz="1" style="border:0;padding:0;color:var(--ink);min-height:0">${bdZzOpen ? "▾" : "▸"} 💤 <b>Snoozed</b> (${snoozed.length})</button></td></tr>${bdZzOpen ? snoozed.map((x) => row(x, false)).join("") : ""}` : ""}
+      ${restricted.length ? `<tr class="bdh"><td colspan="7"><button class="quiet" data-bdrestr="1" style="border:0;padding:0;color:var(--ink);min-height:0">${bdRestrOpen ? "▾" : "▸"} 🔒 <b>Restricted on Amazon</b> (${restricted.length}) <span class="muted" style="font-weight:400">· not counted as buys</span></button></td></tr>${bdRestrOpen ? restricted.map((x) => row(x, false)).join("") : ""}` : ""}
+      ${watch.length ? `<tr class="bdh"><td colspan="7"><button class="quiet" data-bdwatch="1" style="border:0;padding:0;color:var(--ink);min-height:0">${bdWatchOpen ? "▾" : "▸"} 👀 <b>Watching</b> (${watch.length})</button></td></tr>${bdWatchOpen ? wsort.map((x) => row(x, false)).join("") : ""}` : ""}
+    </tbody></table></div>
+    <div class="row" style="gap:6px;margin-top:10px;flex-wrap:nowrap;max-width:460px"><label for="bdadd" class="muted" style="position:absolute;left:-9999px">ISBN to watch</label>
+      <input id="bdadd" type="text" inputmode="numeric" placeholder="Add a book: ISBN" style="flex:1;min-width:0"><button id="bdaddbtn">Watch it</button></div>
+    <p class="muted" style="margin:0;font-size:.8rem">Cheapest good copy = Good grade or better on eBay or AbeBooks (shipping included), or Amazon's lowest used. Profit = what it sold for last season, minus Amazon's 15% + $1.80, minus the copy's price. Green rows in a book's list are at or under the buy price. "✓ ISBN matches" means I opened the eBay listing and its ISBN is the exact edition; wrong editions are left out. Bought one? Tap 🛒, then scan it in and pick <b>Hold Shelf</b>. I list it Dec 1 or Jun 1.</p>
+  </section>`;
+}
+function renderBd() {
+  const el = $("bdbox"); if (!el) return;
+  if (el.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;  // don't wipe what he is typing
+  el.innerHTML = bdCard();
+  el.querySelectorAll("[data-bdbought]").forEach((b) => b.onclick = () => { bdBuy = b.dataset.bdbought; renderBd(); const i = $("bdcost"); if (i) i.focus(); });
+  el.querySelectorAll("[data-bdcancel]").forEach((b) => b.onclick = () => { bdBuy = null; renderBd(); });
+  el.querySelectorAll("[data-bdsave]").forEach((b) => b.onclick = () => bdAct(`select bd.bought('${b.dataset.bdsave.replace(/[^0-9A-Z]/g, "")}', ${Number(($("bdcost") || {}).value) || "null"})`, "Saved. Scan it in and pick Hold Shelf when you list it."));
+  el.querySelectorAll("[data-bddrop]").forEach((b) => b.onclick = () => { const a = b.dataset.bddrop;
+    if (bdDropArm !== a) { bdDropArm = a; renderBd(); setTimeout(() => { if (bdDropArm === a) { bdDropArm = null; renderBd(); } }, 5000); return; }
+    bdDropArm = null; bdAct(`select bd.drop_book('${a.replace(/[^0-9A-Z]/g, "")}')`, "OK, I stopped watching that one."); });
+  el.querySelectorAll("[data-bdsnooze]").forEach((b) => b.onclick = () => bdAct(`select bd.snooze('${b.dataset.bdsnooze.replace(/[^0-9A-Z]/g, "")}', 7)`, "⏰ OK. I'll ask you again in a week on the Launch Pad."));
+  el.querySelectorAll("[data-bdwake]").forEach((b) => b.onclick = () => bdAct(`select bd.unsnooze('${b.dataset.bdwake.replace(/[^0-9A-Z]/g, "")}')`, "It's back on the list."));
+  el.querySelectorAll("[data-bdzz]").forEach((b) => b.onclick = () => { bdZzOpen = !bdZzOpen; renderBd(); });
+  const ab = $("bdaddbtn"); if (ab) ab.onclick = () => { const v = (($("bdadd") || {}).value || "").toUpperCase().replace(/[^0-9X]/g, ""); if (v.length >= 10) bdAct(`select bd.add_book('${v}')`, "Looking it up on Keepa. It will show here in a minute.", 45000); };
+  el.querySelectorAll("[data-bdopen]").forEach((b) => b.onclick = () => { bdOpen[b.dataset.bdopen] = !bdOpen[b.dataset.bdopen]; renderBd(); });
+  el.querySelectorAll("[data-bdwatch]").forEach((b) => b.onclick = () => { bdWatchOpen = !bdWatchOpen; renderBd(); });
+  el.querySelectorAll("[data-bdrecheck]").forEach((b) => b.onclick = () => bdAct(`select bd.recheck_amz('${b.dataset.bdrecheck.replace(/[^0-9A-Z]/g, "")}')`, "Asking Amazon again. It will update here in a minute.", 30000));
+  el.querySelectorAll("[data-bdrestr]").forEach((b) => b.onclick = () => { bdRestrOpen = !bdRestrOpen; renderBd(); });
+}
+async function bdAct(sql, msg, later) {
+  bdBuy = null;
+  try { await q(sql); bdMsg = msg; } catch (e) { bdMsg = "That didn't save. Try again."; }
+  if (document.activeElement) document.activeElement.blur();
+  await loadBd(true);
+  setTimeout(() => { bdMsg = ""; renderBd(); }, 8000);
+  if (later) setTimeout(() => loadBd(true), later);
+}
+// ---------- 🧾 Store audit (Papa Duck 2026-11-04): "I want a list showing the confirmation when the item sold and verify it is off every store ...
+// do an audit of every store and make sure that if it is there it is not sold elsewhere and give me an audit list". Loads only when opened.
+let au = null, auOpen = false, auTab = "problems", auBusy = false;
+async function loadAudit() {
+  auBusy = true; renderAudit();
+  try { const r = await q("select audit.report_full() as a"); au = (r[0] && r[0].a) || null; } catch (e) { console.log("[audit]", e); }
+  auBusy = false; renderAudit();
+}
+function auditCard() {
+  const A = au || {};
+  const probs = (A.problems || []), unk = (A.unknown || []).filter((x) => x.pd), ue = A.unknown_ebay || [], sales = A.since_oct7 || [], old = A.old || [];
+  const salesBad = sales.filter((x) => x.live_now && !x.still_ok);
+  const ext = A.ext_sales || [], qty = A.qty || [];
+  const when = A.taken_at ? new Date(A.taken_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+  const head = au ? `${probs.length + salesBad.length ? `⚠️ ${probs.length} to fix` : "✅ nothing sold is still listed"} · checked ${esc(when)}` : "tap to open";
+  const tab = (k, lab) => `<button role="tab" data-autab="${k}" aria-selected="${auTab === k}">${lab}</button>`;
+  const ch = (v) => { const t = String(v || ""); return /^(removed|sold|logged)$/.test(t) ? `<span style="color:var(--green)">✓ ${esc(t === "removed" ? "off" : t)}</span>` : t === "none" ? `<span class="muted">—</span>` : /^(kept|qty):/.test(t) ? `<span title="more copies left">✓ ${esc(t.replace("kept:", "copies left ").replace("qty:", "qty now "))}</span>` : `<span style="color:var(--red)">${esc(t)}</span>`; };
+  const tbl = (cols, rows) => `<div style="overflow:auto;max-height:420px"><table class="bdg" style="font-size:.86rem"><thead><tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.join("") || `<tr><td colspan="${cols.length}">Nothing here 👍</td></tr>`}</tbody></table></div>`;
+  let body = "";
+  if (!au) body = `<p class="muted">${auBusy ? "Loading…" : ""}</p>`;
+  else if (auTab === "problems") body = `<p style="margin:0">Books that are still for sale somewhere even though they already sold. Each one needs to come down.</p>` +
+    tbl(["PD", "Book", "Still on", "Why"], [...probs.map((x) => `<tr><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td><td>${esc(x.stores)}</td><td>${esc(x.why)}</td></tr>`),
+      ...salesBad.map((x) => `<tr><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td><td>${esc(x.live_now)}</td><td>Sold ${esc(x.date)} on ${esc(x.channel)}</td></tr>`)]);
+  else if (auTab === "sales") body = `<p style="margin:0">Every sale since Oct 7 (when the automatic close-out started), what each store did, and a live check today.</p>` +
+    tbl(["Sold", "PD", "Book", "Where", "eBay", "AbeBooks", "Etsy", "Amazon", "Airtable", "Live today"], sales.map((x) => { const st = x.st || {};
+      return `<tr><td style="white-space:nowrap">${esc(x.date)}</td><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td><td>${esc(x.channel)}</td><td>${ch(st.ebay)}</td><td>${ch(st.abe)}</td><td>${ch(st.etsy)}</td><td>${ch(st.amazon)}</td><td>${ch(st.airtable)}</td>
+        <td>${!x.live_now ? `<span style="color:var(--green)">✅ off every store</span>` : x.still_ok ? `✅ ${esc(x.live_now)} (copies left)` : `<span style="color:var(--red)">⚠️ ${esc(x.live_now)}</span>`}</td></tr>`; }));
+  else if (auTab === "old") body = `<p style="margin:0">Sold before Oct 7 but never taken down. Closed out Nov 3–4 and checked again today.</p>` +
+    tbl(["PD", "Book", "Sold", "Where", "Live today"], old.map((x) => `<tr><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td><td style="white-space:nowrap">${esc(x.sold_day || "")}</td><td>${esc(x.sold_on || "")}</td>
+      <td>${x.live_now ? `<span style="color:var(--red)">⚠️ ${esc(x.live_now)}</span>` : `<span style="color:var(--green)">✅ off every store</span>`}</td></tr>`));
+  else if (auTab === "ext") body = `<p style="margin:0">Every AbeBooks, Etsy and Amazon sale since the start (store records + your AbeBooks order emails), checked live today.</p>` +
+    tbl(["Sold", "Where", "PD", "Book", "Live today"], ext.map((x) => `<tr><td style="white-space:nowrap">${esc(x.day)}</td><td>${esc(x.channel)}</td><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td>
+      <td>${x.live_now ? `✅ ${esc(x.live_now)} (more copies)` : `<span style="color:var(--green)">✅ off every store</span>`}</td></tr>`));
+  else if (auTab === "qty") body = `<p style="margin:0">Books you have several copies of, where a store shows MORE copies than Airtable says you have. A buyer could order a copy that isn't there.</p>` +
+    tbl(["PD", "Book", "Airtable", "Stores show"], qty.map((x) => `<tr><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td><td>${esc(x.airtable)}</td><td style="color:var(--red)">${esc(x.stores)}</td></tr>`));
+  else body = `<p style="margin:0">For sale on a store but not in your Airtable inventory, so I can't tell if they sold elsewhere.</p>` +
+    tbl(["Store", "SKU / item", "Book"], [...unk.map((x) => `<tr><td>${esc(x.stores)}</td><td class="mono">${esc(x.pd)}</td><td>${esc(x.title || "")}</td></tr>`),
+      ...ue.map((x) => `<tr><td>eBay</td><td class="mono"><a href="https://www.ebay.com/itm/${esc(x.item)}" target="_blank" rel="noopener">${esc(x.item)}</a></td><td>${esc(x.title || "")}</td></tr>`)]);
+  const live = A.live || {};
+  return `<section class="card" aria-label="Store audit">
+    <div class="row" style="justify-content:space-between"><button class="quiet" data-auopen="1" style="border:0;padding:0;color:var(--ink);min-height:0;text-align:left"><h2 style="margin:0">${auOpen ? "▾" : "▸"} 🧾 Store audit</h2></button>
+      <span class="muted" style="font-size:.85rem">${head}</span></div>
+    ${auOpen ? `<p class="muted" style="margin:0;font-size:.85rem">Live right now: eBay ${live.eBay || 0} · AbeBooks ${live.AbeBooks || 0} · Etsy ${live.Etsy || 0} · Amazon ${live.Amazon || 0}</p>
+      <div class="tabs" role="tablist">${tab("problems", `⚠️ To fix (${probs.length + salesBad.length})`)}${tab("sales", `✅ Sales since Oct 7 (${sales.length})`)}${tab("ext", `🛒 Abe/Etsy/Amazon sales (${ext.length})`)}${tab("old", `🧹 Old sales closed out (${old.length})`)}${tab("qty", `🔢 Copy counts (${qty.length})`)}${tab("unknown", `❓ Not in Airtable (${unk.length + ue.length})`)}</div>${body}` : ""}
+  </section>`;
+}
+function renderAudit() {
+  const el = $("auditbox"); if (!el) return;
+  el.innerHTML = auditCard();
+  el.querySelectorAll("[data-auopen]").forEach((b) => b.onclick = () => { auOpen = !auOpen; if (auOpen && !au) loadAudit(); else renderAudit(); });
+  el.querySelectorAll("[data-autab]").forEach((b) => b.onclick = () => { auTab = b.dataset.autab; renderAudit(); });
+}
+// ---------- 📝 To-do (Papa Duck 2026-11-04): "put on a list any that we are uncertain and I will get you a recount, add that to papa duck pad
+// for me to verify for you, todo's and keep reminding me". Recount: he types the shelf count, recount-apply sets eBay/Etsy/Airtable (AbeBooks flagged).
+// A Launch Pad note reminds him every morning while any to-do is waiting (pipeline.todos_remind, 7:41 AM).
+let todos = null, todoAt = 0, todoMsg = "";
+async function loadTodo(force) {
+  if (!force && Date.now() - todoAt < 60000) return;
+  todoAt = Date.now();
+  try { const r = await q("select pipeline.todos_open() as t"); todos = (r[0] && r[0].t) || []; } catch (e) { console.log("[todo]", e); }
+  renderTodo();
+}
+function wireClaudeTodo(el) {
+  el.querySelectorAll("[data-cok]").forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.cok), v = Number(b.dataset.v);
+    try { const r = await q(`update pipeline.todos set answer = ${v}, answered_at = now(), done_at = case when ${v} = 0 then now() else null end where id = ${id} and kind = 'claude'; select pipeline.todos_open() as t`);
+      todos = (r[0] && r[0].t) || todos; todoMsg = v ? "Got it - I'll do it next time we talk." : "OK, left alone."; } catch (e) { todoMsg = "That didn't save. Try again."; }
+    renderTodo(); });
+}
+function renderTodo() {
+  const el = $("todobox"); if (!el) return;
+  if (el.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
+  // 2026-11-10 Papa Duck: "how do I know when you leave something as a todo?" -> "yes, please make it simple for me".
+  //   Claude's own unfinished work shows in its own box. Items that need his OK have 👍 / Not now; each one disappears when it's done.
+  const C = (todos || []).filter((x) => x.kind === "claude"), T = (todos || []).filter((x) => x.kind !== "claude");
+  const cHtml = C.length ? `<section class="card" aria-label="Claude's to-dos" style="border:2px solid var(--line)">
+    <h2 style="margin:0">🤖 Claude's open to-dos · ${C.length}</h2>
+    <p class="muted" style="margin:0;font-size:.85rem">Things I still owe you. Each one disappears when it's done.</p>
+    <div style="display:grid;gap:6px">${C.map((x) => `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 8px">
+      <div style="font-size:.95rem"><b>${esc(x.title || "")}</b>${x.stores === "needs_ok" && x.answer == null ? ' <span style="color:var(--red);font-weight:700">· needs your OK</span>' : ""}</div>
+      <div class="muted" style="font-size:.82rem">${esc(x.detail || "")}</div>
+      ${x.stores === "needs_ok" ? (x.answer == null ? `<div class="row" style="gap:6px;margin-top:4px"><button data-cok="${x.id}" data-v="1" style="min-height:32px;padding:2px 12px">👍 OK, do it</button><button class="ghost" data-cok="${x.id}" data-v="0" style="min-height:32px;padding:2px 12px">Not now</button></div>`
+        : `<div style="font-size:.8rem;margin-top:3px">✔ ${Number(x.answer) ? "You said OK — I'll do it next time we talk" : "You said not now — I'll leave it"}</div>`) : ""}
+    </div>`).join("")}</div></section>` : "";
+  if (!T.length) { el.innerHTML = cHtml; wireClaudeTodo(el); return; }
+  const waiting = T.filter((x) => x.answer == null).length;
+  el.innerHTML = cHtml + `<section class="card ask" aria-label="To-do">
+    <h2 style="margin:0">📝 To-do · ${waiting ? `${waiting} waiting for you` : "working on it"}</h2>
+    ${todoMsg ? `<div class="notice good" role="status">${esc(todoMsg)}</div>` : ""}
+    ${T.some((x) => x.kind === "recount") ? `<p class="muted" style="margin:0;font-size:.85rem">🔢 Recount: count the copies on the shelf, type the number, tap Save. I set eBay, Etsy and Airtable to it (and AbeBooks).</p>` : ""}
+    ${T.some((x) => x.kind === "find") ? `<p class="muted" style="margin:0;font-size:.85rem">🔍 Find it: old eBay listings with no PD number. Look on the shelf. ✅ Found it = I give it a PD number and check it for FBA. ❌ Not here = I take the eBay listing down.</p>` : ""}
+    <div style="display:grid;gap:6px;max-height:420px;overflow:auto">${T.map((x) => x.kind === "check" ? `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 8px">
+      <div style="font-size:.9rem">👀 <b class="mono">${esc(x.pd || "")}</b> ${esc(String(x.title || "").slice(0, 70))}</div>
+      <div class="muted" style="font-size:.82rem">${esc(x.detail || "")}${x.ref ? ` · <a href="https://www.ebay.com/itm/${esc(x.ref)}" target="_blank" rel="noopener">listing ↗</a>` : ""}</div>
+      <div class="row" style="gap:6px;margin-top:4px"><button data-ckdone="${x.id}" style="min-height:32px;padding:2px 12px">✓ Done</button></div>
+    </div>` : x.kind === "find" ? `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 8px">
+      <div style="font-size:.9rem">🔍 ${esc(String(x.title || "").slice(0, 70))}</div>
+      <div class="muted" style="font-size:.78rem">eBay · <a href="https://www.ebay.com/itm/${esc(x.ref || "")}" target="_blank" rel="noopener">see the listing ↗</a></div>
+      ${x.answer == null ? `<div class="row" style="gap:6px;margin-top:4px;flex-wrap:nowrap"><button data-fdyes="${x.id}" style="min-height:32px;padding:2px 12px">✅ Found it</button>
+        <button data-fdno="${x.id}" style="min-height:32px;padding:2px 12px">❌ Not here</button></div>`
+        : `<div style="font-size:.8rem;margin-top:3px">✔ ${Number(x.answer) ? "Found it" : "Not here"} · ${esc(x.applied || "")}</div>`}
+    </div>` : `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 8px">
+      <div style="font-size:.9rem"><b class="mono">${esc(x.pd || "")}</b> ${esc(String(x.title || "").slice(0, 60))}</div>
+      <div class="muted" style="font-size:.78rem">Airtable says ${esc(x.airtable)} · stores showed ${esc(x.stores || "")}</div>
+      ${x.answer == null ? `<div class="row" style="gap:6px;margin-top:4px;flex-wrap:nowrap"><label class="price">I have <input type="text" inputmode="numeric" id="rc-${x.id}" style="width:56px" placeholder="${esc(x.airtable)}"></label>
+        <button data-rcsave="${x.id}" style="min-height:32px;padding:2px 12px">Save</button></div>`
+        : `<div style="font-size:.8rem;margin-top:3px">✔ You counted <b>${esc(x.answer)}</b> · ${esc(x.applied || "")}</div>`}
+    </div>`).join("")}</div></section>`;
+  wireClaudeTodo(el);
+  el.querySelectorAll("[data-ckdone]").forEach((b) => b.onclick = async () => {
+    try { const r = await q(`update pipeline.todos set answer = 1, answered_at = now(), done_at = now(), applied = 'done' where id = ${Number(b.dataset.ckdone)} and kind = 'check'; select pipeline.todos_open() as t`);
+      todos = (r[0] && r[0].t) || todos.filter((x) => x.id !== Number(b.dataset.ckdone)); todoMsg = "Checked off."; } catch (e) { todoMsg = "That didn't save. Try again."; }
+    renderTodo(); });
+  el.querySelectorAll("[data-fdyes],[data-fdno]").forEach((b) => b.onclick = async () => {
+    const found = !!b.dataset.fdyes, id = Number(b.dataset.fdyes || b.dataset.fdno);
+    try { const r = await q(`select pipeline.todo_find(${id}, ${found}) as t`); todos = (r[0] && r[0].t) || todos; todoMsg = found ? "Got it - I'll give it a PD number and check FBA." : "Got it - taking the eBay listing down now."; }
+    catch (e) { todoMsg = "That didn't save. Try again."; }
+    renderTodo(); setTimeout(() => { todoMsg = ""; loadTodo(true); }, 15000);
+  });
+  el.querySelectorAll("[data-rcsave]").forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.rcsave), v = (($("rc-" + id) || {}).value || "").trim();
+    if (!/^\d+$/.test(v)) { todoMsg = "Type a number (0 if none are on the shelf)."; renderTodo(); return; }
+    try { const r = await q(`select pipeline.todo_recount(${id}, ${Number(v)}) as t`); todos = (r[0] && r[0].t) || todos; todoMsg = "Saved - updating the stores now."; }
+    catch (e) { todoMsg = "That didn't save. Try again."; }
+    if (document.activeElement) document.activeElement.blur();
+    renderTodo(); setTimeout(() => { todoMsg = ""; loadTodo(true); }, 15000);
+  });
+}
+// ---------- 🚚 FBA boxes at Amazon (Papa Duck 2026-11-02): "know the status of my fba boxes sent in and when books are ready to sale"
+// fba-track reads Amazon every 2 hours: the box's trip (Shipped -> On the way -> Delivered -> Checked in -> Receiving -> Ready) and each book.
+let fbaTrack = [], fbaOpen = {};
+function fbaTrackCard() {
+  if (!fbaTrack || !fbaTrack.length) return "";
+  const STEPS = ["Shipped", "On the way", "Delivered", "Checked in", "Receiving", "Done"];
+  const dt = (t) => t ? new Date(t).toLocaleDateString([], { month: "short", day: "numeric" }) : "";
+  const bookLabel = (b, stage) => ({ ready: ["✅", "Ready to sell"], sold: ["💵", "Sold on Amazon"], damaged: ["⚠️", "Damaged at Amazon"], missing: ["⚠️", "Missing"],
+    "being processed": ["⏳", "Being shelved"], received: ["📥", "Received"], "waiting to be received": ["📦", "At Amazon, not opened yet"] }[b.st]
+    || (stage >= 2 ? ["📦", "At Amazon, not opened yet"] : ["🚚", "On the way"]));
+  const box = (t) => {
+    const st = Math.min(5, Number(t.stage) || 0), all = (t.books || []).length, open = !!fbaOpen[t.box];
+    // compact (Papa Duck 2026-11-03: "make them show condensed so that I dont have to scroll")
+    const bar = STEPS.map((n, i) => `<i title="${n}" style="flex:1;height:6px;border-radius:3px;background:${i <= st ? (i === st && st < 5 ? "var(--yellow)" : "var(--green)") : "var(--gray)"}"></i>`).join("");
+    const tr = (t.tracking || [])[0];
+    const head = t.problem ? `<span style="color:var(--red);font-weight:800">⚠️ ${t.problem} missing/damaged</span>`
+      : t.ready === all && all ? `<span class="ok">✅ All ${all} ready</span>` : `<b>${t.ready}/${all}</b> ready`;
+    const counts = {}; (t.books || []).forEach((b) => { const [ic, lab] = bookLabel(b, st); const k = ic + " " + lab; counts[k] = (counts[k] || 0) + 1; });
+    return `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 10px;display:grid;gap:4px">
+      <div class="row" style="justify-content:space-between;gap:6px;flex-wrap:nowrap;font-size:.92rem"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>📦 ${esc(t.where || "Amazon")}</b> · <b>${STEPS[st]}</b></span>
+        <span style="white-space:nowrap">${head} <button class="ghost" data-fbabox="${esc(t.box)}" aria-expanded="${open}" style="min-height:28px;padding:1px 8px;font-size:.8rem;margin-left:4px">${open ? "Hide ▴" : "Books ▾"}</button></span></div>
+      <div style="display:flex;gap:3px">${bar}</div>
+      <div class="muted" style="font-size:.76rem;line-height:1.3">${esc(t.box)} · sent ${dt(t.sent)}${t.delivered ? " · arrived " + dt(t.delivered) : ""}${tr ? ` · <a href="https://www.ups.com/track?tracknum=${esc(tr.tracking)}" target="_blank" rel="noopener">UPS</a>` : ""} · ${Object.entries(counts).map(([k, n]) => n + " " + esc(k.toLowerCase())).join(", ")}</div>
+      ${open ? `<div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 8px;font-size:.8rem;max-height:220px;overflow:auto;border-top:1px solid var(--line);padding-top:4px">${(t.books || []).map((b) => { const [ic, lab] = bookLabel(b, st);
+        return `<span class="mono">${esc(b.pd)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.title || "")}</span><span title="${lab}">${ic}</span>`; }).join("")}</div>` : ""}
+    </div>`;
+  };
+  return `<section class="card" aria-label="FBA boxes at Amazon" style="gap:6px"><h2 style="font-size:1.1rem">🚚 FBA boxes · ${fbaTrack.length}</h2>
+    ${fbaTrack.map(box).join("")}
+    <p class="muted" style="margin:0;font-size:.74rem">Checked every 2 hours. Books are usually ready 3–10 days after Amazon gets the box.</p></section>`;
+}
+// ---------- ⚠️ To deal with: anything the cloud or the hourly email check found ("if there is any issues to deal with put it on there as well") ----------
+// v58 (Papa Duck 2026-11-09): "it should show up on the right in a prominent box, list again" - the Goodwill double-check's finds
+//   get their own box at the top of the right column instead of the Inbox.
+function lpAlertsNoGw() { return alerts.filter((a) => a.source !== "Goodwill check"); }
+function gwRender() {
+  const box = $("gwbox"); if (!box) return;
+  box.innerHTML = ""; return;   // Papa Duck 2026-11-09: "can this be in the draft instead" - the List again box lives on the Drafts page now
+  const g = alerts.filter((a) => a.source === "Goodwill check");
+  if (!g.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<section class="card" aria-label="List again" style="border:3px solid var(--green);background:var(--green-bg, #eaf6ec)">
+    <h2 style="margin:0">♻️ List again <span class="muted" style="font-size:.9rem;font-weight:600">· ${g.length} from the Goodwill pile</span></h2>
+    <p class="muted" style="margin:0;font-size:.9rem">The Quick check couldn't find these from the photo, so they went to Goodwill. A second look found they're worth listing. Pull them back unless you already know they're damaged, used up or not family-friendly.</p>
+    ${g.map((a) => `<div style="border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:6px">
+      <b>${esc(a.title)}</b><span style="font-size:.92rem">${esc(String(a.detail || "").split("\n")[0].replace(/^.*?found it: /, ""))}</span>
+      <div class="row"><button data-gwback="${a.id}">✓ Pulled it back</button><button class="ghost" data-gwleave="${a.id}">Leave in Goodwill</button></div></div>`).join("")}
+  </section>`;
+  box.querySelectorAll("[data-gwback],[data-gwleave]").forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.gwback || b.dataset.gwleave), back = !!b.dataset.gwback; b.disabled = true;
+    try { const r = await call(`select pipeline.goodwill_pull(${id}, ${back}) as r`); if (r) alerts = r; } catch (e) { showError(e); }
+    render();
+  });
+}
+function alertCard(alerts = lpAlertsNoGw()) {
+  if (!alerts.length) return "";
+  // urgency levels (Papa Duck 2026-11-02): 🚨 URGENT · ⚠️ needs you (not urgent) · ℹ️ FYI · ✅ handled for you
+  const lvl = (k) => k === "urgent" ? 0 : (k === "issue" || k === "question") ? 1 : 2;
+  const urg = alerts.filter((a) => lvl(a.kind) === 0).length, need = alerts.filter((a) => lvl(a.kind) === 1).length, fyi = alerts.length - urg - need;
+  const look = (a) => lvl(a.kind) === 0 ? { b: "3px solid var(--red)", bg: "var(--red-bg)", tag: "🚨 URGENT · " }
+    : lvl(a.kind) === 1 ? { b: "2px solid var(--yellow)", bg: "var(--yellow-bg)", tag: a.kind === "question" ? "❓ Needs you · " : "⚠️ Needs you · " }
+    : { b: "1px solid var(--line)", bg: "transparent", tag: a.kind === "handled" ? "✅ Handled · " : "ℹ️ FYI · " };
+  // v47 (Papa Duck 2026-11-08): "my inbox is getting too overwhelming" - grouped under icon headers with a count, minimized until tapped;
+  // buyer messages get 💬 (not the ❓ that looked like a to-do); an answered buyer message shows the question with my reply nested under it.
+  const isMsg = (a) => /message/i.test(a.source || "") || /^(THEY ASKED|Answered )/.test(a.detail || a.title || "");
+  // v60 (Papa Duck 2026-11-10): "can you add that to the buy zone add vinted and the email there" - 🟢 Vinted offer BUYs (with the email link) sit in Buy zone.
+  // v48 (Papa Duck 2026-11-08): "keep buy zones on their own icon and show me how many in the header" + "make it Claude questions and claude todo's"
+  const grpOf = (a) => lvl(a.kind) === 0 ? "urgent" : (/bargain duck/i.test(a.source || "") || (a.source === "Vinted" && /^🟢/.test(a.title || ""))) ? "buy" : a.source === "Unrestrict" && a.kind !== "handled" ? "unrestrict" : isMsg(a) ? (a.kind === "handled" ? "answered" : "buyer")
+    : /^to-?do/i.test(a.source || "") ? "todo" : a.kind === "question" ? "claudeq" : lvl(a.kind) === 1 ? "need" : a.kind === "handled" ? "handled" : "fyi";
+  const GROUPS = [
+    ["urgent", "🚨", "Urgent", "var(--red)"],
+    ["buy", "🦆", "Buy zone", "var(--green)"],
+    ["buyer", "💬", "Buyer messages for you", "var(--yellow)"],
+    ["unrestrict", "🔓", "Ask for unrestricted (Amazon)", "#232f3e"],
+    ["claudeq", "🙋", "Claude questions", "var(--yellow)"],
+    ["todo", "📝", "Claude to-dos", "var(--yellow)"],
+    ["need", "⚠️", "Needs you", "var(--yellow)"],
+    ["answered", "📨", "Buyer messages I answered", "var(--line)"],
+    ["handled", "✅", "Handled for you", "var(--line)"],
+    ["fyi", "ℹ️", "FYI", "var(--line)"]];
+  // header: one icon + count per group that has anything in it
+  const parts = GROUPS.map(([k, ic, lab]) => { const n = alerts.filter((a) => grpOf(a) === k).length;
+    return n ? `<span title="${lab}"${k === "urgent" ? ' style="color:var(--red)"' : ["answered", "handled", "fyi"].includes(k) ? ' class="muted"' : ""}>${ic} ${n}</span>` : ""; }).filter(Boolean);
+  const nested = (a) => {
+    const d = String(a.detail || ""), m = d.match(/^THEY ASKED:\s*([\s\S]*?)\n\n(I REPLIED|WHY IT'S YOURS):\s*([\s\S]*?)(?:\n\nSUGGESTED REPLY \(not sent\):\s*([\s\S]*))?$/);
+    if (!m) return `<span style="font-size:.92rem;white-space:pre-line">${esc(d)}</span>`;
+    const q = `<div style="font-size:.92rem;border-left:3px solid var(--line);padding:2px 0 2px 8px"><span class="muted" style="font-size:.8rem">💬 Buyer asked</span><br>${esc(m[1])}</div>`;
+    if (m[2] === "I REPLIED") return q + `<div style="font-size:.92rem;border-left:3px solid var(--green);margin:4px 0 0 18px;padding:2px 0 2px 8px"><span style="font-size:.8rem;color:var(--green-text)">↳ I replied for you</span><br>${esc(m[3])}</div>`;
+    return q + `<div style="font-size:.88rem;margin:4px 0 0 18px" class="muted">Why it's yours: ${esc(m[3])}</div>` + (m[4] ? `<div style="font-size:.92rem;border-left:3px dashed var(--yellow);margin:4px 0 0 18px;padding:2px 0 2px 8px"><span class="muted" style="font-size:.8rem">↳ Suggested reply (not sent)</span><br>${esc(m[4])}</div>` : "");
+  };
+  const item = (a) => { const L = look(a), tag = "";   // the group header already says what it is
+    return `<div class="row" style="justify-content:space-between;border:${L.b};background:${L.bg};border-radius:10px;padding:8px 12px">
+        <span style="flex:1;min-width:200px"><b>${tag}${esc(a.title)}</b><br>${nested(a)}
+          <span class="muted" style="font-size:.85rem;display:block;margin-top:2px">${esc(a.source)} · ${new Date(a.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${a.link ? ` · <a href="${esc(a.link)}" target="_blank" rel="noopener">${grpOf(a) === "unrestrict" ? "🔓 Request approval ↗" : a.source === "Vinted" ? "📧 open the Vinted email" : "open"}</a>` : ""}</span></span>
+        ${offerBtns(a)}${grpOf(a) === "unrestrict" ? (/⏳/.test(a.title || "") ? `<span class="pill running" style="white-space:nowrap">⏳ Waiting for Claude to verify</span>`
+          : (/📨/.test(a.title || "") ? `<span class="pill" style="white-space:nowrap">📨 Applied</span>` : `<button class="ghost" data-unapp="${a.id}">📨 I applied (not approved yet)</button>`) + `<button data-unok="${a.id}">✅ I got approved</button>`)
+          : `<button class="${alertArm === a.id ? "" : "ghost"}" data-alert="${a.id}">${alertArm === a.id ? "Tap again: done" : grpOf(a) === "answered" ? "✓ I read it" : lvl(a.kind) === 2 ? "Got it" : "✓ Done"}</button>`}</div>`; };
+  const groups = GROUPS.map(([k, ic, lab, col]) => { const L = alerts.filter((a) => grpOf(a) === k); if (!L.length) return "";
+    // 2026-11-08 Papa Duck: "have textbooks come to the top of the list" - 📚 textbook publishers first, Pearson first of all
+    if (k === "unrestrict") L.sort((x, y) => { const r = (a) => /Pearson/.test(a.title || "") ? 0 : /📚/.test(a.title || "") ? 1 : 2; return r(x) - r(y) || String(x.title).localeCompare(String(y.title)); });
+    const open = !!alertOpen[k];
+    return `<div style="border:1px solid var(--line);border-left:4px solid ${col};border-radius:10px">
+      <button class="quiet" data-agrp="${k}" aria-expanded="${open}" style="width:100%;border:0;min-height:44px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;color:var(--ink);text-align:left">
+        <span style="font-weight:800">${ic} ${lab}</span><span><b style="background:var(--gray);border-radius:999px;padding:1px 10px">${L.length}</b> ${open ? "▾" : "▸"}</span></button>
+      ${open ? `<div style="display:grid;gap:6px;padding:0 8px 8px">${L.map(item).join("")}</div>` : ""}</div>`; }).join("");
+  return `<section class="card${urg || need ? " ask" : ""}" aria-label="To deal with"${urg ? ' style="border-color:var(--red)"' : ""}>
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">📥 Inbox · ${parts.join(" · ") || "all clear"}</h2>
+      ${Object.values(alertOpen).some(Boolean) ? `<button class="ghost" data-acollapse="1" style="min-height:36px;padding:4px 12px;font-size:.9rem">▴ Collapse all</button>` : ""}</div>
+    <div style="display:grid;gap:6px">${groups}</div>
+  </section>`;
+}
+// 💰 eBay offers (Papa Duck 2026-11-02): "once I give you what I want make the offer or decline it for me".
+// Claude's call is the first (solid) button; two taps on any button = his OK, the cloud answers eBay (pipeline.offer_answer).
+let offerArm = "";
+function offerBtns(a) {
+  const o = a.offer; if (!o || o.status !== "open") return "";
+  const opts = [];
+  const rec = o.advice;
+  opts.push({ act: "accept", label: `✅ Accept ${money(o.offer)}`, rec: rec === "accept" });
+  if (o.counter || rec !== "accept") { const c = Number(o.counter) || Math.max(Number(o.offer) + 1, Math.floor((Number(o.offer) + Number(o.list)) / 2) - 0.01);
+    opts.push({ act: "counter", price: c, label: `↩️ Counter ${money(c)}`, rec: rec === "counter" }); }
+  opts.push({ act: "decline", label: "❌ Decline", rec: rec === "decline" });
+  opts.sort((x, y) => (y.rec ? 1 : 0) - (x.rec ? 1 : 0));
+  return `<span class="row" style="gap:6px;flex-wrap:wrap">${opts.map((x) => { const k = o.bo + ":" + x.act, armed = offerArm === k;
+    return `<button class="${armed ? (x.act === "decline" ? "danger" : "") : x.rec ? "" : "ghost"}" data-offer="${esc(o.bo)}" data-act="${x.act}" data-price="${x.price || ""}">${armed ? "Tap again: send" : (x.rec ? "⭐ " : "") + x.label}</button>`; }).join("")}</span>`;
+}
+async function offerTap(b) {
+  const k = b.dataset.offer + ":" + b.dataset.act;
+  if (offerArm !== k) { offerArm = k; alertArm = null; setTimeout(() => { if (offerArm === k) { offerArm = ""; render(); } }, 6000); return render(); }
+  offerArm = "";
+  try { const r = await call(`select pipeline.offer_answer(${lit(b.dataset.offer)}, ${lit(b.dataset.act)}, ${b.dataset.price ? Number(b.dataset.price) : "null"}) as r`); if (r) alerts = r;
+    say("Sent to eBay. The card will show what eBay said in a moment.", false); setTimeout(() => refresh(), 8000); } catch (e) { showError(e); }
+  render();
+}
+async function alertTap(id) {
+  if (alertArm !== id) { alertArm = id; setTimeout(() => { if (alertArm === id) { alertArm = null; render(); } }, 6000); return render(); }
+  alertArm = null;
+  try { const r = await call(`select pipeline.alert_done(${Number(id)}) as r`); if (r) alerts = r; } catch (e) { showError(e); }
+  render();
+}
+// ---------- 📬 To ship: every sale the cloud caught (checked every 5 minutes), AbeBooks first - "flag me that we have a abe book sale so we dont miss it" ----------
+let shipSort = (() => { try { return localStorage.getItem("lp_ship_sort") || "pd"; } catch (e) { return "pd"; } })();
+// 2026-11-12 Papa Duck: "bin # next to the PD# and sort in order of pd# first and when we get to 3671 then sort by bin#"
+const pdNum = (pd) => Number(String(pd || "").replace(/\D/g, "")) || 0;
+const pullSort = (a, b) => {
+  const na = pdNum(a.pd), nb = pdNum(b.pd), ga = na >= 3671 ? 1 : 0, gb = nb >= 3671 ? 1 : 0;
+  if (ga !== gb) return ga - gb;
+  if (ga) { const ba = Number(a.bin) || 99999, bb = Number(b.bin) || 99999; if (ba !== bb) return ba - bb; }
+  return na - nb;
+};
+function shipCard() {
+  if (!toShip.length) return "";
+  const names = { ebay: "eBay", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
+  const order = ["abe", "ebay", "etsy", "amazon"];
+  const byPd = pullSort;
+  const abe = toShip.filter((x) => x.channel === "abe").length;
+  // one row: PD | title + store/price/order | Shipped button, in fixed columns so the buttons line up
+  const row = (x) => `<div class="shiprow${x.channel === "abe" ? " abe" : ""}">
+      <b class="mono">${esc(x.pd || "—")}</b>${x.bin ? ` <b style="background:#fff3b0;border-radius:6px;padding:0 6px">📦 Bin ${esc(x.bin)}</b>` : ""}
+      <span class="st">${esc(x.title || "")}<br><span class="muted"><span class="sbadge ${esc(x.channel)}">${names[x.channel] || esc(x.channel)}</span> ${money(x.price)} · ${esc(x.date || "")}${x.order ? " · order " + esc(x.order) : ""}</span></span>
+      <span style="display:grid;gap:4px"><button class="${shipArm === x.key ? "" : "ghost"}" data-ship="${esc(x.key)}">${shipArm === x.key ? "Tap again" : "✓ Shipped"}</button>
+        <button class="${cancelArm === x.key ? "danger" : "quiet"}" data-shipcancel="${esc(x.key)}" style="min-height:34px;padding:2px 6px;font-size:.85rem">${cancelArm === x.key ? "Tap again: cancelled" : "✗ Cancelled"}</button></span></div>`;
+  let body = "";
+  if (shipSort === "store") {
+    const chans = [...new Set(toShip.map((x) => x.channel))].sort((a, b) => (order.indexOf(a) + 1 || 9) - (order.indexOf(b) + 1 || 9));
+    body = chans.map((c) => { const l = toShip.filter((x) => x.channel === c).sort(byPd);
+      return `<div class="shiphead"><span class="sbadge ${esc(c)}">${names[c] || esc(c)}</span> ${l.length} to ship</div>` + l.map(row).join(""); }).join("");
+  } else body = [...toShip].sort(byPd).map(row).join("");
+  return `<section class="card ask" aria-label="To ship">
+    <h2>📬 To ship · ${toShip.length} sale${toShip.length === 1 ? "" : "s"}${toShip.length ? ` · <span style="color:var(--green-text)">${money(toShip.reduce((a, x) => a + Number(x.price || 0), 0))}</span>` : ""}${abe ? ` · <span style="color:var(--yellow-ink)">${abe} AbeBooks</span>` : ""}</h2>
+    <div class="row" role="group" aria-label="Sort the ship list" style="gap:6px">
+      <button class="${shipSort === "pd" ? "" : "ghost"}" data-shipsort="pd" aria-pressed="${shipSort === "pd"}">By PD # (pulling)</button>
+      <button class="${shipSort === "store" ? "" : "ghost"}" data-shipsort="store" aria-pressed="${shipSort === "store"}">By store (shipping)</button></div>
+    <div class="shiplist">${body}</div>
+    <p class="muted" style="margin:0;font-size:.86rem">The cloud already took each book off your other stores and logged it in Airtable. Tap ✓ Shipped twice once it's in the mail. If the buyer cancelled, tap ✗ Cancelled twice: it comes off this list and is not shipped.</p></section>`;
+}
+// ✗ Cancelled (Papa Duck 2026-11-02: "I need the ability to indicate not to ship that once cancelled")
+let cancelArm = null;
+async function cancelTap(key) {
+  if (cancelArm !== key) { cancelArm = key; shipArm = null; setTimeout(() => { if (cancelArm === key) { cancelArm = null; render(); } }, 6000); return render(); }
+  cancelArm = null;
+  try { const r = await call(`select pipeline.mark_cancelled(${lit(key)}) as r`); if (r) toShip = r; say("Marked cancelled. It's off the To ship list. Nothing to mail.", false); } catch (e) { showError(e); }
+  render();
+}
+async function shipTap(key) {
+  if (shipArm !== key) { shipArm = key; setTimeout(() => { if (shipArm === key) { shipArm = null; render(); } }, 6000); return render(); }
+  shipArm = null;
+  try { const r = await call(`select pipeline.mark_shipped(${lit(key)}) as r`); if (r) toShip = r; } catch (e) { showError(e); }
+  render();
+}
+function weekCard() {
+  const w = week;
+  if (!w) return `<section class="card" aria-label="This week"><h2>📦 This week</h2><p class="muted" style="margin:0">Loading…</p></section>`;
+  const boxes = w.boxes || [], don = w.donate || [];
+  const bbs = w.buyback || [], vname = (v) => String(v || "").replace(/ - Sell Your Books$/, ""), bbKey = (g) => "bb:" + g.vendor + ":" + g.box;
+  const bbTot = (g) => g.books.reduce((a, x) => a + Number(x.offer || 0) * Number(x.copies || 1), 0);
+  if (!weekTab || (weekTab !== "donate" && !boxes.some((b) => "box" + b.box === weekTab) && !bbs.some((g) => bbKey(g) === weekTab))) weekTab = boxes.length ? "box" + boxes[0].box : "donate";
+  const tabs = `<div class="tabs" role="tablist">${boxes.map((b) => `<button role="tab" data-wtab="box${b.box}" aria-selected="${weekTab === "box" + b.box}">📦 Box #${esc(b.box)} · ${b.books.filter((x) => x.printed).length} of ${b.books.length} printed</button>`).join("")}
+    <button role="tab" data-wtab="donate" aria-selected="${weekTab === "donate"}">🎁 Donate · ${don.filter((x) => x.cleared).length} of ${don.length} cleared</button>
+    ${bbs.map((g) => `<button role="tab" data-wtab="${esc(bbKey(g))}" aria-selected="${weekTab === bbKey(g)}">💵 ${esc(vname(g.vendor))} #${esc(g.box)} · ${money(bbTot(g))}</button>`).join("")}</div>`;
+  const bg = bbs.find((g) => bbKey(g) === weekTab);
+  const isFba = weekTab.startsWith("box"), bx = isFba ? boxes.find((b) => "box" + b.box === weekTab) : null;
+  const list = isFba ? (bx ? bx.books : []) : bg ? bg.books : don;
+  const sq = (x) => {
+    const armed = weekArm === x.id;
+    let cls = "", state = "", tap = true;
+    if (isFba) {
+      if (x.printed && x.cleared && x.clear_state === "problem") { cls = "bad"; state = "⚠️ needs a look"; tap = false; }
+      else if (x.printed && x.cleared && x.at_ok) { cls = "cleared"; state = "✓ printed · verified"; tap = false; }
+      else if (x.printed) { cls = "clearing"; state = "⏳ printed · clearing stores"; tap = false; }
+      else if (x.print_pending) { cls = "clearing"; state = "🖨 printing…"; tap = false; }
+      else if (x.sticker === "error") { cls = "bad"; state = "⚠️ sticker problem"; tap = false; }
+      else if (!x.fnsku) { state = "⏳ making sticker"; tap = false; }
+      else { state = "🏷 sticker ready"; cls = armed ? "ready armed" : "ready"; }
+    } else {
+      if (x.cleared) { cls = x.clear_state === "problem" ? "bad" : "cleared"; state = x.clear_state === "problem" ? "⚠️ needs a look" : "✓ donated"; tap = false; }
+      else if (x.checked) { cls = "clearing"; state = "⏳ clearing…"; tap = false; }
+      else if (armed) { cls = "armed"; state = bg ? "Tap again: packed" : "Tap again to clear"; }
+      else if (bg) state = `${Number(x.copies) > 1 ? x.copies + " × " : ""}${money(x.offer)}${Number(x.keep) ? " · keep " + x.keep : ""}`;
+      if (bg && x.cleared && x.clear_state !== "problem") state = Number(x.keep) ? `✓ packed · ${x.keep} still listed` : "✓ packed · off all stores";
+    }
+    const inner = `<span class="pdn">${esc(x.pd)}${x.bin ? ` <b style="background:#fff3b0;border-radius:6px;padding:0 5px;font-size:.85em">📦 Bin ${esc(x.bin)}</b>` : ""}${x.src === "drafts" ? ' <span style="font-size:.75rem;font-weight:400">📝 Drafts</span>' : ""}</span><span class="tt">${esc(x.title || "")}</span>${isFba && x.printed && x.src !== "drafts" ? storeChecks(x) : ""}
+        <span class="meta"><span>${Number(x.lb || 0).toFixed(1)} lb</span><span>${esc(state)}</span></span>`;
+    // Keep (Papa Duck 2026-10-29): leaves the board, stays listed exactly as it is, the next book fills the spot. Two taps.
+    const kArm = keepArm === x.id;
+    const canKeep = x.id > 0 && (isFba ? (!x.printed && !x.print_pending) : (!x.checked && !x.cleared));
+    const keepBtn = canKeep ? `<button class="keepb${kArm ? " go" : ""}" data-wkeep="${x.id}" aria-label="Keep ${esc(x.pd)} listed and take it off this board">${kArm ? "Tap again: keep it listed" : "🔒 Keep"}</button>` : "";
+    // FBA: the square is a card with its own printer button (one book at a time); tap the printer, then tap "Print it" to commit
+    if (isFba) return `<div class="sq ${cls}" role="group" aria-label="${esc(x.pd + " " + (x.title || "") + ". " + state)}">
+        ${cls.startsWith("ready") ? DUCK : ""}${inner}${cls.startsWith("ready") ? (armed ? `<button class="prt go" data-wsq="${x.id}">🖨 Tap again to print</button>` : `<button class="prt" data-wsq="${x.id}" aria-label="Print the sticker for ${esc(x.pd)}">🖨 Print</button>`) : ""}${keepBtn}</div>`;
+    const btn = `<button class="sq ${cls}" data-wsq="${x.id}" ${tap ? "" : "disabled"} aria-label="${esc(x.pd + " " + (x.title || "") + ". " + (state || "Tap to check off"))}">${inner}</button>`;
+    return keepBtn ? `<div class="sqwrap">${btn}${keepBtn}</div>` : btn;
+  };
+  // one mark per store: ✓ verified off / ⏳ working / ✗ failed (eBay and Etsy are read back after ending; AbeBooks confirms the delete)
+  const storeChecks = (x) => { const c = x.clear || {}, m = (v) => !v ? "⏳" : /FAILED/.test(v) ? "✗" : "✓";
+    return `<span style="font-size:.78rem">eBay ${m(c.ebay)} Abe ${m(c.abe)} Etsy ${m(c.etsy)} Airtable ${x.at_ok ? "✓" : "⏳"}</span>`; };
+  let head = "";
+  if (isFba && bx) {
+    const extra = bx.extra || [], lb = list.reduce((a, x) => a + Number(x.lb || 0), 0) + extra.reduce((a, x) => a + Number(x.lb || 0), 0);
+    const ready = list.filter((x) => x.fnsku && !x.printed && !x.print_pending && x.sticker !== "error").length;
+    const making = list.filter((x) => !x.fnsku && x.sticker !== "error").length;
+    const pOn = w.printer && w.printer_age != null && w.printer_age < 120;
+    head = `<div class="row" style="justify-content:space-between"><b>Box #${esc(bx.box)} · ${lb.toFixed(1)} of 40 lb</b>
+        <span class="muted" style="font-size:.9rem">${extra.length ? "Already in the box: " + extra.map((e) => esc(e.pd)).join(", ") : ""}</span></div>
+      <div class="boxbar" role="img" aria-label="${lb.toFixed(1)} of 40 pounds"><i style="width:${Math.min(100, lb / 40 * 100)}%"></i></div>
+      <div class="row"><button id="wprint" data-box="${esc(bx.box)}" ${ready ? "" : "disabled"}>${weekPrintArm === bx.box ? `Tap again: print ${ready} and commit them` : `🖨 Print all stickers${ready ? ` (${ready} ready)` : ""}`}</button>
+        <span class="muted" style="font-size:.92rem">${making ? `⏳ ${making} sticker${making === 1 ? "" : "s"} still being made by Amazon · ` : ""}${pOn ? `Sticker printer ${esc(w.printer)} is on` : "Sticker printer is off — open Dispatch on your PC"}</span></div>`;
+  } else if (bg) {
+    const lb = list.reduce((a, x) => a + Number(x.lb || 0), 0), copies = list.reduce((a, x) => a + Number(x.copies || 1), 0);
+    head = `<div class="row" style="justify-content:space-between"><b>${esc(vname(bg.vendor))} Box #${esc(bg.box)} · estimated ${money(bbTot(bg))}</b>
+        <span class="muted" style="font-size:.92rem">${list.length} titles · ${copies} copies · ${lb.toFixed(1)} lb</span></div>
+      <div class="row"><button id="wisbn" class="ghost">📋 Copy ISBNs (${copies})</button>
+        <span class="muted" style="font-size:.9rem">Paste into ${esc(vname(bg.vendor))}'s sell page. Their price is final there and can change a little.</span></div>
+      ${showIsbn === weekTab ? `<textarea class="pdlist" id="isbnbox" rows="4" readonly aria-label="ISBNs">${esc(bbIsbns(bg))}</textarea>` : ""}
+      <details id="bblist" ${bbListOpen ? "open" : ""}><summary style="cursor:pointer;font-weight:700">📄 Box list (PD order)</summary>
+        <div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:3px 12px;font-size:.92rem;margin-top:6px">
+          <span class="muted">PD</span><span class="muted">Book</span><span class="muted">Copies</span><span class="muted">Price</span>
+          ${list.map((x) => `<span class="mono">${esc(x.pd)}${x.bin ? ` <b style="background:#fff3b0;border-radius:6px;padding:0 5px;font-size:.85em">📦 Bin ${esc(x.bin)}</b>` : ""}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.title || "")}</span><span>${x.copies}</span><span>${money(Number(x.offer) * Number(x.copies || 1))}</span>`).join("")}
+          <b></b><b>Estimated total</b><b>${copies}</b><b>${money(bbTot(bg))}</b></div></details>`;
+  } else {
+    const lb = don.reduce((a, x) => a + Number(x.lb || 0), 0);
+    head = `<p class="muted" style="margin:0">${don.length} books · ${lb.toFixed(1)} lb leaving the storage unit. Each one is $7.99 or less, unsold since summer, and Amazon shows almost no buyers.</p>`;
+  }
+  const probs = list.filter((x) => x.clear_state === "problem" || (isFba && x.sticker === "error"));
+  const probTxt = probs.map((x) => `${esc(x.pd)}: ` + (x.clear_state === "problem"
+    ? Object.entries(x.clear || {}).filter(([, v]) => /FAILED/.test(v)).map(([k, v]) => `${k} ${esc(v)}`).join("; ")
+    : esc(x.error || "Amazon had a problem with the sticker"))).join("<br>");
+  const foot = bg ? "Tap a book twice when it's packed. That's your OK: a single copy comes off eBay, AbeBooks, Etsy and Amazon and Airtable marks it Buyback; for several copies only the extras go and the listing stays up with the copy you keep. New offers from your oldest books keep landing here by themselves. 🔒 Keep (two taps) leaves a book listed just as it is and the next one takes its spot."
+    : isFba
+    ? "Tap 🖨 Print on a book twice to print one sticker, or use Print all. Nothing changes until a sticker prints. Printing is your OK: that book comes off eBay, AbeBooks and Etsy, and Airtable marks it in the FBA box. If it sells on eBay first, it's a normal sale and drops off this board. Books marked 📝 Drafts are ones you sent to FBA from Drafts; they go to Amazon by themselves and print the same way. Two boxes are always kept ready. 🔒 Keep (two taps, before the sticker prints) leaves a book listed just as it is and the next book takes its spot."
+    : "Tap a book twice to check it off. That's your OK: it comes off eBay, AbeBooks, Etsy and Amazon, and Airtable marks it Donated. When every square is cleared, the next 20 show up by themselves. 🔒 Keep (two taps) leaves a book listed just as it is and the next one takes its spot.";
+  return `<section class="card" aria-label="This week">
+    <h2>📦 This week</h2>${lilyPad()}${tabs}${head}
+    ${weekOpen[weekTab] ? `<button class="ghost" data-wopen="${esc(weekTab)}" style="min-height:36px;padding:3px 12px;justify-self:start">Close the box ▴</button>
+    <div class="board">${list.map(sq).join("") || '<p class="muted">Getting the next books ready…</p>'}</div>`
+      : `<button class="ghost" data-wopen="${esc(weekTab)}" style="min-height:40px;padding:4px 14px;justify-self:start">📖 Open the box · ${list.length} book${list.length === 1 ? "" : "s"} ▾</button>`}
+    ${probTxt ? `<div class="notice bad" style="font-weight:400"><b>Needs a look:</b><br>${probTxt}</div>` : ""}
+    ${weekOpen[weekTab] ? `<p class="muted" style="margin:0;font-size:.88rem">${foot}</p>` : ""}
+    ${isFba ? boxHistory(w.history || []) : ""}
+  </section>`;
+}
+// 🐸 "ready to jump on another lily pad" (Papa Duck 2026-10-28): every sticker in a box printed -> send the box to Amazon from here.
+// Weight + box size -> the cloud asks Amazon (fba-inbound) -> he taps one warehouse (that tap is his OK to be charged) -> UPS label.
+function lilyDims() { try { const d = JSON.parse(localStorage.getItem("lp_box_dims") || "null"); if (d && d.l) return d; } catch (e) {} return { l: 18, w: 14, h: 12 }; }
+function lilyPad() {
+  const f = fship; if (!f) return "";
+  const ready = f.ready || [], ships = (f.ships || []).filter((s) => s.state !== "done" || (s.label_at && Date.now() - new Date(s.label_at).getTime() < 3 * 86400e3));
+  if (!ready.length && !ships.length) return "";
+  const STEP = { start: "1 of 4 · telling Amazon what's inside", plan: "2 of 4 · creating the shipment", packing: "3 of 4 · box weight and size",
+    placement: "4 of 4 · getting warehouse and UPS prices", confirm: "booking UPS", label: "making your box label" };
+  const parts = [];
+  for (const r of ready) {
+    if (lilyForm === r.box) {
+      const d = lilyDims();
+      parts.push(`<div class="notice" style="font-weight:400"><b>🐸 Box #${esc(r.box)} · ${r.books} books</b> (about ${Number(r.lb || 0).toFixed(1)} lb by our numbers)
+        <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
+          <label>Weight (lb) <input id="lily-lb" inputmode="decimal" style="width:5em" placeholder="${Number(r.lb || 0).toFixed(1)}"></label>
+          <label>Box L <input id="lily-l" inputmode="decimal" style="width:3.5em" value="${esc(d.l)}"></label>
+          <label>W <input id="lily-w" inputmode="decimal" style="width:3.5em" value="${esc(d.w)}"></label>
+          <label>H <input id="lily-h" inputmode="decimal" style="width:3.5em" value="${esc(d.h)}"></label></div>
+        <div class="row" style="margin-top:8px"><button id="lily-go" data-box="${esc(r.box)}" ${lilyBusy ? "disabled" : ""}>Get Amazon's prices</button>
+          <button class="ghost" id="lily-cancel">Not yet</button></div>
+        <p class="muted" style="margin:6px 0 0;font-size:.86rem">Weigh the packed box with the flaps closed. Nothing is charged until you pick a warehouse.</p></div>`);
+    } else parts.push(`<button class="lily" data-lily="${esc(r.box)}">🐸 Ready to jump to the next lily pad · ship Box #${esc(r.box)} (${r.books} books)</button>`);
+  }
+  for (const s of ships) {
+    const refused = (s.refused || []).length ? `<p style="margin:6px 0 0;font-size:.9rem">⚠️ Amazon left out: ${(s.refused || []).map((x) => `<b>${esc(x.pd)}</b> (${esc(x.why)})`).join("; ")} — take ${s.refused.length === 1 ? "it" : "them"} out of the box and set aside. Claude will sort ${s.refused.length === 1 ? "it" : "them"} out.</p>` : "";
+    if (STEP[s.state]) parts.push(`<div class="notice" style="font-weight:400">⏳ <b>Box #${esc(s.box)}</b> · ${esc(STEP[s.state])}… <span class="muted">(about a minute per step)</span>${refused}</div>`);
+    else if (s.state === "choose") {
+      const opts = s.options || [];
+      parts.push(`<div class="notice" style="font-weight:400"><b>🐸 Box #${esc(s.box)} · ${s.books} books · pick where it goes</b>
+        <p style="margin:4px 0 8px;font-size:.9rem">Tap one twice. That's your OK: Amazon books the UPS pickup label and takes the total out of your sales.</p>
+        ${opts.map((o, i) => { const armed = lilyArm === s.box + ":" + o.placement;
+          return `<button class="${i ? "ghost" : ""}" data-lilypick="${esc(s.box)}" data-pl="${esc(o.placement)}" style="display:block;width:100%;text-align:left;margin:4px 0">
+            ${armed ? "Tap again to book " : ""}${i ? "" : "⭐ "}<b>${esc(o.city)}, ${esc(o.st)}</b> · <b>${money(o.total)}</b>
+            <span class="muted">(Amazon fee ${money(o.fee)} + UPS ${money(o.ups)})</span></button>`; }).join("")}${refused}</div>`);
+    } else if (s.state === "error") {
+      parts.push(`<div class="notice bad" style="font-weight:400"><b>Box #${esc(s.box)} hit a snag:</b> ${esc(s.error || "")}
+        <div class="row" style="margin-top:6px"><button data-lilyretry="${esc(s.box)}">Try again</button></div>${refused}</div>`);
+    } else if (s.state === "done") {
+      const t = (s.tracking || []).map((x) => esc(x.tracking)).join(", "), o = (s.options || []).find((x) => x.placement === s.chosen) || {};
+      parts.push(`<div class="notice" style="font-weight:400">✅ <b>Box #${esc(s.box)} is booked</b> · ${s.books} books → ${esc(o.city || "")}${o.st ? ", " + esc(o.st) : ""}${o.total ? " · " + money(o.total) : ""}
+        <div class="row" style="margin-top:6px;flex-wrap:wrap">${s.label_url ? `<a class="btn" href="${esc(s.label_url)}" target="_blank" rel="noopener">🖨 Open box label (4×6)</a>` : `<button data-lilylabel="${esc(s.box)}">🖨 Get the box label</button>`}
+          <span class="muted" style="font-size:.9rem">UPS ${t} · shipment ${esc(s.confirmation_id || "")}</span></div>
+        <p class="muted" style="margin:6px 0 0;font-size:.86rem">Print it on the LabelRange. Two labels: UPS + FBA box label, side by side on top, off the seams. Drop at UPS (not the post office).</p>${refused}</div>`);
+    }
+  }
+  return `<div style="display:grid;gap:8px;margin-bottom:10px">${parts.join("")}</div>`;
+}
+async function lilyCall(sqlText) {
+  lilyBusy = true; render();
+  try { const r = await call(sqlText); if (r) fship = r; note = null; } catch (e) { showError(e); }
+  lilyBusy = false; render();
+}
+async function lilyGo(btn) {
+  const n = (id) => Number(String(($(id) || {}).value || "").replace(/[^0-9.]/g, ""));
+  const box = Number(btn.dataset.box), lb = n("lily-lb"), l = n("lily-l"), w = n("lily-w"), h = n("lily-h");
+  if (!(lb > 0 && lb <= 50)) return say("Type the box weight in pounds (50 or less).", true);
+  if (!(l > 0 && w > 0 && h > 0) || Math.max(l, w, h) > 25) return say("Type the box size in inches (each side 25 or less).", true);
+  try { localStorage.setItem("lp_box_dims", JSON.stringify({ l, w, h })); } catch (e) {}
+  lilyForm = null;
+  await lilyCall(`select pipeline.fba_ship_start(${box}, ${lb}, ${l}, ${w}, ${h}) as r`);
+}
+async function lilyPick(b) {
+  const key = b.dataset.lilypick + ":" + b.dataset.pl;
+  if (lilyArm !== key) { lilyArm = key; setTimeout(() => { if (lilyArm === key) { lilyArm = null; render(); } }, 6000); return render(); }
+  lilyArm = null;
+  await lilyCall(`select pipeline.fba_ship_choose(${Number(b.dataset.lilypick)}, ${lit(b.dataset.pl)}) as r`);
+}
+// every box ever made, newest first: Box # · books · printed · verified off the other stores · weight · value · shipped
+function boxHistory(h) {
+  if (!h.length) return "";
+  const open = new Set(((week && week.boxes) || []).map((b) => +b.box));
+  const d = (t) => t ? new Date(t).toLocaleDateString([], { month: "short", day: "numeric" }) : "";
+  return `<details id="boxhist" ${boxHistOpen ? "open" : ""}><summary style="cursor:pointer;font-weight:700">📋 All boxes (${h.length})</summary>
+    <div style="display:grid;grid-template-columns:auto repeat(4,minmax(0,1fr));gap:4px 12px;font-size:.92rem;margin-top:8px">
+      <span class="muted">Box</span><span class="muted">Books</span><span class="muted">Printed · verified</span><span class="muted">lb · value</span><span class="muted">Status</span>
+      ${h.map((b) => `${open.has(+b.box) ? `<button class="ghost" data-wtab="box${esc(b.box)}" data-wscroll="1" style="min-height:36px;padding:2px 12px">📦 #${esc(b.box)} ›</button>` : `<b>#${esc(b.box)}</b>`}<span>${b.books}</span><span>${b.printed} · ${b.verified === b.books && b.books ? "✅ " : ""}${b.verified}</span>
+        <span>${Number(b.lb || 0).toFixed(1)} · ${money(b.value)}</span><span>${b.shipped ? "🚚 shipped " + d(b.shipped) : b.printed === b.books && b.books ? "📦 packed" : "packing · started " + d(b.opened)}</span>`).join("")}
+    </div></details>`;
+}
+// every copy's ISBN, one per line, in PD order (vendors count each line as one copy)
+function bbIsbns(g) { return g.books.filter((x) => !x.cleared).flatMap((x) => Array(Number(x.copies || 1)).fill(x.isbn)).join("\n"); }
+async function copyIsbns() {
+  const g = ((week && week.buyback) || []).find((y) => "bb:" + y.vendor + ":" + y.box === weekTab); if (!g) return;
+  const t = bbIsbns(g);
+  try { await navigator.clipboard.writeText(t); say(`Copied ${t.split("\n").length} ISBNs. Paste them into the vendor's sell page.`, false); }
+  catch (_) { showIsbn = weekTab; render(); const b = $("isbnbox"); if (b) { b.focus(); b.select(); } say("Select the ISBNs below and copy them (Ctrl+C).", false); }
+}
+async function weekTap(id) {
+  if (weekArm !== id) { weekArm = id; clearTimeout(weekArmT); weekArmT = setTimeout(() => { weekArm = null; render(); }, 6000); return render(); }
+  weekArm = null;
+  // negative id = a book sent to FBA from Drafts (its fba_items id); it is Amazon-only, so printing just prints
+  const sqlTap = id < 0 ? `select pipeline.week_print_draft(${-Number(id)}) as r` : `select pipeline.week_check(${Number(id)}) as r`;
+  try { const r = await call(sqlTap); if (r) week = r; note = null; } catch (e) { showError(e); }
+  render();
+}
+async function keepTap(id) {
+  if (keepArm !== id) { keepArm = id; weekArm = null; setTimeout(() => { if (keepArm === id) { keepArm = null; render(); } }, 6000); return render(); }
+  keepArm = null;
+  try { const r = await call(`select pipeline.week_keep(${Number(id)}) as r`); if (r) week = r; say("🔒 Kept. It stays listed just as it is, and the next book fills its spot.", false); } catch (e) { showError(e); }
+  render();
+}
+async function weekPrint(btn) {
+  const box = Number(btn.dataset.box);
+  if (weekPrintArm !== box) { weekPrintArm = box; clearTimeout(weekArmT); weekArmT = setTimeout(() => { weekPrintArm = null; render(); }, 6000); return render(); }
+  weekPrintArm = null; btn.disabled = true; btn.textContent = "Sending to the printer…";
+  try { const r = await call(`select pipeline.week_print(${box}) as r`); if (r) week = r; } catch (e) { showError(e); }
+  render();
+}
+
+// ---------- 🚀 Blast offs: every night on the main screen, date + time, verified status, drill in ----------
+function historyCard() {
+  const head = `<h2>🚀 Blast offs</h2>`;
+  if (!hist) return `<section class="card" aria-label="Blast offs">${head}<p class="muted" style="margin:0">Loading…</p></section>`;
+  if (!hist.length) return `<section class="card" aria-label="Blast offs">${head}<p class="muted" style="margin:0">No blast offs yet.</p></section>`;
+  const names = { ebay: "eBay", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
+  const rows = hist.map((x) => {
+    const v = (x.verify || {}).channels || {}, lv = x.live || {};
+    const probs = Object.values(v).reduce((a, c) => a + (c.problems || []).length, 0);
+    const open = Object.values(lv).reduce((a, c) => a + ((c.open || []).length), 0);
+    const chans = Object.keys(v);
+    const sent = chans.length && Object.values(v).every((c) => c.listed === c.total);
+    const badge = !x.verify ? `<span class="pill">not checked yet</span>` : probs ? `<span class="pill problem">⚠️ ${probs} to look at</span>`
+      : !sent ? `<span class="pill running">⏳ still sending</span>` : open ? `<span class="pill running">⏳ ${open} waiting on a store</span>` : `<span class="pill closed">✅ All verified and done</span>`;
+    const isOpen = histSel === x.id;
+    let drill = "";
+    if (isOpen) {
+      const tr = ["ebay", "abe", "etsy", "amazon"].filter((c) => v[c]).map((c) => {
+        const a = v[c], l = lv[c];
+        const liveTxt = (c === "ebay" || c === "etsy") ? (a.listed ? `✅ ${a.listed} live` : "—") : l ? `${l.ok === l.n ? "✅" : "⏳"} ${l.ok} of ${l.n}` : "—";
+        return `<span><b>${names[c]}</b></span><span>${a.listed === a.total ? "✅" : "⏳"} ${a.listed} of ${a.total}</span><span>${(a.problems || []).length ? "⚠️" : "✅"} ${a.airtable} of ${a.listed}</span><span>${liveTxt}</span>`;
+      }).join("");
+      const pr = Object.entries(v).flatMap(([c, a]) => (a.problems || []).map((t) => `${names[c]}: ${t}`));
+      const wt = Object.entries(lv).flatMap(([c, l]) => (l.open || []).map((pd) => `${names[c]} ${pd}`));
+      drill = `<div style="display:grid;grid-template-columns:minmax(80px,1fr) repeat(3,minmax(0,1.2fr));gap:6px 12px;font-size:.98rem">
+          <span class="muted">Store</span><span class="muted">Sent</span><span class="muted">Airtable</span><span class="muted">Live on the store</span>${tr}</div>
+        ${pr.length ? `<div class="notice bad" style="font-weight:400"><b>Needs a look:</b><br>${pr.map(esc).join("<br>")}</div>` : ""}
+        ${wt.length ? `<p style="margin:0;font-size:.92rem"><b>Still waiting on the store:</b> ${wt.map(esc).join(", ")}</p>` : ""}
+        ${x.answers && x.answers.length ? `<p class="muted" style="margin:0;font-size:.92rem"><b>Your answers:</b> ${x.answers.map(esc).join("; ")}</p>` : ""}
+        ${x.not_listed && x.not_listed.length ? `<p class="muted" style="margin:0;font-size:.92rem"><b>Not listed:</b> ${x.not_listed.map(esc).join(", ")}</p>` : ""}
+        <details><summary class="muted" style="cursor:pointer">Copy this night's summary</summary><textarea class="pdlist" rows="8" readonly aria-label="Summary for ${esc(x.night)}">${esc(histText(x))}</textarea></details>`;
+    }
+    return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px">
+      <div class="row" style="justify-content:space-between"><button class="quiet" data-hist="${x.id}" style="text-align:left;border:0;padding:4px 0;color:var(--ink)" aria-expanded="${isOpen}">
+          ${isOpen ? "▾" : "▸"} <b>${esc(x.day)} · ${esc(x.time || "")}</b> <span class="muted">· ${x.books} books · ${esc(x.first)} to ${esc(x.last)} · ${money(x.total)}</span></button>
+        ${badge}</div>${drill}</div>`;
+  }).join("");
+  // 2026-11-03 Papa Duck: "same with blast offs" - closed until he opens it, with a one-line summary
+  const needs = hist.filter((x) => { const v = (x.verify || {}).channels || {}; return Object.values(v).some((c) => (c.problems || []).length); }).length;
+  const btn = `<button class="ghost" data-histall="1" style="min-height:40px;padding:4px 14px;justify-self:start">${histAllOpen ? "Close blast offs ▴" : `📖 Open blast offs · ${hist.length} night${hist.length === 1 ? "" : "s"}${needs ? ` · ⚠️ ${needs} to look at` : " · ✅ all good"} ▾`}</button>`;
+  return `<section class="card" aria-label="Blast offs">${head}${btn}${histAllOpen ? rows + `<p class="muted" style="margin:0;font-size:.86rem">Every night is kept here. The stores keep being checked in the cloud even when this page is closed.</p>` : ""}</section>`;
+}
+function histText(x) {
+  const names = { ebay: "eBay", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" }, v = (x.verify || {}).channels || {}, lv = x.live || {};
+  const L = [`Launch Pad night ${x.night} (${x.day}) — ${x.books} books, ${x.first} to ${x.last}, ${money(x.total)}`];
+  for (const c of ["ebay", "abe", "etsy", "amazon"]) {
+    const a = v[c]; if (!a) continue;
+    const l = lv[c];
+    L.push(`${names[c]}: sent ${a.listed}/${a.total} · Airtable ${a.airtable}/${a.listed}` + (l ? ` · live ${l.ok}/${l.n}` : (c === "ebay" || c === "etsy") ? " · live ✓ at send" : "") + (x.jobs && x.jobs[c] ? ` · jobs ${[].concat(x.jobs[c]).join(",")}` : ""));
+  }
+  if (x.answers && x.answers.length) L.push("Answers: " + x.answers.join("; "));
+  if (x.not_listed && x.not_listed.length) L.push("Not listed: " + x.not_listed.join(", "));
+  const probs = Object.entries(v).flatMap(([c, a]) => (a.problems || []).map((p) => `${names[c]}: ${p}`));
+  const waits = Object.entries(lv).flatMap(([c, l]) => (l.open || []).map((pd) => `${names[c]} ${pd}`));
+  L.push(probs.length ? "Needs a look: " + probs.join("; ") : "Airtable: all records correct.");
+  if (waits.length) L.push("Still waiting on the store: " + waits.join(", "));
+  if (x.verify && x.verify.checked_at) L.push("Last checked " + new Date(x.verify.checked_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }));
+  return L.join("\n");
+}
+async function loadHist() {
+  try { const rows = await q("select pipeline.launch_history(60) as h"); hist = (rows[0] && rows[0].h) || []; } catch (e) { hist = hist || []; }
+  render();
+}
+function qButtons(x) {
+  const o = x.options || {};
+  if (x.kind === "price") return `<button data-qa="${x.id}" data-c="suggest">Use ${money(o.suggest)}</button><button class="ghost" data-qa="${x.id}" data-c="keep">Keep ${money(o.current)}</button>
+    <label class="price">My price $<input type="text" inputmode="decimal" id="qp-${x.id}" placeholder="0.00"></label><button class="ghost" data-qa="${x.id}" data-c="custom">Save my price</button>`;
+  if (x.kind === "amazon") return `<button data-qa="${x.id}" data-c="keep">Same edition, keep it on Amazon</button><button class="danger" data-qa="${x.id}" data-c="off">Different, take it off Amazon</button>`;
+  if (x.kind === "twins") return `<button data-qa="${x.id}" data-c="keep">Keep both prices</button>` + (o.pds || []).map((p, i) => `<label class="price">${esc(p)} $<input type="text" inputmode="decimal" id="qt-${x.id}-${i}" placeholder="${Number((o.prices || [])[i] || 0).toFixed(2)}"></label>`).join("") + `<button class="ghost" data-qa="${x.id}" data-c="custom">Save new prices</button>`;
+  return `<button data-qa="${x.id}" data-c="keep">OK</button>`;
+}
+function rcCard(r) {
+  const a = r.answer;
+  const label = { list: "✓ List it", dont_list: "Not listing", hold: "Holding for later" }[a] || "";
+  return `<div class="rc ${a ? "done" : ""}">${r.cover ? `<img src="${esc(r.cover)}" alt="Cover of ${esc(r.title)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'noimg'}))">` : `<div class="noimg"></div>`}
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0"><span class="muted mono" style="font-size:.85rem">${esc(r.pd)} · ${money(r.price)}</span><b>${esc(r.title)}</b>
+    <p class="why"><b>Why:</b> ${esc(r.reason || "flagged by the family check")}</p>
+    ${a ? `<div class="row"><span class="ok">${esc(label)}</span><button class="quiet" data-rc="${r.id}" data-c="">Change</button></div>` :
+      `<div class="row"><button data-rc="${r.id}" data-c="list">List it</button><button class="danger" data-rc="${r.id}" data-c="dont_list">Don't list</button><button class="quiet" data-rc="${r.id}" data-c="hold">Hold</button></div>`}</div></div>`;
+}
+function buildCard(n, building) {
+  const nj = nightJobs();
+  const m = /wrote (\d+) of (\d+)/.exec(n.meta_note || "");
+  const metaPct = n.status === "ready_to_send" || n.status === "dry_built" ? 100 : m ? Math.round(100 * m[1] / m[2]) : building ? 5 : 0;
+  const row = (name, pct, txt) => `<span>${name}</span><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${name}"><i class="${pct < 100 ? "part" : ""}" style="width:${pct}%"></i></div><span class="${pct >= 100 ? "ok" : "muted"}">${txt}</span>`;
+  const built = (c) => nj[c].length ? 100 : 0;
+  const cnt = (c) => nj[c].reduce((a, j) => a + (j.items || []).length, 0);
+  return `<section class="card" aria-label="Build progress"><h2>${building ? "Building tonight's files…" : "Files built"}</h2>
+    <div class="bars">${row("Details", metaPct, building ? (m ? `${m[1]} of ${m[2]}` : "starting") : "✓ written")}
+    ${row("eBay Books", built("ebay"), nj.ebay.length ? `${cnt("ebay")} ready ✓` : "waiting")}
+    ${nj.ebay_other.length ? row("eBay Other", built("ebay_other"), `${cnt("ebay_other")} ready ✓`) : ""}
+    ${row("AbeBooks", built("abe"), nj.abe.length ? `${nj.abe.length} files ready ✓` : "waiting")}
+    ${row("Etsy", built("etsy"), nj.etsy.length ? `${cnt("etsy")} ready ✓` : building ? "waiting" : "none tonight")}
+    ${row("Amazon", built("amazon"), nj.amazon.length ? `${cnt("amazon")} ready ✓` : building ? "waiting" : "none tonight")}</div>
+    ${n.meta_status === "written_with_notes" ? `<p class="muted" style="margin:0;font-size:.9rem">Notes: ${esc(n.meta_note)}</p>` : ""}</section>`;
+}
+function sendCard() {
+  const nj = nightJobs();
+  const steps = CH.filter(([c]) => nj[c].length).map(([c, name], i) => ({ c, name, n: i + 1, list: nj[c], s: jobState(nj[c]) }));
+  const up = steps.find((s) => s.s !== "closed");
+  const closed = steps.filter((s) => s.s === "closed").length;
+  if (!up) return `<section class="card" aria-label="Send"><h2>🎉 Tonight is DONE · ${closed} of ${steps.length} steps closed</h2><p style="margin:0">Every book is out. Thank you, Papa Duck.</p>${abeListBox(nj)}
+    <div class="row"><button class="ghost" id="startbtn">🚀 Start the next blast off</button><span class="muted" style="font-size:.9rem">or press 🚀 Blast off to Launch Pad in Drafts</span></div></section>`;
+  return `<section class="card" aria-label="Send"><div class="row" style="justify-content:space-between"><h2>Send, one step at a time</h2><b>${closed} of ${steps.length} steps closed</b></div>
+    ${steps.map((s) => stepRow(s, s === up)).join("")}${abeListBox(nj)}</section>`;
+}
+// ---------- PD number check (no skipped numbers) ----------
+function gapCard(realGaps) {
+  if (!gaps.length) return "";
+  const lines = gaps.map((g) => {
+    const name = g.series === "media" ? "Media" : "Books";
+    const miss = (g.missing || []);
+    const real = miss.filter((m) => m.why === "NO BOOK HAS THIS NUMBER"), held = miss.filter((m) => m.why !== "NO BOOK HAS THIS NUMBER");
+    let s = `<p style="margin:0"><b>${name}:</b> ${esc(g.from)} to ${esc(g.to)}${g.last_before ? ` <span class="muted">(last night ended at ${esc(g.last_before)})</span>` : ""} `;
+    s += real.length ? `<span style="color:var(--red);font-weight:700">⚠️ ${real.length} number${real.length > 1 ? "s" : ""} skipped: ${real.map((m) => esc(m.pd)).join(", ")}</span>` : `<span class="ok">✅ no numbers skipped</span>`;
+    s += "</p>";
+    if (held.length) s += `<p class="muted" style="margin:0;font-size:.92rem">Not going out tonight: ${held.map((m) => `${esc(m.pd)} (${esc(m.why)})`).join(", ")}</p>`;
+    if ((g.older || []).length) s += `<p class="muted" style="margin:0;font-size:.92rem">Older number${g.older.length > 1 ? "s" : ""} going out tonight: ${g.older.map(esc).join(", ")}</p>`;
+    return s;
+  }).join("");
+  return `<section class="card" aria-label="PD number check"${realGaps && !gapOk ? ' style="border:2px solid var(--red)"' : ""}><h2>🔢 PD number check</h2>${lines}
+    ${realGaps ? (gapOk ? `<p class="muted" style="margin:0">You said go ahead anyway.</p>` : `<p style="margin:0">A skipped number usually means a book was never scanned or got a typo. Check the shelf, or tell Claude. Build is locked until you choose.</p><div class="row"><button class="danger" id="gapok">The skip is OK, go ahead</button></div>`) : ""}</section>`;
+}
+
+// ---------- confirmation: listed + Airtable fully updated, read back from Airtable itself ----------
+function verifyCard() {
+  const v = verify, names = { ebay: "eBay Books", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" }, CHS = ["ebay", "ebay_other", "abe", "etsy", "amazon"];
+  const head = `<div class="row" style="justify-content:space-between"><h2>✅ Confirmation · listed and in Airtable</h2>
+    <button class="ghost" id="verifybtn" ${verifying ? "disabled" : ""}>${verifying ? "Checking…" : "Check again"}</button></div>`;
+  if (!v || !v.ok || !v.channels) return `<section class="card" aria-label="Confirmation">${head}<p class="muted" style="margin:0">${v && v.error ? esc(v.error) : "Not checked yet. It checks by itself each time a step finishes."}</p></section>`;
+  const rows = CHS.filter((c) => v.channels[c]).map((c) => {
+    const x = v.channels[c], all = x.listed === x.total, clean = all && !x.problems.length;
+    const listed = x.listed === 0 ? `<span class="muted">Not sent yet</span>` : `<span class="${all ? "ok" : ""}">${all ? "✅" : "⏳"} ${x.listed} of ${x.total}</span>`;
+    const at = x.listed === 0 ? `<span class="muted">—</span>` : `<span class="${clean ? "ok" : ""}">${clean ? "✅" : x.problems.length ? "⚠️" : "⏳"} ${x.airtable} of ${x.listed}</span>`;
+    return [c, listed + at];
+  });
+  const cells = Object.fromEntries(rows);
+  const probs = CHS.flatMap((c) => (v.channels[c] ? v.channels[c].problems : []).map((p) => `${names[c]}: ${p}`));
+  const t = new Date(v.checked_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  // live-on-the-store column: eBay + Etsy are read back by the sender at send time; AbeBooks photos + Amazon status come from launch-check
+  const liveCell = (c) => {
+    const x = v.channels[c]; if (!x || !x.listed) return `<span class="muted">—</span>`;
+    if (c === "ebay" || c === "ebay_other" || c === "etsy") return `<span class="ok">✅ ${x.listed} live</span>`;
+    const L = live.filter((r) => r.ch === c), ok = L.filter((r) => r.st === "ok" || r.st === "pulled").length;
+    if (!L.length) return `<span class="muted">${liveBusy ? "checking…" : "not checked yet"}</span>`;
+    const bad = L.filter((r) => r.st === "problem").length;
+    return `<span class="${ok === x.listed ? "ok" : ""}">${ok === x.listed ? "✅" : bad ? "⚠️" : "⏳"} ${ok} of ${x.listed}${c === "abe" ? " with photos" : " done"}${L.some((r) => r.st === "pulled") ? ` (${L.filter((r) => r.st === "pulled").length} pulled)` : ""}</span>`;
+  };
+  const liveRows = CHS.filter((c) => v.channels[c]).map((c) => `<span><b>${names[c]}</b></span>` + cells[c] + liveCell(c)).join("");
+  const waitAbe = live.filter((r) => r.ch === "abe" && r.st !== "ok"), waitAmz = live.filter((r) => r.ch === "amazon" && r.st !== "ok" && r.st !== "pulled"), pulled = live.filter((r) => r.st === "pulled");
+  const lastLive = live.length ? new Date(live.reduce((a, r) => r.at > a ? r.at : a, "")).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+  const liveNote = (waitAbe.length || waitAmz.length) ? `<div class="notice" style="font-weight:400;border:2px solid var(--yellow);background:var(--yellow-bg)">
+      ${waitAbe.length ? `<b>AbeBooks photos not showing yet (${waitAbe.length}):</b> ${waitAbe.map((r) => esc(r.pd)).join(", ")}<br>` : ""}
+      ${waitAmz.length ? `<b>Amazon still processing (${waitAmz.length}):</b> ${waitAmz.map((r) => `${esc(r.pd)}${r.st === "problem" ? " ⚠️ " + esc(r.d) : ""}`).join(", ")}<br>` : ""}
+      <span class="muted" style="font-size:.9rem">Usually 15 to 45 minutes. I re-check the live stores every 10 minutes by myself${lastLive ? ` (last check ${esc(lastLive)})` : ""}. If any are still waiting after an hour, tell Claude.</span></div>` : "";
+  return `<section class="card" aria-label="Confirmation">${head}
+    <div style="display:grid;grid-template-columns:minmax(80px,1fr) minmax(0,1.1fr) minmax(0,1.2fr) minmax(0,1.5fr);gap:8px 12px;font-size:1.02rem">
+      <span class="muted">Channel</span><span class="muted">Sent</span><span class="muted">Airtable updated</span><span class="muted">Live on the store</span>${liveRows}</div>${liveNote}
+    ${pulled.length ? `<div class="notice" style="font-weight:400"><b>🚫 Pulled from Amazon (${pulled.length}):</b> ${pulled.map((r) => esc(r.pd)).join(", ")} <span class="muted">· still live on eBay, AbeBooks and Etsy. Done, put it away with the rest.</span></div>` : ""}
+    ${probs.length ? `<div class="notice bad" style="font-weight:400"><b>Needs a look:</b><br>${probs.map(esc).join("<br>")}</div>` : `<p class="ok" style="margin:0">Everything listed so far is in Airtable with the right item numbers, price and photos.</p>`}
+    <p class="muted" style="margin:0;font-size:.88rem">Read straight from Airtable at ${esc(t)} · ${v.airtable_records} of ${v.books} books have a record.</p>
+    <div class="row"><button class="ghost" id="sumbtn">📋 Copy tonight's summary for Claude</button></div>
+    ${showSum ? `<textarea class="pdlist" id="sumbox" rows="8" readonly aria-label="Tonight's summary">${esc(nightSummary())}</textarea>` : ""}</section>`;
+}
+function nightSummary() {
+  const n = st.night, v = verify || { channels: {} }, nj = nightJobs(), names = { ebay: "eBay Books", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
+  const L = [`Launch Pad night ${n.night} — ${n.pds.length} books, ${n.pds[0]} to ${n.pds[n.pds.length - 1]}, ${money(st.total)}`];
+  for (const c of ["ebay", "ebay_other", "abe", "etsy", "amazon"]) {
+    const x = v.channels[c]; if (!x) continue;
+    const lv = live.filter((r) => r.ch === c), ok = lv.filter((r) => r.st === "ok" || r.st === "pulled").length;
+    L.push(`${names[c]}: sent ${x.listed}/${x.total} · Airtable ${x.airtable}/${x.listed}` + (c === "abe" || c === "amazon" ? ` · live ${ok}/${x.listed}` : "") + ` · jobs ${(nj[c] || []).map((j) => j.id).join(",")}`);
+  }
+  const ans = (st.questions || []).filter((q) => q.answer).map((q) => `${q.pd} ${q.kind}: ${q.answer.choice}${q.answer.price ? " $" + q.answer.price : ""}`);
+  if (ans.length) L.push("Answers: " + ans.join("; "));
+  const rc = (st.reconsider || []).filter((r) => r.answer && r.answer !== "list").map((r) => `${r.pd} ${r.answer}`);
+  if (rc.length) L.push("Not listed tonight: " + rc.join(", "));
+  const g = gaps.flatMap((x) => (x.missing || []).map((m) => `${m.pd} (${m.why})`));
+  if (g.length) L.push("PD check: " + g.join(", "));
+  const probs = Object.entries(v.channels).flatMap(([c, x]) => x.problems.map((p) => `${names[c]}: ${p}`));
+  const pl = live.filter((r) => r.st === "pulled").map((r) => r.pd); if (pl.length) L.push("Pulled from Amazon: " + pl.join(", "));
+  const waits = live.filter((r) => r.st !== "ok" && r.st !== "pulled").map((r) => `${names[r.ch]} ${r.pd} ${r.st}`);
+  L.push(probs.length || waits.length ? "Open: " + [...probs, ...waits].join("; ") : "Open: nothing — all confirmed.");
+  return L.join("\n");
+}
+async function copySummary() {
+  const text = nightSummary();
+  try { await navigator.clipboard.writeText(text); say("Tonight's summary is copied. Paste it to Claude.", false); }
+  catch (_) { showSum = true; render(); const t = $("sumbox"); if (t) { t.focus(); t.select(); } say("Select the summary below and copy it (Ctrl+C).", false); }
+}
+async function runVerify() {
+  if (verifying || !st || !st.night) return;
+  verifying = true; render();
+  try { const r = await call(`select pipeline.launch_verify(${Number(st.night.id)}) as r`); verify = r; }
+  catch (e) { showError(e); }
+  verifying = false; render();
+}
+async function runLive() {
+  if (liveBusy || !st || !st.night) return;
+  liveBusy = true; render();
+  try { await call(`select pipeline.launch_check_start(${Number(st.night.id)}) as r`); } catch (e) { showError(e); }
+  setTimeout(() => { liveBusy = false; refresh(true); }, 45000);   // the live check takes about half a minute
+}
+function autoVerify() {
+  const n = st && st.night; if (!n || n.status !== "ready_to_send") return;
+  if (jobs.some((j) => j.status === "running")) return;            // wait until the step settles
+  const nj = nightJobs();
+  const key = Object.values(nj).flat().map((j) => j.id + ":" + (j.items || []).filter((i) => i.state === "done").length).join(",");
+  if (key !== verifyKey) {
+    const first = verifyKey === ""; verifyKey = key; runVerify();
+    const liveDone = [...nj.abe, ...nj.amazon].some((j) => (j.items || []).some((i) => i.state === "done"));
+    if (!first && liveDone) runLive();   // a step just finished: look at the live stores too
+  }
+}
+function stepRow(s, isUp) {
+  const items = s.list.flatMap((j) => j.items || []);
+  const done = items.filter((i) => i.state === "done").length;
+  let info = `${done} of ${items.length} books done`;
+  let acts = "";
+  if (s.c === "abe") {
+    const files = s.list.slice().sort((a, b) => a.id - b.id);
+    const nextFile = files.find((j) => j.status !== "closed");
+    info = `<div class="files">${files.map((j, i) => {
+      const its = j.items || [], d = its.filter((x) => x.state === "done").length;
+      const pdr = its.length ? `${its[0].pd} to ${its[its.length - 1].pd}` : "";
+      const word = j.status === "closed" ? `Closed, ${d} of ${its.length}` : j.status === "running" ? `Part sent, ${d} of ${its.length} books` : j.status === "not_closed" ? `Not closed, ${d} of ${its.length}` : "Ready";
+      return `<div class="f"><b>File ${i + 1} of ${files.length}</b><span class="mono">${esc(pdr)}</span><span class="pill ${j.status === "closed" ? "closed" : j.status === "running" ? "running" : j.status === "not_closed" ? "problem" : ""}">${esc(word)}</span></div>`;
+    }).join("")}</div>`;
+    if (isUp && nextFile) {
+      const i = files.indexOf(nextFile) + 1, waiting = (nextFile.items || []).filter((x) => ["waiting", "failed", "short"].includes(x.state)).length;
+      acts = waiting && nextFile.status !== "running" ? `<button data-send="${nextFile.id}" data-one="0">Send File ${i} of ${files.length}</button>` : `<span class="pill running">File ${i} of ${files.length} sending…</span>`;
+    }
+  } else if (isUp) {
+    const j = s.list[0], waiting = (j.items || []).filter((x) => ["waiting", "failed", "short"].includes(x.state)).length;
+    acts = waiting && j.status !== "running" ? `<button class="ghost" data-send="${j.id}" data-one="1">Send ONE</button><button data-send="${j.id}" data-one="0">Send ${waiting === (j.items || []).length ? "all" : "the rest"} (${waiting})</button>` : `<span class="pill running">Sending…</span>`;
+  }
+  const status = s.s === "closed" ? "closed" : s.s === "running" ? "running" : s.s === "problem" ? "problem" : "";
+  return `<div class="step ${status} ${isUp ? "up" : ""}"><span class="dot" aria-hidden="true"></span><span class="name">Step ${s.n} · ${esc(s.name)}</span>
+    <div class="info" style="font-size:.95rem">${isUp ? "<b>You're up.</b> " : ""}${s.c === "abe" ? "" : info}${s.c === "abe" ? info : ""}${s.s === "closed" ? ' <span class="ok">✓ Closed</span>' : ""}</div><div class="acts">${acts}</div></div>`;
+}
+function abeListBox(nj) {
+  const pds = nj.abe.flatMap((j) => (j.items || []).map((i) => i.pd)).sort();
+  if (!pds.length) return "";
+  return `<div class="row"><button class="ghost" id="copypd">Copy AbeBooks PD list (${pds.length})</button></div>
+    ${showPd ? `<textarea class="pdlist" id="pdbox" rows="3" readonly aria-label="AbeBooks PD list">${esc(pds.join(", "))}</textarea>` : ""}`;
+}
+
+// ---------- actions ----------
+function wire() {
+  document.querySelectorAll("[data-qa]").forEach((b) => b.onclick = () => answerQ(+b.dataset.qa, b.dataset.c, b));
+  // Enter in a price box = press that question's Save button
+  document.querySelectorAll("input[id^='qp-'],input[id^='qt-']").forEach((inp) => inp.onkeydown = (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const id = inp.id.split("-")[1], b = document.querySelector(`[data-qa="${id}"][data-c="custom"]`);
+    if (b) b.click();
+  });
+  document.querySelectorAll("[data-rc]").forEach((b) => b.onclick = () => answerRc(+b.dataset.rc, b.dataset.c, b));
+  document.querySelectorAll("[data-send]").forEach((b) => b.onclick = () => send(+b.dataset.send, b.dataset.one === "1", b));
+  const g = $("gobtn"); if (g) g.onclick = () => go(g);
+  const c = $("copypd"); if (c) c.onclick = copyPds;
+  const vb = $("verifybtn"); if (vb) vb.onclick = () => { runVerify(); runLive(); };
+  const sb = $("sumbtn"); if (sb) sb.onclick = copySummary;
+  const s2 = $("startbtn"); if (s2) s2.onclick = startNight;
+  document.querySelectorAll("[data-hist]").forEach((b) => b.onclick = () => { const id = +b.dataset.hist; histSel = histSel === id ? null : id; render(); });
+  const go2 = $("gapok"); if (go2) go2.onclick = () => { gapOk = true; render(); };
+  document.querySelectorAll("[data-histall]").forEach((b) => b.onclick = () => { histAllOpen = !histAllOpen; render(); });
+  document.querySelectorAll("[data-wopen]").forEach((b) => b.onclick = () => { weekOpen[b.dataset.wopen] = !weekOpen[b.dataset.wopen]; render(); });
+  document.querySelectorAll("[data-wtab]").forEach((b) => b.onclick = () => { weekTab = b.dataset.wtab; weekArm = null; render();
+    if (b.dataset.wscroll) { const s = document.querySelector('section[aria-label="This week"]'); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); } });
+  document.querySelectorAll("[data-wsq]").forEach((b) => b.onclick = () => weekTap(+b.dataset.wsq));
+  document.querySelectorAll("[data-wkeep]").forEach((b) => b.onclick = () => keepTap(+b.dataset.wkeep));
+  const bh = $("boxhist"); if (bh) bh.ontoggle = () => { boxHistOpen = bh.open; };
+  const bl = $("bblist"); if (bl) bl.ontoggle = () => { bbListOpen = bl.open; };
+  document.querySelectorAll("[data-alert]").forEach((b) => b.onclick = () => alertTap(+b.dataset.alert));
+  document.querySelectorAll("[data-unapp]").forEach((b) => b.onclick = async () => {
+    try { const r = await call(`select pipeline.unrestrict_applied(${Number(b.dataset.unapp)}) as r`); if (r) alerts = r; say("Got it - marked as applied. Tap ✅ I got approved when Amazon's email comes.", false); } catch (e) { showError(e); }
+    render(); });
+  document.querySelectorAll("[data-unok]").forEach((b) => b.onclick = async () => {
+    try { const r = await call(`select pipeline.unrestrict_recheck(${Number(b.dataset.unok)}) as r`); if (r) alerts = r;
+      say("Asking Amazon now. If it says yes, this card clears and the drafts are fixed in a minute or two.", false); setTimeout(() => refresh(), 60000); } catch (e) { showError(e); }
+    render(); });
+  document.querySelectorAll("[data-acollapse]").forEach((b) => b.onclick = () => { alertOpen = {}; try { localStorage.setItem("lp_alert_open", "{}"); } catch (e) {} render(); });
+  document.querySelectorAll("[data-agrp]").forEach((b) => b.onclick = () => { alertOpen[b.dataset.agrp] = !alertOpen[b.dataset.agrp]; try { localStorage.setItem("lp_alert_open", JSON.stringify(alertOpen)); } catch (e) {} render(); });
+  document.querySelectorAll("[data-ship]").forEach((b) => b.onclick = () => shipTap(b.dataset.ship));
+  document.querySelectorAll("[data-fbabox]").forEach((b) => b.onclick = () => { fbaOpen[b.dataset.fbabox] = !fbaOpen[b.dataset.fbabox]; render(); });
+  document.querySelectorAll("[data-sview]").forEach((b) => b.onclick = () => { salesView = b.dataset.sview; try { localStorage.setItem("lp_sales_view", salesView); } catch (e) {} render(); });
+  document.querySelectorAll("[data-offer]").forEach((b) => b.onclick = () => offerTap(b));
+  document.querySelectorAll("[data-shipcancel]").forEach((b) => b.onclick = () => cancelTap(b.dataset.shipcancel));
+  document.querySelectorAll("[data-shipsort]").forEach((b) => b.onclick = () => { shipSort = b.dataset.shipsort; try { localStorage.setItem("lp_ship_sort", shipSort); } catch (e) {} render(); });
+  const wi = $("wisbn"); if (wi) wi.onclick = copyIsbns;
+  const wp = $("wprint"); if (wp) wp.onclick = () => weekPrint(wp);
+  document.querySelectorAll("[data-lily]").forEach((b) => b.onclick = () => { lilyForm = Number(b.dataset.lily); render(); const i = $("lily-lb"); if (i) i.focus(); });
+  const lc = $("lily-cancel"); if (lc) lc.onclick = () => { lilyForm = null; render(); };
+  const lg = $("lily-go"); if (lg) lg.onclick = () => lilyGo(lg);
+  document.querySelectorAll("[data-lilypick]").forEach((b) => b.onclick = () => lilyPick(b));
+  document.querySelectorAll("[data-lilyretry]").forEach((b) => b.onclick = () => lilyCall(`select pipeline.fba_ship_retry(${Number(b.dataset.lilyretry)}) as r`));
+  document.querySelectorAll("[data-lilylabel]").forEach((b) => b.onclick = () => lilyCall(`select pipeline.fba_ship_label(${Number(b.dataset.lilylabel)}) as r`));
+}
+async function startNight() {
+  const b = $("startbtn"); b.disabled = true; b.textContent = "Gathering tonight's books…";
+  try { const r = await call("select pipeline.launch_create() as r"); if (!r || !r.ok) say((r && r.error) || "Couldn't start.", true); else note = null; }
+  catch (e) { showError(e); }
+  refresh(true);
+}
+async function answerQ(id, choice, btn) {
+  const x = (st.questions || []).find((y) => y.id === id); if (!x) return;
+  const p = { choice };
+  if (choice === "custom" && x.kind === "price") p.price = ($("qp-" + id) || {}).value || "";
+  if (choice === "custom" && x.kind === "twins") { p.prices = {}; ((x.options || {}).pds || []).forEach((pd, i) => { const v = ($("qt-" + id + "-" + i) || {}).value; if (v) p.prices[pd] = v; }); }
+  document.activeElement && document.activeElement.blur && document.activeElement.blur();
+  document.querySelectorAll(`[data-qa="${id}"]`).forEach((b) => b.disabled = true);
+  const was = btn.textContent; btn.textContent = "Saving…";
+  const slow = setTimeout(() => { note = { bad: true, text: "Still waiting on Supabase. If a permission box popped up, press Allow." }; render(); }, 12000);
+  try {
+    const r = await call(`select pipeline.launch_answer(${Number(id)}, ${lit(JSON.stringify(p))}::jsonb) as r`);
+    if (!r || !r.ok) { say((r && r.error) || "That didn't save. Try again.", true); btn.textContent = was; }
+    else note = { bad: false, text: `Saved ✓ ${x.pd}. Here's the next question.` };
+  } catch (e) { showError(e); }
+  clearTimeout(slow);
+  refresh(true);
+}
+async function answerRc(id, choice, btn) {
+  if (!choice) {   // "Change": clear the answer so the three buttons come back
+    try { await q(`update pipeline.launch_reconsider set answer = null, answered_at = null where id = ${Number(id)} and night_id = ${Number(st.night.id)} returning id`); } catch (e) { showError(e); }
+    return refresh(true);
+  }
+  btn.disabled = true;
+  try { const r = await call(`select pipeline.launch_reconsider_answer(${Number(id)}, ${lit(choice)}) as r`); if (!r || !r.ok) say((r && r.error) || "That didn't save.", true); else note = null; }
+  catch (e) { showError(e); }
+  refresh(true);
+}
+async function go(btn) {
+  btn.disabled = true; btn.textContent = "Starting the build…";
+  try { const r = await call(`select pipeline.launch_go(${Number(st.night.id)}) as r`); if (!r || !r.ok) say((r && r.error) || "The build didn't start.", true); else note = null; }
+  catch (e) { showError(e); }
+  refresh(true);
+}
+async function send(id, one, btn) {
+  btn.disabled = true; btn.textContent = "Starting…";
+  try { const r = await call(`select pipeline.dispatch_start(${Number(id)}, ${one ? "true" : "false"}) as r`); if (r && !r.ok) say(r.error, true); else note = null; }
+  catch (e) { showError(e); }
+  refresh(true);
+}
+async function copyPds() {
+  const nj = nightJobs();
+  const text = nj.abe.flatMap((j) => (j.items || []).map((i) => i.pd)).sort().join(", ");
+  try { await navigator.clipboard.writeText(text); say(`Copied ${text.split(", ").length} AbeBooks PD numbers.`, false); }
+  catch (_) { showPd = true; render(); const t = $("pdbox"); if (t) { t.focus(); t.select(); } say("Select the list below and copy it (Ctrl+C).", false); }
+}
+
+// ---------- Ask Grandpa Duck ----------
+function addMsg(who, text) { const p = document.createElement("p"); p.className = "msg " + who; p.textContent = text; $("chat").appendChild(p); $("chat").scrollTop = 1e9; return p; }
+const DUCK_TOOLS = [
+  { name: "night_state", description: "Returns tonight's Launch Pad state: books, questions and answers, Prayerfully Reconsider answers, build notes, and every send job with each book's state, photo colors and notes. Use it before answering about tonight.",
+    execute: async () => { await refresh(true); return JSON.stringify({ night: st && st.night, questions: st && st.questions, reconsider: st && st.reconsider,
+      jobs: Object.fromEntries(Object.entries(nightJobs()).map(([c, l]) => [c, l.map((j) => ({ id: j.id, name: j.name, status: j.status, summary: j.summary,
+        items: (j.items || []).map((i) => ({ pd: i.pd, state: i.state, note: i.note, photos: i.photos })) }))])) }).slice(0, 30000); } },
+  { name: "book_details", description: "Returns one book's draft details by PD number (title, author, year, grade, price, channels, Etsy and Amazon status, family-check note). Read-only.",
+    inputSchema: { type: "object", properties: { pd: { type: "string", description: "like PD-3417" } }, required: ["pd"] },
+    execute: async (inp) => { const pd = String(inp.pd || "").toUpperCase().replace(/[^A-Z0-9-]/g, "");
+      const rows = await q(`select pd, status, channel, etsy, amazon_on, coalesce(price_override,(pricing->>'list')::numeric) price, ident->>'title' title, ident->>'author' author, ident->>'publication_year' yr, ident->>'grade' grade, amazon->>'status' amz, amazon->>'fit' fit, amazon->>'off_reason' amz_off, ident->'audience'->>'note' family_note, built_at from pipeline.drafts where pd = ${lit(pd)} order by id desc limit 1`);
+      return rows[0] || "No book with that PD number."; } },
+  { name: "fix_and_resend", description: "Fixes eBay books that failed because an item specific was missing (fills Author/Publisher with Unknown, Language with English, Book Title with the title) and sends them again. Returns what was fixed and what could not be fixed.",
+    inputSchema: { type: "object", properties: { job_id: { type: "number" } }, required: ["job_id"] },
+    execute: async (inp) => { const r = await call(`select pipeline.launch_autofix(${Number(inp.job_id)}) as r`); refresh(true); return r; } },
+  { name: "resend_failed", description: "Sends again every book or photo in one send job that failed or came up short (for example a red photo after a busy signal). Only use after Papa Duck says yes. Returns how many were queued.",
+    inputSchema: { type: "object", properties: { job_id: { type: "number" } }, required: ["job_id"] },
+    execute: async (inp) => { const r = await call(`select pipeline.dispatch_start(${Number(inp.job_id)}, false) as r`); refresh(true); return r; } },
+];
+async function ask(e) {
+  e.preventDefault();
+  const text = $("ask").value.trim(); if (!text) return;
+  if (!sample) { $("duckhint").textContent = "Grandpa Duck isn't available in this view."; return; }
+  $("ask").value = ""; addMsg("me", text);
+  chatTurns.push({ role: "user", content: text });
+  const out = addMsg("duck", "Thinking…"); $("askbtn").disabled = true;
+  const rules = `You are Grandpa Duck, the friendly helper inside Papa Duck's Launch Pad. Papa Duck (Dawayne) runs Papa Duck Homeschool, a family-friendly used-book business in Gresham, Oregon, selling on eBay, AbeBooks, Etsy and Amazon. The Launch Pad runs his nightly blast off: questions first (big prices, Amazon edition matches, two copies at different prices), then Prayerfully Reconsider for family-flagged books, then the build (Grandpa Duck writes listing details, then the files), then sending one step at a time: 1 eBay, 2 AbeBooks (files of 13 or fewer), 3 Etsy, 4 Amazon.
+Fixing on your own: when eBay refuses a book because an item specific is missing (Author, Publisher, Language, Book Title...), the Launch Pad fills it in (Author/Publisher = "Unknown", Language = English) and re-sends it by itself within a minute. If he asks you to fix one, use fix_and_resend right away; tell him what you filled in. Anything you cannot fix that way, explain plainly and say Claude in the main chat can fix it.
+House rules you know: never free shipping (Media Mail calculated); Etsy only for books 20+ years old with a known year; Amazon only when the edition truly matches; a photo that turns red usually means the photo server was busy and can simply be sent again; nothing The Good and the Beautiful is ever listed.
+Use your tools to look things up before answering about tonight. Keep answers short, warm and plain, a few sentences. Never change anything unless he clearly says yes; resend_failed is the only change you can make. If something needs Claude in the main chat (a price review, a rule change, a new build), say so plainly.`;
+  try {
+    const turns = chatTurns.slice(-10).map((t, i, a) => i === 0 ? { role: t.role, content: rules + "\n\nPapa Duck says: " + t.content } : t);
+    if (turns[0].role !== "user") turns.shift();
+    const r = await sample(turns, { tools: DUCK_TOOLS, cache: false, onText: ({ text }) => { out.textContent = text; $("chat").scrollTop = 1e9; } });
+    out.textContent = r.text; chatTurns.push({ role: "assistant", content: r.text });
+    if (st && st.night) q(`insert into pipeline.launch_chat(night_id, role, body) values (${Number(st.night.id)}, 'papa', ${lit(text)}), (${Number(st.night.id)}, 'duck', ${lit(r.text.slice(0, 4000))}) returning id`).catch(() => {});
+  } catch (err) {
+    out.textContent = err && err.code === "not_granted" ? "Grandpa Duck needs your OK to answer. Ask again and press Allow." : err && err.code === "rate_limited" ? "Too many questions at once. Give me a minute." : ((err && err.text) || "Sorry, I couldn't answer that just now.");
+    chatTurns.pop();
+  } finally { $("askbtn").disabled = false; }
+}
+
+// ---------- refresh loop ----------
+// 2026-10-28: a stuck connector call used to freeze the page (busy never cleared). Each refresh now gives up after 25 s,
+// and a watchdog restarts the loop if nothing has refreshed for 45 s. Papa Duck: "it not auto refreshing".
+let lastOk = 0;
+// live clock: the second hand moves every second; the line says how long ago the cloud last answered (Papa Duck: "it should look like a clock with the second hand moving")
+function tickClock(){
+  const now = new Date(), h = document.getElementById("lhand"), t = document.getElementById("connt"); if (!h || !t) return;
+  h.setAttribute("transform", "rotate(" + (now.getSeconds() * 6) + " 12 12)");
+  if (!lastOk) return;
+  const ago = Math.max(0, Math.round((Date.now() - lastOk) / 1000));
+  t.innerHTML = "Live · " + now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) +
+    ' · <span class="ago' + (ago > 40 ? " stale" : "") + '">' + (ago < 2 ? "just updated" : "updated " + ago + "s ago") + "</span>";
+}
+setInterval(tickClock, 1000);
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("The cloud took too long. Trying again…")), ms))]);
+setInterval(() => { if (mcp && Date.now() - lastOk > 45000) { busy = false; refresh(true); } }, 15000);
+async function refresh(force) {
+  if (!mcp || (busy && !force)) return;
+  busy = true;
+  try {
+    const rows = await withTimeout(q(`with nn as (select max(id) id from pipeline.launch_nights where status not like 'dry%')
+      select pipeline.launch_state() as s, pipeline.dispatch_status(40) as j,
+        (select result from pipeline.launch_verify v, nn where v.night_id = nn.id) as v,
+        (select pipeline.launch_gaps(nn.id) from nn) as g,
+        (select jsonb_agg(jsonb_build_object('ch', c.channel, 'pd', c.pd, 'st', c.state, 'd', c.detail, 'at', c.checked_at) order by c.pd) from pipeline.launch_live_check c, nn where c.night_id = nn.id) as lc,
+        pipeline.week_board() as w, pipeline.to_ship() as ts, pipeline.alerts_open() as al, pipeline.sales_board() as sb, pipeline.fba_track_board() as ft, pipeline.fba_ship_state() as fs`), 25000);
+    lastOk = Date.now();
+    st = (rows[0] && rows[0].s) || null; jobs = (rows[0] && rows[0].j) || [];
+    if (rows[0] && rows[0].w) week = rows[0].w;
+    if (rows[0] && rows[0].ts) toShip = rows[0].ts;
+    if (rows[0] && rows[0].sb) sales = rows[0].sb;
+    if (rows[0] && rows[0].ft) fbaTrack = rows[0].ft;
+    if (rows[0] && rows[0].al) alerts = rows[0].al;
+    if (rows[0] && rows[0].fs) fship = rows[0].fs;
+    if (st && !st.night) st = null;
+    if (!verifying && rows[0] && rows[0].v) verify = rows[0].v;
+    gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
+    tickClock();
+    if (!hist || Date.now() - histAt > 60000) { histAt = Date.now(); loadHist(); }
+    loadBd(); loadTodo(); loadVb();
+    render();
+    autoVerify();
+  } catch (e) { showError(e); }
+  finally { busy = false; schedule(); }
+}
+function schedule() {
+  clearTimeout(timer);
+  const n = st && st.night;
+  const live = n && (["building", "dry_building"].includes(n.status) || jobs.some((j) => j.status === "running"));
+  timer = setTimeout(() => refresh(), document.hidden ? 30000 : live ? 3000 : 12000);
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(true); });
+$("askform").onsubmit = ask;
+
+// ---------- 🔎 Check a find (v57, 2026-11-08): Vinted finds -> pipeline.check_find -> Scout brain. Never buys anything. ----------
+function fdShrink(file) {
+  return new Promise((ok, bad) => {
+    const img = new Image(), u = URL.createObjectURL(file);
+    img.onload = () => { const s = Math.min(1, 1100 / Math.max(img.width, img.height)); const c = document.createElement("canvas");
+      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(u); ok(c.toDataURL("image/jpeg", 0.8).split(",")[1]); };
+    img.onerror = () => bad(new Error("Couldn't open that picture"));
+    img.src = u;
+  });
+}
+function fdShow(r) {
+  if (!r || r.ok === false || r.error) return `<div class="notice bad">${esc((r && r.error) || "Something went wrong — try again.")}</div>`;
+  const v = String(r.verdict || "CHECK"), good = v === "BUY";
+  const icon = good ? "🟢 BUY" : v === "PASS" ? "🔴 Pass" : v === "TOSS" ? "🔴 Pass" : "🟡 " + v.charAt(0) + v.slice(1).toLowerCase();
+  const t = (r.ident && (r.ident.title || "")) || "";
+  const hard = (r.hard || []).map((x) => `<li>${esc(x)}</li>`).join("");
+  return `<div class="notice ${good ? "good" : "bad"}" style="display:flex;flex-direction:column;gap:4px">
+    <span style="font-size:1.15rem">${icon}</span>
+    ${t ? `<span>${esc(t)}</span>` : ""}
+    <span>Retail ${r.list != null ? money(r.list) : "—"} · Cost ${r.cost != null ? money(r.cost) : "—"} · Profit ${r.profit != null ? money(r.profit) : "—"}</span>
+    <span class="muted" style="font-weight:400">${esc(r.reason || "")}</span>
+    ${hard ? `<ul style="margin:0;padding-left:18px">${hard}</ul>` : ""}</div>`;
+}
+$("fdgo").addEventListener("click", async () => {
+  const out = $("fdout"), btn = $("fdgo");
+  if (!mcp) { out.innerHTML = `<div class="notice bad">Still connecting — try again in a moment.</div>`; return; }
+  const raw = $("fdisbn").value.trim(), cost = $("fdcost").value.replace(/[^0-9.]/g, ""), f = $("fdpic").files[0];
+  const p = { cost: cost === "" ? null : Number(cost) };
+  if (/^[0-9Xx\- ]{10,17}$/.test(raw)) p.isbn = raw; else if (f) { try { p.image = await fdShrink(f); } catch (e) { out.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; } }
+  if (!p.isbn && !p.image && raw) p.title = raw;
+  if (!p.isbn && !p.image && !p.title) { out.innerHTML = `<div class="notice bad">Add an ISBN, a title, or a screenshot.</div>`; return; }
+  btn.disabled = true; out.innerHTML = `<p class="muted" style="margin:0">Checking eBay, AbeBooks and Amazon… about 10–30 seconds.</p>`;
+  try {
+    const rows = await q(`select pipeline.check_find('${JSON.stringify(p).replace(/'/g, "''")}'::jsonb) as r`);
+    let r = rows && rows[0] && rows[0].r; if (typeof r === "string") r = JSON.parse(r);
+    out.innerHTML = fdShow(r);
+  } catch (e) { out.innerHTML = `<div class="notice bad">${esc(String(e.message || e))}</div>`; }
+  btn.disabled = false;
+});
+$("fdclear").addEventListener("click", () => { $("fdisbn").value = ""; $("fdcost").value = ""; $("fdpic").value = ""; $("fdout").innerHTML = ""; });
+
+(async () => {
+  mcp = { web: true };
+  if (!webPass()) await askPass();
+  sample = null; $("duckhint").textContent = "Grandpa Duck chats in the Claude version of the Launch Pad."; $("askbtn").disabled = true;
+  refresh(true);
+})();
+</script>
+</html>

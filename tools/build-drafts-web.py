@@ -86,6 +86,8 @@ rep('''<title>Papa Duck Drafts</title>''', '''<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- BUILT by tools/build-drafts-web.py from drafts-v62.html - edit drafts-v62.html, then re-run the build. -->
 <title>Papa Duck Drafts</title>''')
+# 6) the Launch Pad link goes to the web Launch Pad
+rep('https://claude.ai/artifact/DiKnn9WmWgGqCp41ZPDT73', 'launchpad.html')
 s = s.rstrip() + "\n"
 if "</html>" not in s:
     s += "</html>\n"
