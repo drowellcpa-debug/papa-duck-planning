@@ -465,13 +465,13 @@ function gwRender(){
 
 // ---------- 📦 Bin check (2026-11-15 Papa Duck: "should the bin show up in the draft, show the pd# that should be in there and as it shows
 //   up in there it marks it off in the duck tick tack toe - use graphics showing that you have all the books in the bin") ----------
-let bins = [], binSel = null, binTimer = null, binBusy = false;
+let bins = [], binSel = null, binTimer = null, binBusy = false, binFail = 0, binTick = 0;
 const BIN_MARK = { waiting: "⬜", drafted: "🦆", sent: "🦆", listed: "🦆", pulled: "✖️" };
 const BIN_WORD = { waiting: "not scanned yet", drafted: "in Drafts", sent: "sent", listed: "listed", pulled: "pulled" };
 async function binLoad(){
   if (binBusy) return; binBusy = true;
-  try { const r = await sql("select pipeline.bin_board() as b"); let nb = (r && r[0] && r[0].b) || []; if (typeof nb === "string") nb = JSON.parse(nb); binSet(nb); }
-  catch (e) { /* keep the last board */ }
+  try { const r = await sql("select pipeline.bin_board() as b"); let nb = (r && r[0] && r[0].b) || []; if (typeof nb === "string") nb = JSON.parse(nb); binSet(nb); binFail = 0; }
+  catch (e) { binFail++; /* keep the last board; back off so the connector is never crowded */ }
   binBusy = false;
 }
 // 2026-11-15 Papa Duck: "when it sees a [PD] can you have it show up in a prominent spot on the screen on the right so I can see it as the books come in"
@@ -538,7 +538,7 @@ function binRender(){
   if (binSel == null || !bins.some((b) => b.bin === binSel)) binSel = (open[0] || bins[0] || {}).bin ?? null;
   const cur = bins.find((b) => b.bin === binSel);
   let h = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">📦 Bin check</h3><button class="btn small" type="button" id="binclose">Close</button></div>' +
-    '<div style="font-size:.88rem;color:var(--muted)">Every PD sticker that went into a bin. As each book reaches Drafts from the Book Station, its square gets a 🦆. All ducks = every book in the bin is done. Updates every 15 seconds.</div>';
+    '<div style="font-size:.88rem;color:var(--muted)">Every PD sticker that went into a bin. As each book reaches Drafts from the Book Station, its square gets a 🦆. All ducks = every book in the bin is done. Updates every 30 seconds.</div>';
   if (!bins.length) h += '<div class="gwi">No bins with stickered books right now.</div>';
   else {
     h += '<div class="binchips">' + bins.map((b) => '<button type="button" class="binchip' + (b.bin === binSel ? " on" : "") + (b.done >= b.total ? " full" : "") + '" data-bin="' + b.bin + '">' +
@@ -650,9 +650,9 @@ async function load(quiet){
   if (!mcp) return;
   if (!quiet) setStatus("Loading…");
   try {
-    const rows = await sql("select pipeline.ui_list() as data, pipeline.fba_list() as fba, (select coalesce(jsonb_agg(a), '[]'::jsonb) from jsonb_array_elements(pipeline.alerts_open()) a where a->>'source' = 'Goodwill check') as gw, (select value from pipeline.config where key = 'gw_recheck_last') as gwlast, pipeline.bin_board() as bins");
+    const rows = await sql("select pipeline.ui_list() as data, pipeline.fba_list() as fba, (select coalesce(jsonb_agg(a), '[]'::jsonb) from jsonb_array_elements(pipeline.alerts_open()) a where a->>'source' = 'Goodwill check') as gw, (select value from pipeline.config where key = 'gw_recheck_last') as gwlast");
     gw = (rows[0] && rows[0].gw) || []; gwLast = (rows[0] && rows[0].gwlast) || "";
-    if (rows[0] && Array.isArray(rows[0].bins)) binSet(rows[0].bins);
+    if (!bins.length) setTimeout(binLoad, 1500);   // the bin board loads on its own call, so it can never hold up Drafts
     drafts = (rows[0] && rows[0].data) || [];
     reapplyArchived();
     if (rows[0] && rows[0].fba) fba = rows[0].fba;
@@ -2123,7 +2123,8 @@ render();
   if (!mcp){ setStatus("Not connected"); setNotice("warn", "<b>This view can't reach your connectors.</b> Open the page in the Claude app or at claude.ai while signed in. Until then you're looking at an example card."); return; }
   $("gwbtn").onclick = () => { $("gwpanel").hidden = !$("gwpanel").hidden; gwRender(); };
   $("binbtn").onclick = () => { tttMin = false; if (view.mode !== "list") { view = { mode: "list", id: null }; render(); } tttRender(); binLoad(); $("tttbox").scrollIntoView({ behavior: "smooth", block: "start" }); };
-  binTimer = setInterval(() => { if (!document.hidden) binLoad(); }, 15000);
+  // every 30 s while the page is open; after a connector error wait longer (1, 2, then 4 minutes) so Drafts itself always gets through
+  binTimer = setInterval(() => { binTick++; if (document.hidden || autoBusy) return; const every = binFail ? Math.min(8, 2 ** binFail) : 1; if (binTick % every === 0) binLoad(); }, 30000);
   $("justin").onclick = () => { const a = arrivals[0]; if (a) tttSel = a.bin; tttMin = false; tttRender(); $("tttbox").scrollIntoView({ behavior: "smooth", block: "start" }); };
   load();
 })();
