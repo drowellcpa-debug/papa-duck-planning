@@ -299,6 +299,24 @@ body.nobar .wrap{padding-bottom:40px}
 .gwbtn small{font-weight:600;font-size:.68rem;color:var(--muted)}
 .gwbtn.has{background:var(--ok);color:#fff;animation:gwpulse 1.4s ease-in-out infinite}.gwbtn.has small{color:#e8f5ec}
 @keyframes gwpulse{0%,100%{box-shadow:0 0 0 0 rgba(28,116,67,.6)}50%{box-shadow:0 0 0 9px rgba(28,116,67,0)}}
+.binbtn{display:grid;gap:2px;justify-items:center;margin-top:6px;border:3px solid #8a5a00;background:#fff4dc;color:#8a5a00;border-radius:10px;padding:7px 6px;font-weight:700;font-size:.82rem;cursor:pointer}
+.binbtn b{font-family:var(--mono);font-size:1.4rem}.binbtn small{font-weight:600;font-size:.68rem;color:var(--muted)}
+.binpanel{position:fixed;left:12px;right:12px;top:12px;bottom:12px;max-width:760px;margin:0 auto;z-index:11;background:var(--surface);border:3px solid #8a5a00;border-radius:12px;padding:14px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.25);display:grid;align-content:start;gap:10px}
+.binpanel[hidden]{display:none}
+.binchips{display:flex;flex-wrap:wrap;gap:6px}
+.binchip{border:2px solid #8a5a00;background:#fff;color:#8a5a00;border-radius:999px;padding:5px 11px;font-weight:700;cursor:pointer;font-size:.88rem}
+.binchip.on{background:#8a5a00;color:#fff}.binchip.full{border-color:var(--ok);color:var(--ok)}.binchip.full.on{background:var(--ok);color:#fff}
+.ttt{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:4px solid #3b2a12;border-radius:10px;overflow:hidden;background:#3b2a12}
+.ttt .sq{background:#fffaf0;margin:2px;min-height:92px;padding:6px;display:grid;align-content:center;justify-items:center;text-align:center;gap:2px;position:relative}
+.ttt .sq .pd{font-family:var(--mono);font-weight:800;font-size:1.05rem}
+.ttt .sq .tt{font-size:.72rem;color:var(--muted);line-height:1.2;max-height:2.5em;overflow:hidden}
+.ttt .sq .mk{font-size:1.9rem;line-height:1}
+.ttt .sq.done{background:#e3f4e6}.ttt .sq.done .pd{color:var(--ok)}
+.ttt .sq.pulled{background:#f1f1f1}.ttt .sq.pulled .pd{text-decoration:line-through;color:var(--muted)}
+.ttt .sq.extra{background:#fff2d6}
+.ttt .sq.waiting .mk{opacity:.25;filter:grayscale(1)}
+.binwin{background:var(--ok);color:#fff;border-radius:10px;padding:12px;text-align:center;font-weight:800;font-size:1.15rem}
+.binbar2{height:14px;border-radius:999px;background:#eee;overflow:hidden}.binbar2 i{display:block;height:100%;background:var(--ok)}
 .gwpanel{position:fixed;right:12px;top:12px;bottom:12px;width:min(380px,calc(100vw - 24px));z-index:10;background:var(--surface);border:3px solid var(--ok);border-radius:12px;padding:14px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.2);display:grid;align-content:start;gap:10px}
 .gwpanel[hidden]{display:none}
 .gwpanel .gwi{border-top:1px solid var(--line);padding-top:8px;display:grid;gap:6px}
@@ -372,8 +390,10 @@ body.nobar .wrap{padding-bottom:40px}
   <div class="tr amz"><span>FBA</span><b id="t-fba">0</b></div>
   <button class="btn fbabtn small" id="fblast" type="button" hidden>🚀 Blast off FBA only</button>
   <button class="gwbtn" id="gwbtn" type="button" aria-label="List again from the Goodwill pile"><span>♻️ List again</span><b id="t-gw">0</b><small id="gwwhen">checking…</small></button>
+  <button class="binbtn" id="binbtn" type="button" aria-label="Bin check"><span>📦 Bin check</span><b id="t-bin">–</b><small id="binwhen">tap to open</small></button>
 </aside>
 <div class="gwpanel" id="gwpanel" hidden role="dialog" aria-label="List again"></div>
+<div class="binpanel" id="binpanel" hidden role="dialog" aria-label="Bin check"></div>
 
 <script>
 (function(){
@@ -418,6 +438,48 @@ function gwRender(){
     catch (e) { const x = explain(e, SUPA); setNotice(x.kind, x.text); }
     gwRender();
   });
+}
+
+// ---------- 📦 Bin check (2026-11-15 Papa Duck: "should the bin show up in the draft, show the pd# that should be in there and as it shows
+//   up in there it marks it off in the duck tick tack toe - use graphics showing that you have all the books in the bin") ----------
+let bins = [], binSel = null, binTimer = null, binBusy = false;
+const BIN_MARK = { waiting: "⬜", drafted: "🦆", sent: "🦆", listed: "🦆", pulled: "✖️" };
+const BIN_WORD = { waiting: "not scanned yet", drafted: "in Drafts", sent: "sent", listed: "listed", pulled: "pulled" };
+async function binLoad(){
+  if (binBusy) return; binBusy = true;
+  try { const r = await sql("select pipeline.bin_board() as b"); bins = (r && r[0] && r[0].b) || []; if (typeof bins === "string") bins = JSON.parse(bins); }
+  catch (e) { /* keep the last board */ }
+  binBusy = false; binRender();
+}
+function binRender(){
+  const open = bins.filter((b) => b.done < b.total);
+  $("t-bin").textContent = open.length ? open.length : "✓";
+  $("binwhen").textContent = open.length ? (open.length === 1 ? "bin to scan" : "bins to scan") : "all bins done";
+  const p = $("binpanel"); if (p.hidden) return;
+  if (binSel == null || !bins.some((b) => b.bin === binSel)) binSel = (open[0] || bins[0] || {}).bin ?? null;
+  const cur = bins.find((b) => b.bin === binSel);
+  let h = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">📦 Bin check</h3><button class="btn small" type="button" id="binclose">Close</button></div>' +
+    '<div style="font-size:.88rem;color:var(--muted)">Every PD sticker that went into a bin. As each book reaches Drafts from the Book Station, its square gets a 🦆. All ducks = every book in the bin is done. Updates every 15 seconds.</div>';
+  if (!bins.length) h += '<div class="gwi">No bins with stickered books right now.</div>';
+  else {
+    h += '<div class="binchips">' + bins.map((b) => '<button type="button" class="binchip' + (b.bin === binSel ? " on" : "") + (b.done >= b.total ? " full" : "") + '" data-bin="' + b.bin + '">' +
+      (b.done >= b.total ? "🎉 " : "") + "Bin " + b.bin + " · " + b.done + "/" + b.total + "</button>").join("") + "</div>";
+    if (cur) {
+      const pct = Math.round(100 * cur.done / Math.max(1, cur.total));
+      h += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:1.2rem">Bin ' + cur.bin + (cur.who ? ' <small style="color:var(--muted);font-weight:600">(' + esc(String(cur.who).replace(/^\w/, (c) => c.toUpperCase())) + ")</small>" : "") + '</b><b>' + cur.done + " of " + cur.total + " 🦆</b></div>" +
+        '<div class="binbar2"><i style="width:' + pct + '%"></i></div>';
+      if (cur.done >= cur.total) h += '<div class="binwin">🎉🦆 Bin ' + cur.bin + " is complete — every book made it to Drafts!</div>";
+      const sq = (it, extra) => '<div class="sq ' + (extra ? "extra " : "") + (it.state === "waiting" ? "waiting" : it.state === "pulled" ? "pulled" : "done") + '" title="' + esc(BIN_WORD[it.state] || "") + '">' +
+        '<div class="mk">' + (BIN_MARK[it.state] || "⬜") + '</div><div class="pd">' + esc(String(it.pd || "").replace(/^PD-/, "")) + '</div><div class="tt">' + esc(it.title || "") + "</div></div>";
+      h += '<div class="ttt">' + (cur.items || []).map((it) => sq(it, false)).join("") + "</div>";
+      const waiting = (cur.items || []).filter((it) => it.state === "waiting");
+      if (waiting.length && waiting.length <= 6) h += '<div style="font-size:.9rem"><b>Still to scan:</b> ' + waiting.map((it) => esc(it.pd)).join(", ") + "</div>";
+      if ((cur.extra || []).length) h += '<div style="font-size:.88rem;color:var(--muted)">Also in Drafts with Bin ' + cur.bin + ' (no Quick check sticker):</div><div class="ttt">' + cur.extra.map((it) => sq(it, true)).join("") + "</div>";
+    }
+  }
+  p.innerHTML = h;
+  $("binclose").onclick = () => { p.hidden = true; clearInterval(binTimer); binTimer = null; };
+  p.querySelectorAll("[data-bin]").forEach((b) => b.onclick = () => { binSel = Number(b.dataset.bin); binRender(); });
 }
 
 // ---------- sample shown until your real drafts load ----------
@@ -509,8 +571,9 @@ async function load(quiet){
   if (!mcp) return;
   if (!quiet) setStatus("Loading…");
   try {
-    const rows = await sql("select pipeline.ui_list() as data, pipeline.fba_list() as fba, (select coalesce(jsonb_agg(a), '[]'::jsonb) from jsonb_array_elements(pipeline.alerts_open()) a where a->>'source' = 'Goodwill check') as gw, (select value from pipeline.config where key = 'gw_recheck_last') as gwlast");
+    const rows = await sql("select pipeline.ui_list() as data, pipeline.fba_list() as fba, (select coalesce(jsonb_agg(a), '[]'::jsonb) from jsonb_array_elements(pipeline.alerts_open()) a where a->>'source' = 'Goodwill check') as gw, (select value from pipeline.config where key = 'gw_recheck_last') as gwlast, pipeline.bin_board() as bins");
     gw = (rows[0] && rows[0].gw) || []; gwLast = (rows[0] && rows[0].gwlast) || "";
+    if (rows[0] && Array.isArray(rows[0].bins)) { bins = rows[0].bins; binRender(); }
     drafts = (rows[0] && rows[0].data) || [];
     reapplyArchived();
     if (rows[0] && rows[0].fba) fba = rows[0].fba;
@@ -1979,6 +2042,8 @@ render();
   try { mcp = await window.claude.use("mcp"); } catch (_) { mcp = null; }
   if (!mcp){ setStatus("Not connected"); setNotice("warn", "<b>This view can't reach your connectors.</b> Open the page in the Claude app or at claude.ai while signed in. Until then you're looking at an example card."); return; }
   $("gwbtn").onclick = () => { $("gwpanel").hidden = !$("gwpanel").hidden; gwRender(); };
+  $("binbtn").onclick = () => { const p = $("binpanel"); p.hidden = !p.hidden;
+    if (!p.hidden) { binRender(); binLoad(); clearInterval(binTimer); binTimer = setInterval(binLoad, 15000); } else { clearInterval(binTimer); binTimer = null; } };
   load();
 })();
 })();

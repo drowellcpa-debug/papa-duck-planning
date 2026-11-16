@@ -1,0 +1,5 @@
+-- 2026-11-15 Papa Duck: "when I get ready to scan them should the bin show up in the draft, show the pd# that should be in there and as it
+--   shows up in there it marks it off in the duck tick tack toe - use graphics showing that you have all the books in the bin"
+-- pipeline.bin_board(): every stickered LIST book per bin (cleanup_piles, last 60 days) with its Drafts state
+--   (waiting / drafted / sent / listed / pulled) + drafts carrying that bin with no Quick check sticker (extra). Drafts "📦 Bin check" panel.
+-- Full body: live pipeline.bin_board().
