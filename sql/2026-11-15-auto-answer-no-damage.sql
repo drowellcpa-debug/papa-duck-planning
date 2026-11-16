@@ -3,3 +3,4 @@
 --   present, intact, surface, condition ...) he said nothing about gets the good answer (first option when it is the "no damage / all there /
 --   clean" one). If his Book Station notes mention that damage, it is left for him. Re-run on all open drafts: 11 questions answered.
 -- Full body: live pipeline.drafts_auto_answer().
+-- 2026-11-15 v2: Book Station media FLAWS checklist ("CD FLAWS: scratches on the disc; ...") - scratch questions pick the scratched answer when he checked it.

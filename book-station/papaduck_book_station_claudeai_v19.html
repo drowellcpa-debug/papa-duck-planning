@@ -957,12 +957,9 @@
           <button type="button" class="mtbtn" data-mt="vinyl">🎵 Record (vinyl)</button>
         </div>
         <div id="scrbubble" style="display:none;border:3px solid var(--media);border-radius:14px;background:rgba(168,90,36,.10);padding:8px 10px;margin:2px 0 8px">
-          <div id="scrq" style="font-weight:800;color:var(--media);margin-bottom:6px">👀 Look at the disc — any visible scratches?</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button type="button" class="scrbtn" data-scr="none" style="min-height:44px;padding:6px 14px;border-radius:999px;border:2px solid var(--ok);background:#fff;color:var(--ok);font-weight:800;font-size:1em"><span id="scrok">✅ No visible scratches</span></button>
-            <button type="button" class="scrbtn" data-scr="some" style="min-height:44px;padding:6px 14px;border-radius:999px;border:2px solid var(--err);background:#fff;color:var(--err);font-weight:800;font-size:1em"><span id="scrbad">⚠️ Visible scratches</span></button>
-          </div>
-          <div style="font-size:0.88em;color:var(--dim);margin-top:5px">Always listed as <b>not tested (no player)</b>. Your pick goes into Notes.</div>
+          <div id="scrq" style="font-weight:800;color:var(--media);margin-bottom:4px">👀 Anything wrong with it? Check what you see — leave it blank if it looks fine.</div>
+          <div id="mflaws" style="display:grid;gap:6px"></div>
+          <div style="font-size:0.88em;color:var(--dim);margin-top:5px">Nothing checked = listed as clean (no scratches, cracks or damage seen). Always <b>not tested (no player)</b>. Goes into Notes.</div>
         </div>
         <div style="font-size:0.9em;color:var(--dim);margin-bottom:3px">
           <b style="color:var(--ship)">Discs on their own DO ship Media Mail</b> — recordings count as media. Only a non-media object riding along breaks it.
@@ -2186,14 +2183,38 @@ const MEDIA_TYPES = {
            okTxt:'no visible scratches or warping on the vinyl',                     badTxt:'VISIBLE SCRATCHES OR WARPING on the vinyl' }
 };
 let mediaType = '';
+// 2026-11-15 Papa Duck: "when I pick the CD, can it come up and have a check box for scratch on cd or broken hinge or scratch on plastic cover
+//   or whatever question is appropriate" - one checklist per kind; nothing checked = clean.
+const MEDIA_FLAWS = {
+  cd:    ['Scratches on the disc', 'Broken case hinge', 'Cracked case (front or back)', 'Scratched plastic case cover', 'Booklet / insert missing', 'A disc is missing (set)'],
+  dvd:   ['Scratches on the disc', 'Broken case hinge / clips', 'Cracked or torn case', 'Cover insert missing or torn', 'A disc is missing (set)'],
+  vhs:   ['Mold or white spots on the tape', 'Wrinkled or damaged tape', 'Cracked cassette shell', 'Sleeve / clamshell torn or broken', 'Label missing or written on'],
+  cass:  ['Loose or tangled tape', 'Cracked case or shell', 'Insert card (J-card) missing', 'Label written on or peeling'],
+  '8tr': ['Loose or broken tape', 'Pressure pad gone', 'Cracked shell', 'Label worn or written on'],
+  vinyl: ['Scratches on the record', 'Warped', 'Jacket seam split / torn', 'Ring wear on the jacket', 'Writing or stickers on the jacket or label']
+};
+function mflawsRender(){
+  const box = $('mflaws'); if (!box) return;
+  const list = MEDIA_FLAWS[mediaType] || [];
+  box.innerHTML = list.map(function(f, i){ return '<label style="display:flex;gap:8px;align-items:center;font-weight:700;color:var(--err);cursor:pointer;min-height:36px"><input type="checkbox" class="mflaw" data-f="' + i + '" style="width:22px;height:22px">⚠️ ' + f + '</label>'; }).join('');
+  box.querySelectorAll('.mflaw').forEach(function(c){ c.addEventListener('change', mflawsNote); });
+  mflawsNote();
+}
+function mflawsNote(){
+  const t = MEDIA_TYPES[mediaType]; if (!t) return;
+  const list = MEDIA_FLAWS[mediaType] || [];
+  const on = Array.prototype.slice.call(document.querySelectorAll('.mflaw')).filter(function(c){ return c.checked; }).map(function(c){ return list[+c.dataset.f].toLowerCase(); });
+  const n = $('notesinput'); let v = (n.value || '').replace(/\s*(Discs\/tapes|CD|DVD \/ Blu-ray|VHS tape|Cassette tape|8-track tape|Vinyl record)( FLAWS)?: [^.]*\. Not tested \(no player\)\./g, '').trim();
+  v = (v ? v + ' ' : '') + (on.length ? t.name + ' FLAWS: ' + on.join('; ') + '. Not tested (no player).' : t.name + ': no scratches, no cracks, no damage seen. Not tested (no player).');
+  n.value = v; n.dispatchEvent(new Event('input'));
+}
 function mtSet(k){
   mediaType = k || '';
   document.querySelectorAll('.mtbtn').forEach(function(b){ const on = b.dataset.mt === mediaType;
     b.style.background = on ? 'var(--media)' : '#fff'; b.style.color = on ? '#fff' : 'var(--media)'; });
   const t = MEDIA_TYPES[mediaType];
   $('scrbubble').style.display = t ? 'block' : 'none';
-  if (t){ $('scrq').textContent = t.q; $('scrok').textContent = t.ok; $('scrbad').textContent = t.bad; }
-  scrSet('');
+  if (t) mflawsRender(); else scrSet('');
 }
 document.querySelectorAll('.mtbtn').forEach(function(b){
   b.style.cssText = 'min-height:40px;padding:5px 12px;border-radius:999px;border:2px solid var(--media);background:#fff;color:var(--media);font-weight:700;font-size:.95em';
@@ -2201,7 +2222,7 @@ document.querySelectorAll('.mtbtn').forEach(function(b){
 });
 const SCR_TXT = { none: 'Discs/tapes: no visible scratches. Not tested (no player).', some: 'Discs/tapes: VISIBLE SCRATCHES. Not tested (no player).' };
 function scrSet(k){
-  const n = $('notesinput'); let v = (n.value || '').replace(/\s*(Discs\/tapes|CD|DVD \/ Blu-ray|VHS tape|Cassette tape|8-track tape|Vinyl record): [^.]*\. Not tested \(no player\)\./g, '').trim();
+  const n = $('notesinput'); let v = (n.value || '').replace(/\s*(Discs\/tapes|CD|DVD \/ Blu-ray|VHS tape|Cassette tape|8-track tape|Vinyl record)( FLAWS)?: [^.]*\. Not tested \(no player\)\./g, '').trim();
   const t = MEDIA_TYPES[mediaType];
   if (k) v = (v ? v + ' ' : '') + (t ? t.name + ': ' + (k === 'none' ? t.okTxt : t.badTxt) + '. Not tested (no player).' : SCR_TXT[k]);
   n.value = v; n.dispatchEvent(new Event('input'));
