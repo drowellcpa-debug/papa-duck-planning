@@ -27,3 +27,4 @@ create or replace function hunter.history(p_isbn text, p_asin text) returns json
     'on_hand', coalesce((select jsonb_agg(jsonb_build_object('pd', f->>'Tracking Number', 'status', f->>'Status', 'price', (f->>'Listed Price')::numeric))
                          from inv where f->>'Status' not in ('Sold','Donated','Unlisted') and coalesce((f->>'Quantity')::numeric, 1) > 0), '[]'::jsonb))
 $$;
+insert into pipeline.config (key, value) values ('hunter_min_profit', '20') on conflict (key) do update set value = excluded.value;  -- 2026-11-17 "only want profit greater than $20"

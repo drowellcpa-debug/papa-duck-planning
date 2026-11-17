@@ -11,6 +11,7 @@
 // v2 (2026-11-17 10:52, "please compare it against the 3 year keepa graph to determine, I dont want maybee"): only 🟢 BUY or 🔴 PASS.
 //   Keepa history is 3 years. Amazon counts at its SAFE price = the lower of today's used price and its 3-year middle (median), and
 //   "sells" = sales-rank drops in the last year. A store only counts toward BUY when it is proven to sell. BUY = proven store, profit >= $6.
+// v3 (2026-11-17 10:59, "only want profit greater than $20"): BUY needs profit of at least pipeline.config hunter_min_profit (20).
 // SAFETY: reads only. Writes: hunter.checks (a log) and, on "bought", the Scout Buys row (same as the Scout app's Bought button).
 import postgres from "npm:postgres@3.4.4";
 
@@ -162,13 +163,15 @@ Deno.serve(async (req) => {
     if (best) best.best = true;
     const hard = [...(base.hard || [])];
     if (base.ident.tgatb && !hard.some((h: string) => /Good and the Beautiful/.test(h))) hard.unshift("🚨 The Good and the Beautiful — never list");
+    const [mp] = await sql`select value from pipeline.config where key = 'hunter_min_profit'`;
+    const minP = Number(mp?.value) || 20;
     let verdict = "PASS", why = "";
     const bp = best ? best.profit : 0;
     if (hard.length) { verdict = "PASS"; why = hard[0]; }
     else if (!best) { verdict = "PASS"; why = "Not found for sale anywhere"; }
     else if (!best.proven) { verdict = "PASS"; why = "No proof it sells on eBay or Amazon"; }
-    else if (bp >= 6) { verdict = "BUY"; why = `Sells on ${best.store}` + (best.store === "Amazon" && best.median3 ? " · 3-year price holds" : ""); }
-    else { verdict = "PASS"; why = bp > 0 ? "Profit too small (under $6)" : "Costs more than it sells for"; }
+    else if (bp >= minP) { verdict = "BUY"; why = `Sells on ${best.store}` + (best.store === "Amazon" && best.median3 ? " · 3-year price holds" : ""); }
+    else { verdict = "PASS"; why = bp > 0 ? `Profit under $${minP}` : "Costs more than it sells for"; }
     const amzRow = stores.find((s: any) => s.store === "Amazon");
     if (amzRow && amzRow.now && amzRow.median3 && amzRow.now > amzRow.median3 * 1.3) amzRow.note = `today $${amzRow.now.toFixed(2)} is high: 3-year middle is $${amzRow.median3.toFixed(2)}`;
     const out = { ok: true, ...base, verdict, why, cost, best: best ? { store: best.store, profit: best.profit, sells: best.sells } : null, stores, hard };
