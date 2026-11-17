@@ -2,12 +2,15 @@
 // Papa Duck: "can you look at what this app does with vinted and see if we can do that ourselves" (BookMine Hunter, $59.99/mo),
 //   "I would also like to add sell on ebay as well, because as long as it sells somewhere I dont want to throw that away", "yes build it".
 // The extension reads the Vinted listing he is looking at (title, ISBN, price, shipping) and posts it here.
-//   POST {action:"check", isbn, title, author, price, ship, url}  -> one call per store + BUY / MAYBE / PASS
+//   POST {action:"check", isbn, title, author, price, ship, url}  -> one row per store + BUY / PASS
 //   POST {action:"bought", isbn, title, author, cost, list, best, url} -> Scout Buys (pipeline.scout_buys + Airtable), store "Vinted"
 //   POST {action:"ping"} -> passcode check
 // Pricing is the Scout app's own code (eBay matching copies + sold counters, AbeBooks, Amazon/Keepa, TGATB flag): this function
 //   calls the scout function, adds a Keepa price/rank chart and his own sales history, and works out profit per store.
 // Auth: header x-station-pass = pipeline.config station_passcode or a sorter PIN (same as the Book Station / Drafts web pages).
+// v2 (2026-11-17 10:52, "please compare it against the 3 year keepa graph to determine, I dont want maybee"): only 🟢 BUY or 🔴 PASS.
+//   Keepa history is 3 years. Amazon counts at its SAFE price = the lower of today's used price and its 3-year middle (median), and
+//   "sells" = sales-rank drops in the last year. A store only counts toward BUY when it is proven to sell. BUY = proven store, profit >= $6.
 // SAFETY: reads only. Writes: hunter.checks (a log) and, on "bought", the Scout Buys row (same as the Scout app's Bought button).
 import postgres from "npm:postgres@3.4.4";
 
@@ -39,16 +42,21 @@ function validIsbn(s: string) {
 // Keepa: product (with a year of used price + sales rank for the chart); search by title when the listing has no ISBN
 async function keepa(key: string, q: { code?: string; term?: string }) {
   const u = q.code
-    ? `https://api.keepa.com/product?key=${encodeURIComponent(key)}&domain=1&code=${q.code}&stats=90&history=1&days=365`
-    : `https://api.keepa.com/search?key=${encodeURIComponent(key)}&domain=1&type=product&term=${encodeURIComponent(q.term || "")}&page=0&stats=90&history=1&days=365`;
+    ? `https://api.keepa.com/product?key=${encodeURIComponent(key)}&domain=1&code=${q.code}&stats=365&history=1&days=1095`
+    : `https://api.keepa.com/search?key=${encodeURIComponent(key)}&domain=1&type=product&term=${encodeURIComponent(q.term || "")}&page=0&stats=365&history=1&days=1095`;
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 15000);
   try { const r = await fetch(u, { signal: ctl.signal }); const j = await r.json(); return (j.products || [])[0] || null; }
   catch (_) { return null; } finally { clearTimeout(t); }
 }
 const KMIN = 21564000;   // Keepa minutes -> unix minutes
+function mid3(pts: (number | null)[]) {
+  const v = pts.filter((x): x is number => x != null && x > 0).sort((a, b) => a - b);
+  if (!v.length) return null;
+  return { median: r2(v[Math.floor(v.length / 2)]), low: r2(v[0]), high: r2(v[v.length - 1]) };
+}
 function series(csv: any, cents: boolean) {
   if (!Array.isArray(csv) || csv.length < 2) return [];
-  const cut = Date.now() / 60000 - 365 * 1440, out: [number, number][] = [];
+  const cut = Date.now() / 60000 - 1095 * 1440, out: [number, number][] = [];
   let last: number | null = null;
   for (let i = 0; i + 1 < csv.length; i += 2) {
     const tm = csv[i] + KMIN, v = csv[i + 1];
@@ -56,10 +64,10 @@ function series(csv: any, cents: boolean) {
     if (v > 0) out.push([tm, cents ? v / 100 : v]);
   }
   if (last != null) out.unshift([cut, cents ? last / 100 : last]);
-  // 52 weekly points (last value in each week)
+  // 78 points, one every 2 weeks (last value in each)
   const pts: (number | null)[] = [];
-  for (let w = 0; w < 52; w++) {
-    const end = cut + (w + 1) * 7 * 1440; let v: number | null = null;
+  for (let w = 0; w < 78; w++) {
+    const end = cut + (w + 1) * 14 * 1440; let v: number | null = null;
     for (const [tm, x] of out) { if (tm <= end) v = x; else break; }
     pts.push(v);
   }
@@ -101,7 +109,7 @@ Deno.serve(async (req) => {
     let base: any = null;
     if (isbn) {
       const [c] = await sql`select result from hunter.checks where isbn = ${isbn} and at > now() - interval '6 hours' and result ? 'stores' order by at desc limit 1`;
-      if (c) base = c.result;
+      if (c && c.result?.v === 2) base = c.result;
     }
     if (!base) {
       // no ISBN on the listing: find it on Amazon by title + author
@@ -120,8 +128,15 @@ Deno.serve(async (req) => {
       const id = sc.ident || {}, g = sc.grid || {}, amz = g.amazon || {}, eb = g.ebay || {}, abe = g.abe || {};
       const stores: any[] = [];
       if (eb.n > 0 && sc.list) stores.push({ store: "eBay", sells: sc.list, selling: eb.sold > 0 ? `${eb.sold} sold` : `${eb.n} listed, none sold yet`, proven: eb.sold > 0 });
-      const amzPrice = amz.used_bb || amz.used_low || 0;
-      if (amzPrice) stores.push({ store: "Amazon", sells: amzPrice, selling: amz.sales90 != null ? `${amz.sales90} / 90 days` : "no sales data", proven: (amz.sales90 || 0) >= 3 });
+      const p0 = kp2 || null;
+      const priceSeries = p0 ? series(p0.csv?.[2], true) : [];
+      const m3 = mid3(priceSeries);
+      const drops365 = typeof p0?.stats?.salesRankDrops365 === "number" && p0.stats.salesRankDrops365 >= 0 ? p0.stats.salesRankDrops365 : null;
+      const amzNow = amz.used_bb || amz.used_low || 0;
+      const amzSafe = amzNow && m3 ? Math.min(amzNow, m3.median) : amzNow;
+      if (amzSafe) stores.push({ store: "Amazon", sells: r2(amzSafe), now: amzNow, median3: m3?.median ?? null,
+        selling: drops365 != null ? `${drops365} sales / year` : amz.sales90 != null ? `${amz.sales90} / 90 days` : "no sales data",
+        proven: drops365 != null ? drops365 >= 4 : (amz.sales90 || 0) >= 3 });
       if (abe.n > 0) stores.push({ store: "AbeBooks", sells: abe.avg, selling: `${abe.n} ${abe.n === 1 ? "copy" : "copies"} listed`, proven: false });
       const p = kp2 || null;
       base = {
@@ -129,7 +144,7 @@ Deno.serve(async (req) => {
         stores, scout_verdict: sc.verdict, scout_reason: sc.reason, hard: sc.hard || [], flags: (sc.flags || []).slice(0, 6), family: sc.family || "",
         amazon: { asin: p?.asin || sc.amazon?.asin || "", rank: amz.rank || null, sales90: amz.sales90 ?? null, offers: p?.stats?.current?.[12] > 0 ? p.stats.current[12] : null,
                   title: p?.title || "", image: p?.images?.[0]?.l ? "https://m.media-amazon.com/images/I/" + p.images[0].l : p?.imagesCSV ? "https://m.media-amazon.com/images/I/" + String(p.imagesCSV).split(",")[0] : "" },
-        chart: p ? { price: series(p.csv?.[2], true), rank: series(p.csv?.[3], false) } : null,
+        chart: p ? { price: priceSeries, rank: series(p.csv?.[3], false), years: 3, m3 } : null, v: 2,
       };
       const asin = base.amazon.asin || isbn13to10(isbn);
       const [h] = await sql`select hunter.history(${isbn || null}, ${asin || null}) as h`;
@@ -143,7 +158,7 @@ Deno.serve(async (req) => {
     // ---------- profit per store and the call (profit = what it sells for minus his cost) ----------
     const stores = (base.stores || []).map((s: any) => ({ ...s, profit: r2(s.sells - cost) })).sort((a: any, b2: any) => b2.profit - a.profit);
     const proven = stores.filter((s: any) => s.proven);
-    const best = proven[0] && proven[0].profit >= (stores[0]?.profit || 0) - 3 ? proven[0] : stores[0] || null;
+    const best = proven[0] || stores[0] || null;   // proven stores first; AbeBooks / unproven are only shown
     if (best) best.best = true;
     const hard = [...(base.hard || [])];
     if (base.ident.tgatb && !hard.some((h: string) => /Good and the Beautiful/.test(h))) hard.unshift("🚨 The Good and the Beautiful — never list");
@@ -151,10 +166,11 @@ Deno.serve(async (req) => {
     const bp = best ? best.profit : 0;
     if (hard.length) { verdict = "PASS"; why = hard[0]; }
     else if (!best) { verdict = "PASS"; why = "Not found for sale anywhere"; }
-    else if (best.proven && bp >= 8) { verdict = "BUY"; why = `Sells on ${best.store} · good margin`; }
-    else if (best.proven && bp >= 4) { verdict = "MAYBE"; why = `Sells on ${best.store}, but a thin margin`; }
-    else if (!best.proven && bp >= 8) { verdict = "MAYBE"; why = `Good price on ${best.store}, but no proof it sells`; }
-    else { verdict = "PASS"; why = bp > 0 ? "Profit too small" : "Costs more than it sells for"; }
+    else if (!best.proven) { verdict = "PASS"; why = "No proof it sells on eBay or Amazon"; }
+    else if (bp >= 6) { verdict = "BUY"; why = `Sells on ${best.store}` + (best.store === "Amazon" && best.median3 ? " · 3-year price holds" : ""); }
+    else { verdict = "PASS"; why = bp > 0 ? "Profit too small (under $6)" : "Costs more than it sells for"; }
+    const amzRow = stores.find((s: any) => s.store === "Amazon");
+    if (amzRow && amzRow.now && amzRow.median3 && amzRow.now > amzRow.median3 * 1.3) amzRow.note = `today $${amzRow.now.toFixed(2)} is high: 3-year middle is $${amzRow.median3.toFixed(2)}`;
     const out = { ok: true, ...base, verdict, why, cost, best: best ? { store: best.store, profit: best.profit, sells: best.sells } : null, stores, hard };
     await sql`insert into hunter.checks (url, isbn, title, cost, verdict, best_store, best_profit, result)
       values (${String(b.url || "").split("?")[0] || null}, ${base.ident.isbn || null}, ${base.ident.title || title || null}, ${cost}, ${verdict}, ${best?.store || null}, ${best?.profit ?? null}, ${sql.json(base)})`;

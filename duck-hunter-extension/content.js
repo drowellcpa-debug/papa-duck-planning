@@ -106,7 +106,7 @@
     const line = (arr, inv) => { const v = arr.filter((x) => x != null); if (!v.length) return ""; const lo = Math.min(...v), hi = Math.max(...v), sp = hi - lo || 1;
       return arr.map((x, i) => x == null ? null : `${(i / (arr.length - 1) * 340).toFixed(1)},${(6 + (inv ? (x - lo) / sp : 1 - (x - lo) / sp) * 56).toFixed(1)}`).filter(Boolean).join(" "); };
     const p = c.price.filter((v) => v), lo = Math.min(...p), hi = Math.max(...p);
-    return `<div class="chart"><div class="l"><span>Amazon used price · 1 year · ${money(lo)}–${money(hi)}</span><span><b style="color:${GREEN}">—</b> price <b style="color:#d97706">···</b> rank</span></div>
+    return `<div class="chart"><div class="l"><span>Amazon used price · ${c.years || 1} year${(c.years || 1) > 1 ? "s" : ""} · ${money(lo)}–${money(hi)}${c.m3 ? " · middle " + money(c.m3.median) : ""}</span><span><b style="color:${GREEN}">—</b> price <b style="color:#d97706">···</b> rank</span></div>
       <svg viewBox="0 0 340 68" width="100%" height="68"><polyline fill="none" stroke="#d97706" stroke-width="1.5" stroke-dasharray="3 3" points="${line(c.rank || [], true)}"/><polyline fill="none" stroke="${GREEN}" stroke-width="2.5" points="${line(c.price, false)}"/></svg>
       <div class="m" style="font-size:10.5px">Rank line: higher on the chart = selling better.</div></div>`;
   }
@@ -143,7 +143,7 @@
     const v = r.verdict, ic = { BUY: "🟢", MAYBE: "🟡", PASS: "🔴" }[v] || "⚪";
     const id = r.ident || {}, amz = r.amazon || {}, hist = r.history || { sold: [], on_hand: [] };
     const tg = (r.hard || []).find((h) => /Good and the Beautiful|self-printed/i.test(h));
-    const rows = (r.stores || []).map((s) => `<div class="wr${s.best ? " best" : ""}"><span>${s.best ? "⭐ " : ""}${esc(s.store)}</span><span>${money(s.sells)}</span><span>${esc(s.selling)}</span><b class="${s.profit < 0 ? "neg" : ""}">${money(s.profit)}</b></div>`).join("");
+    const rows = (r.stores || []).map((s) => `<div class="wr${s.best ? " best" : ""}"><span>${s.best ? "⭐ " : ""}${esc(s.store)}</span><span>${money(s.sells)}</span><span>${esc(s.selling)}</span><b class="${s.profit < 0 ? "neg" : ""}">${money(s.profit)}</b></div>${s.note ? `<div class="m" style="padding:0 9px 6px;color:#b45309">⚠️ ${esc(s.note)}</div>` : ""}`).join("");
     const histTxt = hist.sold.length ? `sold ${hist.sold.length} before (${hist.sold.slice(0, 3).map((x) => esc(x.ch) + " " + money(x.price)).join(", ")})` : "never sold one";
     const onHand = hist.on_hand.length ? ` · ${hist.on_hand.length} on hand (${hist.on_hand.slice(0, 3).map((x) => esc(x.pd)).join(", ")})` : " · none on hand";
     box.innerHTML = frame(`
@@ -163,7 +163,7 @@
       <div class="mine">📒 <b>Your history:</b> ${histTxt}${onHand}.</div>
       ${state.boughtMsg ? `<div class="pad ok">${esc(state.boughtMsg)}</div>` : ""}
       <div class="btns"><button class="b b1" id="bought">🛒 Bought it</button><button class="b" id="amz">🔎 Check on Amazon</button></div>
-      <div class="small">Profit = what it sells for minus your cost. Etsy is left out: it has no sold-price data for books. 🛒 saves the buy (cost, source Vinted, best store) to Scout Buys. <a href="#" id="fix">Wrong book? Fix it</a>${r.best && r.best.store === "eBay" && id.isbn ? ` · <a href="https://www.ebay.com/sch/i.html?_nkw=${esc(id.isbn)}&LH_Sold=1&LH_Complete=1" target="_blank">eBay sold</a>` : ""}</div>`);
+      <div class="small">Only BUY or PASS. Profit = what it sells for minus your cost. Amazon uses the lower of today's price and its 3-year middle. Etsy is left out: it has no sold-price data for books. 🛒 saves the buy (cost, source Vinted, best store) to Scout Buys. <a href="#" id="fix">Wrong book? Fix it</a>${r.best && r.best.store === "eBay" && id.isbn ? ` · <a href="https://www.ebay.com/sch/i.html?_nkw=${esc(id.isbn)}&LH_Sold=1&LH_Complete=1" target="_blank">eBay sold</a>` : ""}</div>`);
     wire();
     root.getElementById("cost").onclick = root.getElementById("fix").onclick = (e) => { e.preventDefault(); state.edit = true; paint(); };
     root.getElementById("amz").onclick = () => window.open(amz.asin ? `https://www.amazon.com/dp/${amz.asin}` : `https://www.amazon.com/s?k=${encodeURIComponent(id.isbn || L.title)}&i=stripbooks`, "_blank");
