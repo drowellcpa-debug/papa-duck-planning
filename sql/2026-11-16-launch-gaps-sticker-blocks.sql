@@ -1,0 +1,6 @@
+-- 2026-11-16 Papa Duck sent the Launch Pad PD check listing PD-5074..PD-6121 as "in Drafts: sent" ("the launchpad has all this info").
+-- pipeline.launch_gaps():
+--  * starts at the first number really in use (draft or Quick check sticker) after last night's top - the 6000s are a new sticker block;
+--  * BUG FIX: drafts has its own column "p", so "where d.pd = p" compared to the draft's own column - now x.p (that is why every number said "in Drafts: sent");
+--  * stickers still in a bin say "in Bin N - not scanned yet", one line per bin with the PD range and count.
+-- Full body: live pipeline.launch_gaps().
