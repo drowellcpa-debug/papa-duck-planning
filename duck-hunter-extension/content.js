@@ -173,6 +173,7 @@
       bb.disabled = true; bb.textContent = "Saving…";
       const k = await ask({ action: "bought", isbn: id.isbn || L.isbn, title: id.title || L.title, author: id.author || L.author, format: id.format, cost: r.cost,
         list: r.best ? r.best.sells : null, best: r.best ? r.best.store : "", url: L.url });
+      if (k.ok) markBought(L.url);
       state.boughtMsg = k.ok ? `✓ Saved to Scout Buys (Vinted, ${money(r.cost)}${r.best ? ", sell on " + r.best.store : ""}).` : "Didn't save: " + (k.error || "try again");
       paint();
     };
@@ -187,7 +188,48 @@
     state.loading = false;
     if (k.error === "bad_passcode") { state.needPass = 1; return paint(); }
     if (!k.ok) { state.err = k.error || "unknown problem"; return paint(); }
-    state.res = k; paint();
+    state.res = k; remember(L, k); paint();
+  }
+
+  // ---------- recent checks (2026-11-17 Papa Duck: "vinted app went away so I could not tell it I purchased it?") ----------
+  // Every check is remembered on this computer for 3 days. Off a listing page (checkout, messages, search) a 🦆 button stays
+  // in the corner with those books, each with its own 🛒 Bought it.
+  const recentGet = () => new Promise((d) => chrome.storage.local.get("dhRecent", (v) => d((v.dhRecent || []).filter((x) => Date.now() - x.at < 3 * 864e5))));
+  async function remember(L, k) {
+    const id = k.ident || {};
+    const a = (await recentGet()).filter((x) => x.url !== L.url);
+    a.unshift({ at: Date.now(), url: L.url, isbn: id.isbn || L.isbn, title: id.title || L.title, author: id.author || L.author, format: id.format || "",
+      cost: k.cost, best: k.best ? k.best.store : "", list: k.best ? k.best.sells : null, profit: k.best ? k.best.profit : null, verdict: k.verdict, bought: false });
+    chrome.storage.local.set({ dhRecent: a.slice(0, 20) });
+  }
+  async function markBought(url) { const a = await recentGet(); a.forEach((x) => { if (x.url === url) x.bought = true; }); chrome.storage.local.set({ dhRecent: a }); }
+  async function boughtCall(x) {
+    return ask({ action: "bought", isbn: x.isbn, title: x.title, author: x.author, format: x.format, cost: x.cost, list: x.list, best: x.best, url: x.url });
+  }
+  let recentOpen = false, recentMsg = "";
+  async function showRecent() {
+    const a = await recentGet();
+    if (/\/items\/\d+/.test(location.href)) return;
+    if (!a.length) { box.innerHTML = ""; if (host.isConnected) host.remove(); return; }
+    if (!host.isConnected) document.documentElement.appendChild(host);
+    if (!recentOpen) { box.innerHTML = `<button class="tab" id="ro">🦆 Recent checks (${a.length})</button>`; root.getElementById("ro").onclick = () => { recentOpen = true; showRecent(); }; return; }
+    const ic = { BUY: "🟢", MAYBE: "🟡", PASS: "🔴" };
+    box.innerHTML = `<div class="dh"><div class="hd">🦆 Recent checks <span><button id="rx" title="Hide">–</button></span></div>
+      ${recentMsg ? `<div class="pad ok">${esc(recentMsg)}</div>` : ""}
+      ${a.map((x, i) => `<div style="border-top:1px solid #eee;padding:8px 12px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">
+        <div><div class="t" style="font-size:13.5px">${ic[x.verdict] || "⚪"} ${esc(x.title)}</div>
+          <div class="m">Cost ${money(x.cost)}${x.best ? ` · best ${esc(x.best)} ${money(x.list)} · profit ${money(x.profit)}` : ""} · <a href="${esc(x.url)}">open</a></div></div>
+        ${x.bought ? `<span class="ok" style="font-size:13px">✓ Bought</span>` : `<button class="b b1" data-rb="${i}" style="padding:8px 10px;font-size:13px">🛒 Bought it</button>`}</div>`).join("")}
+      <div class="small" style="padding-top:8px">Bought one? Tap 🛒 twice. Change the cost first by opening the listing if shipping was different.</div></div>`;
+    root.getElementById("rx").onclick = () => { recentOpen = false; recentMsg = ""; showRecent(); };
+    root.querySelectorAll("[data-rb]").forEach((b) => b.onclick = async () => {
+      const x = a[Number(b.dataset.rb)];
+      if (b.dataset.arm !== "1") { b.dataset.arm = "1"; b.textContent = `Tap again: ${money(x.cost)}`; return; }
+      b.disabled = true; b.textContent = "Saving…";
+      const k = await boughtCall(x);
+      if (k.ok) { await markBought(x.url); recentMsg = `✓ Saved to Scout Buys: ${x.title} (${money(x.cost)}).`; } else recentMsg = "Didn't save: " + (k.error || "try again");
+      showRecent();
+    });
   }
 
   // ---------- follow Vinted page changes (it is a one-page app) ----------
@@ -195,7 +237,7 @@
   function onPage() {
     const u = location.href.split("?")[0];
     if (u === lastUrl) return; lastUrl = u;
-    if (!/\/items\/\d+/.test(u)) { state.listing = null; state.res = null; box.innerHTML = ""; if (host.isConnected) host.remove(); return; }
+    if (!/\/items\/\d+/.test(u)) { state.listing = null; state.res = null; recentOpen = false; recentMsg = ""; showRecent(); return; }
     if (!host.isConnected) document.documentElement.appendChild(host);
     state = { ...state, listing: null, res: null, edit: false, err: "", boughtMsg: "", loading: false };
     box.innerHTML = state.open ? frame(`<div class="spin">🦆 Reading the listing…</div>`) : "";
