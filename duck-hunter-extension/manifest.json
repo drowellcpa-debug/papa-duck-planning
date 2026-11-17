@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Duck Hunter - Papa Duck",
+  "version": "1.0.0",
+  "description": "Papa Duck's book checker for Vinted: eBay, Amazon and AbeBooks prices, profit and a clear BUY / MAYBE / PASS.",
+  "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" },
+  "background": { "service_worker": "background.js" },
+  "permissions": ["storage"],
+  "host_permissions": ["https://gdwxwiwckxthwcsrgywh.supabase.co/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.vinted.com/*", "https://vinted.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
