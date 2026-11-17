@@ -1,0 +1,3 @@
+-- 2026-11-16 'is supabase ok, we are getting a lot of cant reach it?': pd-week-tick ran every minute and averaged 63 s (26,000 runs) -
+--   week_fill_buyback took ~70 s, so the database was busy nonstop. week_tick now runs the buyback fill at most every 30 minutes
+--   (pipeline.config week_fill_buyback_at). Everything else in week_tick still runs every minute. Full body: live pipeline.week_tick().
