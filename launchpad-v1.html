@@ -885,25 +885,27 @@ function shipCard() {
   const order = ["abe", "ebay", "etsy", "amazon"];
   const byPd = pullSort;
   const abe = toShip.filter((x) => x.channel === "abe").length;
+  // 2026-11-17 Papa Duck: FBA sales show "Sold · Amazon FBA · nothing to ship" on the day they sell, then drop off on their own
+  const fbaN = toShip.filter((x) => x.fba).length, shipN = toShip.length - fbaN;
   // one row: PD | title + store/price/order | Shipped button, in fixed columns so the buttons line up
   const row = (x) => `<div class="shiprow${x.channel === "abe" ? " abe" : ""}">
       <b class="mono">${esc(x.pd || "—")}</b>${x.bin ? ` <b style="background:#fff3b0;border-radius:6px;padding:0 6px">📦 Bin ${esc(x.bin)}</b>` : ""}
       <span class="st">${esc(x.title || "")}<br><span class="muted"><span class="sbadge ${esc(x.channel)}">${names[x.channel] || esc(x.channel)}</span> ${money(x.price)} · ${esc(x.date || "")}${x.order ? " · order " + esc(x.order) : ""}</span></span>
-      <span style="display:grid;gap:4px"><button class="${shipArm === x.key ? "" : "ghost"}" data-ship="${esc(x.key)}">${shipArm === x.key ? "Tap again" : "✓ Shipped"}</button>
-        <button class="${cancelArm === x.key ? "danger" : "quiet"}" data-shipcancel="${esc(x.key)}" style="min-height:34px;padding:2px 6px;font-size:.85rem">${cancelArm === x.key ? "Tap again: cancelled" : "✗ Cancelled"}</button></span></div>`;
+      ${x.fba ? `<span style="font-weight:700;color:var(--green-text);text-align:center">📦 Sold · Amazon FBA<br><span class="muted" style="font-weight:400">nothing to ship</span></span>` : `<span style="display:grid;gap:4px"><button class="${shipArm === x.key ? "" : "ghost"}" data-ship="${esc(x.key)}">${shipArm === x.key ? "Tap again" : "✓ Shipped"}</button>
+        <button class="${cancelArm === x.key ? "danger" : "quiet"}" data-shipcancel="${esc(x.key)}" style="min-height:34px;padding:2px 6px;font-size:.85rem">${cancelArm === x.key ? "Tap again: cancelled" : "✗ Cancelled"}</button></span>`}</div>`;
   let body = "";
   if (shipSort === "store") {
     const chans = [...new Set(toShip.map((x) => x.channel))].sort((a, b) => (order.indexOf(a) + 1 || 9) - (order.indexOf(b) + 1 || 9));
     body = chans.map((c) => { const l = toShip.filter((x) => x.channel === c).sort(byPd);
-      return `<div class="shiphead"><span class="sbadge ${esc(c)}">${names[c] || esc(c)}</span> ${l.length} to ship</div>` + l.map(row).join(""); }).join("");
+      return `<div class="shiphead"><span class="sbadge ${esc(c)}">${names[c] || esc(c)}</span> ${l.filter((x) => !x.fba).length} to ship${l.some((x) => x.fba) ? " · " + l.filter((x) => x.fba).length + " FBA sold" : ""}</div>` + l.map(row).join(""); }).join("");
   } else body = [...toShip].sort(byPd).map(row).join("");
   return `<section class="card ask" aria-label="To ship">
-    <h2>📬 To ship · ${toShip.length} sale${toShip.length === 1 ? "" : "s"}${toShip.length ? ` · <span style="color:var(--green-text)">${money(toShip.reduce((a, x) => a + Number(x.price || 0), 0))}</span>` : ""}${abe ? ` · <span style="color:var(--yellow-ink)">${abe} AbeBooks</span>` : ""}</h2>
+    <h2>📬 To ship · ${shipN} sale${shipN === 1 ? "" : "s"}${fbaN ? ` · 📦 ${fbaN} FBA sold today` : ""}${toShip.length ? ` · <span style="color:var(--green-text)">${money(toShip.reduce((a, x) => a + Number(x.price || 0), 0))}</span>` : ""}${abe ? ` · <span style="color:var(--yellow-ink)">${abe} AbeBooks</span>` : ""}</h2>
     <div class="row" role="group" aria-label="Sort the ship list" style="gap:6px">
       <button class="${shipSort === "pd" ? "" : "ghost"}" data-shipsort="pd" aria-pressed="${shipSort === "pd"}">By PD # (pulling)</button>
       <button class="${shipSort === "store" ? "" : "ghost"}" data-shipsort="store" aria-pressed="${shipSort === "store"}">By store (shipping)</button></div>
     <div class="shiplist">${body}</div>
-    <p class="muted" style="margin:0;font-size:.86rem">The cloud already took each book off your other stores and logged it in Airtable. Tap ✓ Shipped twice once it's in the mail. If the buyer cancelled, tap ✗ Cancelled twice: it comes off this list and is not shipped.</p></section>`;
+    <p class="muted" style="margin:0;font-size:.86rem">The cloud already took each book off your other stores and logged it in Airtable. Tap ✓ Shipped twice once it's in the mail. If the buyer cancelled, tap ✗ Cancelled twice: it comes off this list and is not shipped.${fbaN ? " 📦 Amazon FBA sales are shipped by Amazon: they count in your totals and leave this list by themselves tomorrow." : ""}</p></section>`;
 }
 // ✗ Cancelled (Papa Duck 2026-11-02: "I need the ability to indicate not to ship that once cancelled")
 let cancelArm = null;
