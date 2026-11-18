@@ -165,7 +165,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 </header>
 <div id="healthbox" style="max-width:1320px;margin:0 auto;padding:14px max(16px, 2vw) 0"></div>
 <div class="wrap">
-  <div style="display:flex;flex-direction:column;gap:18px;min-width:0"><main id="main"><p class="empty">Loading tonight's blast off…</p></main>
+  <div style="display:flex;flex-direction:column;gap:18px;min-width:0"><div id="combinebox"></div><main id="main"><p class="empty">Loading tonight's blast off…</p></main>
   <div id="bdbox"></div>
   <div id="vbox"></div>
   <div id="auditbox"></div></div>
@@ -704,6 +704,53 @@ function renderAudit() {
 // for me to verify for you, todo's and keep reminding me". Recount: he types the shelf count, recount-apply sets eBay/Etsy/Airtable (AbeBooks flagged).
 // A Launch Pad note reminds him every morning while any to-do is waiting (pipeline.todos_remind, 7:41 AM).
 let todos = null, todoAt = 0, todoMsg = "";
+// ---------- 🧾 Combined invoices (2026-11-18) ----------
+// Papa Duck: "in the future do this for me ask and I will click do and estimate shipping". The cloud (ebay-combine, every 15 min) finds a buyer
+// with 2+ unpaid eBay orders and prices ONE box by USPS Media Mail. Nothing goes to the buyer until he taps Send (two taps).
+let combos = [], comboAt = 0, comboArm = null, comboMsg = "";
+async function loadCombine(force) {
+  if (!force && Date.now() - comboAt < 60000) return;
+  comboAt = Date.now();
+  try { const r = await q("select pipeline.combine_list() as c"); combos = (r[0] && r[0].c) || []; } catch (e) { console.log("[combine]", e); }
+  renderCombine();
+}
+function renderCombine() {
+  const el = $("combinebox"); if (!el) return;
+  if (!combos.length) { el.innerHTML = ""; return; }
+  el.innerHTML = combos.map((c) => {
+    const lines = (c.lines || []).map((l) => `<div class="row" style="justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:3px 0"><span>${esc(l.sku || "")} · ${esc(l.title || "")}</span><b>${money(l.price)}</b></div>`).join("");
+    const est = c.ship_est != null ? Number(c.ship_est) : null;
+    const ship = c.ship != null ? Number(c.ship) : est;
+    if (c.status === "sent") return `<section class="card" aria-label="Combined invoice sent" style="border:2px solid var(--green)"><h2 style="margin:0">✅ Combined invoice sent to ${esc(c.buyer)}</h2><p style="margin:0">${esc(c.result || "")}</p><div class="row"><button class="ghost" data-cmbx="${c.id}">OK</button></div></section>`;
+    const sending = c.status === "sending";
+    const armed = comboArm === c.id;
+    return `<section class="card ask" aria-label="Combined invoice">
+      <h2 style="margin:0">🧾 Combine shipping for ${esc(c.buyer)}${c.buyer_name ? ` (${esc(c.buyer_name)})` : ""} · ${(c.lines || []).length} books</h2>
+      <div>${lines}</div>
+      <div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><span>Books ${money(c.items_total)} · about ${esc(c.weight_lb)} lb in one box${c.media_ok ? " · USPS Media Mail" : ""}</span>
+        <label class="row" style="gap:6px;align-items:center">Shipping $<input id="cship${c.id}" type="text" inputmode="decimal" value="${ship != null ? Number(ship).toFixed(2) : ""}" style="width:90px"${sending ? " disabled" : ""}></label></div>
+      ${est != null ? `<p class="muted" style="margin:0;font-size:.88rem">USPS Media Mail chart for ${esc(c.weight_lb)} lb: ${money(est)}. Change it if the box will weigh more.</p>` : `<p style="margin:0;font-weight:600">🟡 Not all of these ship Media Mail - type the shipping yourself.</p>`}
+      <details><summary class="muted" style="cursor:pointer">Message the buyer gets</summary><p style="margin:6px 0 0">${esc(c.message || "")}</p></details>
+      ${c.status === "failed" ? `<p style="margin:0;color:var(--red);font-weight:600">${esc(c.result || "It didn't send.")}</p>` : ""}
+      ${comboMsg && armed ? `<p style="margin:0">${esc(comboMsg)}</p>` : ""}
+      <div class="row" style="gap:8px">${sending ? `<b>Sending…</b>` : `<button data-cmbs="${c.id}"${armed ? ' style="background:var(--green);color:var(--green-ink)"' : ""}>${armed ? "Tap again to send to " + esc(c.buyer) : "📨 Send combined invoice"}</button><button class="ghost" data-cmbx="${c.id}">Not now</button>`}</div>
+    </section>`;
+  }).join("");
+  el.querySelectorAll("[data-cmbs]").forEach((b) => b.onclick = async () => {
+    const id = Number(b.dataset.cmbs);
+    const v = Number(String(($("cship" + id) || {}).value || "").replace(/[^0-9.]/g, ""));
+    if (!(v > 0 && v <= 60)) { comboArm = id; comboMsg = "Type a shipping amount first."; renderCombine(); return; }
+    if (comboArm !== id || comboMsg) { comboArm = id; comboMsg = ""; renderCombine(); setTimeout(() => { if (comboArm === id) { comboArm = null; renderCombine(); } }, 8000); return; }
+    comboArm = null;
+    try { const r = await q(`select pipeline.combine_send(${id}, ${v.toFixed(2)}) as r`); const x = r[0] && r[0].r; if (x && !x.ok) { comboArm = id; comboMsg = x.error || "Didn't send."; } } catch (e) { comboArm = id; comboMsg = "Didn't send - try again."; }
+    await loadCombine(true); setTimeout(() => loadCombine(true), 8000); setTimeout(() => loadCombine(true), 20000);
+  });
+  el.querySelectorAll("[data-cmbx]").forEach((b) => b.onclick = async () => {
+    try { await q(`select pipeline.combine_dismiss(${Number(b.dataset.cmbx)}) as r`); } catch (e) {}
+    loadCombine(true);
+  });
+}
+
 // ---------- 🩺 System Health (2026-11-18) ----------
 // Papa Duck: "Should we have a daily system review every morning that has a gauge for every app and big system supabase ... airtable
 // that let's me know ok or need to adjust" / "I do want it on launch pad". The cloud checks at 6:03 AM (health-check); Check now runs it again.
@@ -1647,7 +1694,7 @@ async function refresh(force) {
     gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
     tickClock();
     if (!hist || Date.now() - histAt > 60000) { histAt = Date.now(); loadHist(); }
-    loadBd(); loadTodo(); loadVb(); loadHealth();
+    loadBd(); loadTodo(); loadVb(); loadHealth(); loadCombine();
     render();
     autoVerify();
   } catch (e) { showError(e); }
