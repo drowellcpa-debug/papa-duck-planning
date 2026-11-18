@@ -53,19 +53,29 @@ begin
     'value', coalesce(hit, 100) || '% found in memory',
     'fix', case st when 'green' then '' else 'The database is short on memory - ask Claude whether it is time for the next size up (Small).' end);
 
-  -- 4) background jobs: failures and slow runs in the last 24 hours
-  select count(*), string_agg(distinct j.jobname, ', ') into nfail, failtxt
-    from cron.job_run_details d join cron.job j on j.jobid = d.jobid where d.start_time > now() - interval '24 hours' and d.status = 'failed';
-  select string_agg(jobname || ' ' || round(av) || ' s', ', ' order by av desc), max(av) into slowtxt, slowmax from (
-    select j.jobname, avg(extract(epoch from d.end_time - d.start_time)) av from cron.job_run_details d join cron.job j on j.jobid = d.jobid
-     where d.start_time > now() - interval '24 hours' and d.end_time is not null and j.active group by j.jobname having count(*) >= 10) x
+  -- 4) jobs: BROKEN = a job whose newest run failed with a real error (red; "job startup timeout" / "connection failed" /
+  --    "server restarted" are a restart or overload, not a broken job); failures in the last 12 h that recovered (yellow);
+  --    SLOW = average over 10 s in the last 6 h (yellow), or one job using more than 45 min of database time in 6 h (red)
+  select string_agg(jobname, ', ') into failtxt from (
+    select distinct on (j.jobid) j.jobname, d.status, d.start_time, coalesce(d.return_message, '') msg from cron.job_run_details d join cron.job j on j.jobid = d.jobid
+     where j.active and d.start_time > now() - interval '12 hours' and d.end_time is not null order by j.jobid, d.start_time desc) x
+   where x.status = 'failed' and x.start_time < now() - interval '2 minutes'
+     and x.msg not in ('job startup timeout', 'connection failed', 'server restarted');
+  select count(*) into nfail from cron.job_run_details where status = 'failed' and start_time > now() - interval '12 hours';
+  select string_agg(jobname || ' ' || round(av) || ' s', ', ' order by av desc), max(tot) into slowtxt, slowmax from (
+    select j.jobname, avg(extract(epoch from d.end_time - d.start_time)) av, sum(extract(epoch from d.end_time - d.start_time)) tot
+      from cron.job_run_details d join cron.job j on j.jobid = d.jobid
+     where d.start_time > now() - interval '6 hours' and d.end_time is not null and d.status = 'succeeded' and j.active group by j.jobname having count(*) >= 3) x
    where av > 10;
-  st := case when nfail = 0 and slowtxt is null then 'green' when nfail <= 20 and coalesce(slowmax, 0) < 30 then 'yellow' else 'red' end;
+  st := case when failtxt is not null or coalesce(slowmax, 0) > 2700 then 'red' when nfail > 0 or slowtxt is not null then 'yellow' else 'green' end;
   g := g || jsonb_build_object('key', 'jobs', 'name', 'Background jobs', 'icon', '⚙️', 'status', st,
-    'value', case when nfail = 0 and slowtxt is null then 'All ran fine in the last 24 h'
-                  else concat_ws(' · ', case when nfail > 0 then nfail || ' failed (' || left(failtxt, 120) || ')' end,
+    'value', case when st = 'green' then 'All ran fine (last 12 h)'
+                  else concat_ws(' · ', case when failtxt is not null then 'NOT WORKING: ' || left(failtxt, 120) end,
+                                         case when failtxt is null and nfail > 0 then nfail || ' failed earlier, all running fine now' end,
                                          case when slowtxt is not null then 'slow: ' || left(slowtxt, 120) end) end,
-    'fix', case st when 'green' then '' else 'Ask Claude to look at these jobs.' end);
+    'fix', case when failtxt is not null then 'A job keeps failing - ask Claude to fix it.'
+                when slowtxt is not null then 'Slow jobs wear down the database - ask Claude to speed them up.'
+                when nfail > 0 then 'Nothing to do if this was a restart - it clears by itself.' else '' end);
 
   -- 5) cloud helpers: calls from the database to the edge functions in the last 24 hours
   select count(*), count(*) filter (where timed_out or error_msg is not null or status_code >= 500) into ntot, nerr
@@ -137,5 +147,6 @@ begin
   return jsonb_build_object('ok', true);
 end $f$;
 
+-- (applied 2026-11-18; cron job 79)
 -- every morning at 6:03 AM Pacific (14:03 UTC; 7:03 AM during daylight time)
 select cron.schedule('pd-health-check', '3 14 * * *', $c$select pipeline.health_kick()$c$);
