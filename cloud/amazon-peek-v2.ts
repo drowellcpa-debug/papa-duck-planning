@@ -1,3 +1,4 @@
+// v3 (2026-11-17, BJU tests return not matched): {"refunds_days":90} lists Amazon refund events (order, SKU, date, amount) from the Finances API.
 // v2 (2026-11-17, "You have api you should be able to verify"): {"orders":["114-..."]} returns each order's status (Canceled, Shipped ...).
 // Papa Duck - Edge Function "amazon-peek" (2026-10-23). Read-only look at Amazon: catalog page images for an ASIN and our own
 // listing status by SKU. Papa Duck: "amazon is not showing some of the pictures" (#3410, #3408).
@@ -38,7 +39,24 @@ Deno.serve(async (req) => {
         error: (oj.errors || [])[0]?.message || null });
       await new Promise((z) => setTimeout(z, 700));
     }
-    return reply({ ok: true, out, orders });
+    const refunds: unknown[] = [];
+    if (Number(body.refunds_days) > 0) {
+      const after = new Date(Date.now() - Math.min(180, Number(body.refunds_days)) * 864e5).toISOString().replace(/\.\d+Z$/, "Z");
+      let next = "";
+      for (let i = 0; i < 10; i++) {
+        const q = next ? `NextToken=${encodeURIComponent(next)}` : `PostedAfter=${after}&MaxResultsPerPage=100`;
+        const f = await fetch(`${HOST}/finances/v0/financialEvents?${q}`, { headers: H });
+        const fj = await f.json().catch(() => ({}));
+        for (const e of fj.payload?.FinancialEvents?.RefundEventList || [])
+          for (const it of e.ShipmentItemAdjustmentList || [])
+            refunds.push({ order: e.AmazonOrderId, posted: e.PostedDate, sku: it.SellerSKU,
+              amount: (it.ItemChargeAdjustmentList || []).reduce((t: number, c: any) => t + Number(c.ChargeAmount?.CurrencyAmount || 0), 0) });
+        next = fj.payload?.NextToken || "";
+        if (!next) break;
+        await new Promise((z) => setTimeout(z, 2100));
+      }
+    }
+    return reply({ ok: true, out, orders, refunds });
   } catch (e) { return reply({ error: String((e as Error).message || e).slice(0, 300) }, 500); }
   finally { await sql.end({ timeout: 2 }); }
 });
