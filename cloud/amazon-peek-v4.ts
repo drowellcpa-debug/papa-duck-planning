@@ -1,0 +1,73 @@
+// v4 (2026-11-18, "how much is held" during the identity check): {"balance_days":60} lists settlement groups (open = money not paid out yet).
+// v3 (2026-11-17, BJU tests return not matched): {"refunds_days":90} lists Amazon refund events (order, SKU, date, amount) from the Finances API.
+// v2 (2026-11-17, "You have api you should be able to verify"): {"orders":["114-..."]} returns each order's status (Canceled, Shipped ...).
+// Papa Duck - Edge Function "amazon-peek" (2026-10-23). Read-only look at Amazon: catalog page images for an ASIN and our own
+// listing status by SKU. Papa Duck: "amazon is not showing some of the pictures" (#3410, #3408).
+// POST {"items":[{"sku":"PD-3410","asin":"B004PI9IME"}]}  header x-backup-secret = cron_secret.
+import postgres from "npm:postgres@3.4.4";
+const MKT = "ATVPDKIKX0DER", HOST = "https://sellingpartnerapi-na.amazon.com";
+const reply = (o: unknown, s = 200) => new Response(JSON.stringify(o, null, 1), { status: s, headers: { "Content-Type": "application/json" } });
+Deno.serve(async (req) => {
+  const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { max: 1, prepare: false });
+  try {
+    const [cs] = await sql`select value from backup.config where key = 'cron_secret'`;
+    if (req.headers.get("x-backup-secret") !== String(cs?.value || "")) return reply({ error: "not allowed" }, 403);
+    const body = await req.json().catch(() => ({}));
+    const r = await sql`select decrypted_secret from vault.decrypted_secrets where name = 'papaduck_keys'`;
+    const a = JSON.parse(r[0].decrypted_secret).amazon;
+    const t = await fetch("https://api.amazon.com/auth/o2/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: a.refresh_token, client_id: a.client_id, client_secret: a.client_secret }).toString() });
+    const tok = (await t.json()).access_token;
+    const H = { "x-amz-access-token": tok, Accept: "application/json", "User-Agent": "PapaDuckCloud/1 (Language=TypeScript)" };
+    const out: unknown[] = [];
+    for (const it of body.items || []) {
+      const c = await fetch(`${HOST}/catalog/2022-04-01/items/${it.asin}?marketplaceIds=${MKT}&includedData=images,summaries`, { headers: H });
+      const cj = await c.json().catch(() => ({}));
+      const imgs = ((cj.images || [])[0]?.images || []).map((i: any) => i.variant + " " + i.link).slice(0, 6);
+      await new Promise((z) => setTimeout(z, 700));
+      const l = await fetch(`${HOST}/listings/2021-08-01/items/${a.seller_id}/${encodeURIComponent(it.sku)}?marketplaceIds=${MKT}&includedData=summaries,issues`, { headers: H });
+      const lj = await l.json().catch(() => ({}));
+      out.push({ sku: it.sku, asin: it.asin, catalog_status: c.status, title: (cj.summaries || [])[0]?.itemName, catalog_images: imgs,
+        listing_status: (lj.summaries || [])[0]?.status, listing_image: (lj.summaries || [])[0]?.mainImage?.link || null, issues: (lj.issues || []).map((i: any) => i.message).slice(0, 3) });
+      await new Promise((z) => setTimeout(z, 700));
+    }
+    const orders: unknown[] = [];
+    for (const id of (body.orders || []).map(String).filter((x: string) => /^\d{3}-\d{7}-\d{7}$/.test(x))) {
+      const o = await fetch(`${HOST}/orders/v0/orders/${id}`, { headers: H });
+      const oj = await o.json().catch(() => ({}));
+      const p = oj.payload || {};
+      orders.push({ order: id, http: o.status, status: p.OrderStatus || null, last_update: p.LastUpdateDate || null, purchase: p.PurchaseDate || null,
+        error: (oj.errors || [])[0]?.message || null });
+      await new Promise((z) => setTimeout(z, 700));
+    }
+    const refunds: unknown[] = [];
+    if (Number(body.refunds_days) > 0) {
+      const after = new Date(Date.now() - Math.min(180, Number(body.refunds_days)) * 864e5).toISOString().replace(/\.\d+Z$/, "Z");
+      let next = "";
+      for (let i = 0; i < 10; i++) {
+        const q = next ? `NextToken=${encodeURIComponent(next)}` : `PostedAfter=${after}&MaxResultsPerPage=100`;
+        const f = await fetch(`${HOST}/finances/v0/financialEvents?${q}`, { headers: H });
+        const fj = await f.json().catch(() => ({}));
+        for (const e of fj.payload?.FinancialEvents?.RefundEventList || [])
+          for (const it of e.ShipmentItemAdjustmentList || [])
+            refunds.push({ order: e.AmazonOrderId, posted: e.PostedDate, sku: it.SellerSKU,
+              amount: (it.ItemChargeAdjustmentList || []).reduce((t: number, c: any) => t + Number(c.ChargeAmount?.CurrencyAmount || 0), 0) });
+        next = fj.payload?.NextToken || "";
+        if (!next) break;
+        await new Promise((z) => setTimeout(z, 2100));
+      }
+    }
+    const groups: unknown[] = [];
+    if (Number(body.balance_days) > 0) {
+      const after = new Date(Date.now() - Math.min(180, Number(body.balance_days)) * 864e5).toISOString().replace(/\.\d+Z$/, "Z");
+      const g = await fetch(`${HOST}/finances/v0/financialEventGroups?FinancialEventGroupStartedAfter=${after}&MaxResultsPerPage=100`, { headers: H });
+      const gj = await g.json().catch(() => ({}));
+      for (const x of gj.payload?.FinancialEventGroupList || [])
+        groups.push({ status: x.ProcessingStatus, transfer: x.FundTransferStatus || null, start: x.FinancialEventGroupStart, end: x.FinancialEventGroupEnd || null,
+          total: Number(x.OriginalTotal?.CurrencyAmount ?? 0), beginning: Number(x.BeginningBalance?.CurrencyAmount ?? 0), paid_on: x.FundTransferDate || null });
+      if (!g.ok) groups.push({ error: g.status + " " + JSON.stringify(gj).slice(0, 200) });
+    }
+    return reply({ ok: true, out, orders, refunds, groups });
+  } catch (e) { return reply({ error: String((e as Error).message || e).slice(0, 300) }, 500); }
+  finally { await sql.end({ timeout: 2 }); }
+});
