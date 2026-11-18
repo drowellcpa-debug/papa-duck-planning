@@ -141,6 +141,17 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 @keyframes hop { 0%, 100% { transform: translateY(0) scale(1, 1) } 12% { transform: translateY(0) scale(1.1, .85) }
   45% { transform: translateY(-9px) scale(.95, 1.08) } 70% { transform: translateY(0) scale(1.08, .9) } 82% { transform: translateY(0) scale(1, 1) } }
 @media (prefers-reduced-motion: reduce) { .sq .hop { animation: none } }
+/* 2026-11-18 System Health card (Papa Duck: "a daily system review every morning that has a gauge for every app and big system") */
+.hgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px }
+.hg { border: 1px solid var(--line); border-left: 6px solid var(--gray); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0 }
+.hg.green { border-left-color: var(--green) }
+.hg.yellow { border-left-color: var(--yellow); background: var(--yellow-bg) }
+.hg.red { border-left-color: var(--red); background: var(--red-bg) }
+.hg b { font-size: .95rem } .hg .v { font-size: .84rem; color: var(--muted); overflow-wrap: anywhere } .hg .fx { font-size: .84rem; font-weight: 600 }
+.hpill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-weight: 700; font-size: .9rem }
+.hpill.green { background: var(--green); color: var(--green-ink) } .hpill.yellow { background: var(--yellow); color: #3d2f00 } .hpill.red { background: var(--red); color: #fff }
+.hdots { display: flex; gap: 3px; align-items: center } .hdots i { width: 10px; height: 10px; border-radius: 50%; background: var(--gray); display: inline-block }
+.hdots i.green { background: var(--green) } .hdots i.yellow { background: var(--yellow) } .hdots i.red { background: var(--red) }
 .boxbar { height: 14px; background: var(--gray); border-radius: 7px; overflow: hidden }
 .boxbar > i { display: block; height: 100%; background: var(--green) }
 </style>
@@ -152,6 +163,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
   </div>
   <div class="conn" id="conn"><svg class="lclock" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line class="hand" id="lhand" x1="12" y1="12" x2="12" y2="4" stroke="#F2C230" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg><span id="connt">Connecting to Supabase…</span></div>
 </header>
+<div id="healthbox" style="max-width:1320px;margin:0 auto;padding:14px max(16px, 2vw) 0"></div>
 <div class="wrap">
   <div style="display:flex;flex-direction:column;gap:18px;min-width:0"><main id="main"><p class="empty">Loading tonight's blast off…</p></main>
   <div id="bdbox"></div>
@@ -692,6 +704,54 @@ function renderAudit() {
 // for me to verify for you, todo's and keep reminding me". Recount: he types the shelf count, recount-apply sets eBay/Etsy/Airtable (AbeBooks flagged).
 // A Launch Pad note reminds him every morning while any to-do is waiting (pipeline.todos_remind, 7:41 AM).
 let todos = null, todoAt = 0, todoMsg = "";
+// ---------- 🩺 System Health (2026-11-18) ----------
+// Papa Duck: "Should we have a daily system review every morning that has a gauge for every app and big system supabase ... airtable
+// that let's me know ok or need to adjust" / "I do want it on launch pad". The cloud checks at 6:03 AM (health-check); Check now runs it again.
+let health = null, healthAt = 0, healthMsg = "", healthOpen = null, healthPoll = null;
+async function loadHealth(force) {
+  if (!force && Date.now() - healthAt < 300000) return;
+  healthAt = Date.now();
+  try { const r = await q("select pipeline.health_board() as h"); health = (r[0] && r[0].h) || null; } catch (e) { console.log("[health]", e); }
+  renderHealth();
+}
+function renderHealth() {
+  const el = $("healthbox"); if (!el) return;
+  const h = health;
+  const btn = `<button id="hnow" class="ghost" style="min-height:34px;padding:0 12px"${h && h.running ? " disabled" : ""}>${h && h.running ? "Checking…" : "🔄 Check now"}</button>`;
+  if (!h || !h.gauges) { el.innerHTML = `<section class="card" aria-label="System Health"><div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">🩺 System Health</h2>${btn}</div><p class="muted" style="margin:0">Not checked yet. It checks itself every morning at 6 AM.</p>${healthMsg ? `<p style="margin:0">${esc(healthMsg)}</p>` : ""}</section>`; wireHealth(); return; }
+  const gs = h.gauges || [], red = gs.filter((g) => g.status === "red"), yel = gs.filter((g) => g.status === "yellow");
+  const ov = red.length ? "red" : yel.length ? "yellow" : "green";
+  const pill = ov === "green" ? "✅ All good" : ov === "yellow" ? `🟡 ${yel.length} to keep an eye on` : `🔴 ${red.length} need${red.length === 1 ? "s" : ""} fixing`;
+  const at = new Date(h.at), when = at.toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
+  const old = Number(h.age_h) > 26;
+  if (healthOpen === null) healthOpen = ov !== "green";     // all green: just the one line; anything else: the gauges open
+  const dots = (h.days || []).map((d) => `<i class="${esc(d.o)}" title="${esc(d.d)}: ${esc(d.o)}"></i>`).join("");
+  const tiles = gs.map((g) => `<div class="hg ${esc(g.status)}"><b>${esc(g.icon)} ${esc(g.name)}</b><span class="v">${esc(g.value)}</span>${g.fix ? `<span class="fx">${g.status === "red" ? "🔴" : "🟡"} ${esc(g.fix)}</span>` : ""}</div>`).join("");
+  el.innerHTML = `<section class="card" aria-label="System Health"${ov === "red" ? ' style="border:2px solid var(--red)"' : ""}>
+    <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">🩺 System Health</h2><span class="hpill ${ov}">${pill}</span>
+        <span class="muted" style="font-size:.88rem">checked ${esc(when)}${old ? " · ⚠️ the morning check didn't run" : ""}</span>${dots ? `<span class="hdots" title="last 14 days">${dots}</span>` : ""}</div>
+      <div class="row" style="gap:6px">${btn}<button id="htog" class="ghost" style="min-height:34px;padding:0 12px">${healthOpen ? "Hide gauges ▴" : `Show all ${gs.length} gauges ▾`}</button></div>
+    </div>
+    ${healthMsg ? `<p style="margin:0">${esc(healthMsg)}</p>` : ""}
+    ${healthOpen ? `<div class="hgrid">${tiles}</div>` : ""}
+  </section>`;
+  wireHealth();
+}
+function wireHealth() {
+  const t = $("htog"); if (t) t.onclick = () => { healthOpen = !healthOpen; renderHealth(); };
+  const b = $("hnow"); if (b) b.onclick = async () => {
+    b.disabled = true; b.textContent = "Checking…"; healthMsg = "Checking every system now - about 30 seconds.";
+    try { await q("select pipeline.health_kick() as r"); } catch (e) { healthMsg = "Couldn't start the check. Try again."; renderHealth(); return; }
+    const before = health && health.at; let n = 0;
+    clearInterval(healthPoll);
+    healthPoll = setInterval(async () => {
+      n++; await loadHealth(true);
+      if ((health && health.at !== before) || n > 12) { clearInterval(healthPoll); healthMsg = health && health.at !== before ? "" : "The check is taking longer than usual - it will show here when it finishes."; healthOpen = true; renderHealth(); }
+    }, 10000);
+  };
+}
+
 async function loadTodo(force) {
   if (!force && Date.now() - todoAt < 60000) return;
   todoAt = Date.now();
@@ -1587,7 +1647,7 @@ async function refresh(force) {
     gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
     tickClock();
     if (!hist || Date.now() - histAt > 60000) { histAt = Date.now(); loadHist(); }
-    loadBd(); loadTodo(); loadVb();
+    loadBd(); loadTodo(); loadVb(); loadHealth();
     render();
     autoVerify();
   } catch (e) { showError(e); }

@@ -1,3 +1,4 @@
+// v4 (2026-11-18): + pipeline.health_board / health_kick for the System Health card.
 // v3 (2026-11-18): Launch Pad refresh query is cut off at 24 s on the database side (it kept running after the page gave up and piled up).
 // v2 (2026-11-16, "ok ready for the next move"): also serves the Launch Pad web page (launchpad.html) - same rule: only function calls from an
 //   allowlist with plain literal arguments (numbers, true/false/null, quoted text, ::jsonb, number arrays), plus the page's exact refresh query
@@ -29,7 +30,7 @@ const LP_FN = new Set(["audit.report_full","bd.add_book","bd.board","bd.bought",
   "pipeline.mark_cancelled","pipeline.mark_shipped","pipeline.offer_answer","pipeline.todo_find","pipeline.todo_recount","pipeline.todos_open",
   "pipeline.unrestrict_applied","pipeline.unrestrict_recheck","pipeline.vinted_box","pipeline.vinted_lot_make","pipeline.vinted_lot_ready",
   "pipeline.vinted_lot_remove","pipeline.vinted_lot_save","pipeline.vinted_lot_write","pipeline.week_check","pipeline.week_keep","pipeline.week_print",
-  "pipeline.week_print_draft","pipeline.bin_board"]);
+  "pipeline.week_print_draft","pipeline.bin_board","pipeline.health_board","pipeline.health_kick"]);
 const LIT = "(?:-?\\d+(?:\\.\\d+)?|null|true|false|'(?:[^']|'')*'(?:::jsonb)?|array\\[(?:\\d+(?:,\\d+)*)?\\]::bigint\\[\\])";
 const LP_CALL = new RegExp("^select ((?:pipeline|bd|audit)\\.[a-z_]+)\\((" + LIT + "(?:, ?" + LIT + ")*)?\\)(?: as [a-z]+)?$", "s");
 const norm = (x: string) => x.replace(/\s+/g, " ").trim();
