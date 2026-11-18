@@ -14,6 +14,9 @@
 // v3 (2026-11-17 10:59, "only want profit greater than $20"): BUY needs profit of at least pipeline.config hunter_min_profit (20).
 // v4 (2026-11-17 20:10): the 3-year Amazon line now INCLUDES shipping (Keepa USED_GOOD_SHIPPING, csv[21]; falls back to USED + $3.99),
 //   so it compares fairly with today's used price (which includes shipping). Before, penny listings made the "3-year middle" $0.95.
+// v5 (2026-11-17 20:13, "if it cant find the books, can it look at the picture?"): {photos:[up to 4 listing image URLs], use_photos}
+//   -> when the listing has no ISBN, or use_photos is set (the extension asks after "can't find" / wrong book), the photos are read by the
+//   Scout app's own photo reader (cover, back cover barcode, copyright page) and the book is priced from what they show.
 // SAFETY: reads only. Writes: hunter.checks (a log) and, on "bought", the Scout Buys row (same as the Scout app's Bought button).
 import postgres from "npm:postgres@3.4.4";
 
@@ -108,26 +111,62 @@ Deno.serve(async (req) => {
     const [kk] = await sql`select value from backup.config where key = 'keepa_key'`;
     const key = String(kk?.value || "");
 
+    // v5: the listing photos (Vinted image servers only), read when there's no ISBN or the extension asks
+    const photoUrls: string[] = (Array.isArray(b.photos) ? b.photos : []).map(String)
+      .filter((u: string) => /^https:\/\/[a-z0-9.-]*vinted\.(net|com)\//i.test(u)).slice(0, 4);
+    const usePhotos = photoUrls.length > 0 && (!!b.use_photos || !isbn);
+    let shots: { data: string; mt: string }[] = [];
+    // the extension sends the photos itself (read in his browser tab); the URLs are only a fallback
+    const sent = (Array.isArray(b.images) ? b.images : []).filter((x: any) => x && typeof x.data === "string" && x.data.length > 3000 && x.data.length < 6_000_000).slice(0, 4)
+      .map((x: any) => ({ data: x.data, mt: /^image\/(jpeg|png|webp)$/.test(String(x.mt)) ? String(x.mt) : "image/jpeg" }));
+    if ((b.use_photos || !isbn) && sent.length) shots = sent;
+    else if (usePhotos) {
+      shots = (await Promise.all(photoUrls.map(async (u) => {
+        try {
+          const r = await fetch(u, { signal: AbortSignal.timeout(15000) });
+          if (!r.ok) return null;
+          const buf = new Uint8Array(await r.arrayBuffer());
+          if (buf.length < 3000 || buf.length > 4_500_000) return null;
+          let s2 = ""; for (let i = 0; i < buf.length; i += 0x8000) s2 += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+          return { data: btoa(s2), mt: (r.headers.get("content-type") || "image/jpeg").split(";")[0] };
+        } catch (_) { return null; }
+      }))).filter(Boolean) as any;
+    }
+
     // same book checked in the last 6 hours: reuse the store numbers (they don't move that fast), redo the profit with this cost
     let base: any = null;
-    if (isbn) {
+    if (isbn && !shots.length) {
       const [c] = await sql`select result from hunter.checks where isbn = ${isbn} and at > now() - interval '6 hours' and result ? 'stores' order by at desc limit 1`;
       if (c && c.result?.v === 3) base = c.result;
     }
     if (!base) {
       // no ISBN on the listing: find it on Amazon by title + author
       let kp: any = null;
-      if (!isbn && title && key) {
+      let sc: any = null;
+      if (shots.length) {
+        sc = await scout({ action: "evaluate", images: shots, cost, store: "Vinted" });
+        const pi = digits(sc?.ident?.isbn || "");
+        if (validIsbn(pi)) isbn = isbn10to13(pi);
+        else if (b.use_photos) isbn = "";      // the listing's ISBN was wrong and the photo shows none: don't keep the wrong one
+        if (!isbn && key && sc?.ident?.title) {  // find it on Amazon by the title the photos show
+          kp = await keepa(key, { term: [sc.ident.title, sc.ident.author].filter(Boolean).join(" ").slice(0, 120) });
+          const e = (kp?.eanList || []).map(String).find((x: string) => validIsbn(x));
+          if (e) isbn = isbn10to13(e); else kp = null;
+        }
+      }
+      if (!isbn && !shots.length && title && key) {
         kp = await keepa(key, { term: [title, author].filter(Boolean).join(" ").slice(0, 120) });
         const e = (kp?.eanList || []).map(String).find((x: string) => validIsbn(x));
         if (e) isbn = isbn10to13(e);
       }
-      const [sc, kp2] = await Promise.all([
-        isbn ? scout({ action: "evaluate", isbn, cost, store: "Vinted" })
+      const [sc0, kp2] = await Promise.all([
+        sc ? Promise.resolve(sc) : isbn ? scout({ action: "evaluate", isbn, cost, store: "Vinted" })
              : scout({ action: "evaluate", ident: { title, author, isbn: "", search: [title, author].join(" "), confidence: "medium" }, cost, store: "Vinted" }),
         kp ? Promise.resolve(kp) : isbn && key ? keepa(key, { code: isbn }) : Promise.resolve(null),
       ]);
+      sc = sc0;
       if (sc.error) return json({ ok: false, error: "Scout: " + sc.error });
+      if (sc.verdict === "RETAKE") return json({ ok: false, error: "Couldn't read the book from the photos - type the ISBN with Fix it" });
       const id = sc.ident || {}, g = sc.grid || {}, amz = g.amazon || {}, eb = g.ebay || {}, abe = g.abe || {};
       const stores: any[] = [];
       if (eb.n > 0 && sc.list) stores.push({ store: "eBay", sells: sc.list, selling: eb.sold > 0 ? `${eb.sold} sold` : `${eb.n} listed, none sold yet`, proven: eb.sold > 0 });
@@ -148,7 +187,7 @@ Deno.serve(async (req) => {
         stores, scout_verdict: sc.verdict, scout_reason: sc.reason, hard: sc.hard || [], flags: (sc.flags || []).slice(0, 6), family: sc.family || "",
         amazon: { asin: p?.asin || sc.amazon?.asin || "", rank: amz.rank || null, sales90: amz.sales90 ?? null, offers: p?.stats?.current?.[12] > 0 ? p.stats.current[12] : null,
                   title: p?.title || "", image: p?.images?.[0]?.l ? "https://m.media-amazon.com/images/I/" + p.images[0].l : p?.imagesCSV ? "https://m.media-amazon.com/images/I/" + String(p.imagesCSV).split(",")[0] : "" },
-        chart: p ? { price: priceSeries, rank: series(p.csv?.[3], false), years: 3, m3 } : null, v: 3,
+        chart: p ? { price: priceSeries, rank: series(p.csv?.[3], false), years: 3, m3 } : null, v: 3, from_photos: shots.length > 0,
       };
       const asin = base.amazon.asin || isbn13to10(isbn);
       const [h] = await sql`select hunter.history(${isbn || null}, ${asin || null}) as h`;
