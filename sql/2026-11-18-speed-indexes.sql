@@ -11,3 +11,6 @@ analyze pipeline.drafts; analyze pipeline.cleanup_piles; analyze backup.airtable
 -- every Airtable record on each Launch Pad load (45-87 s). Refreshed every 3 h:
 --   pipeline.listed_isbn_refresh()  +  cron 'pd-listed-isbn-count' '33 */3 * * *'
 -- Paused 2026-11-18 (Papa Duck "yes pause"): cron pd-week-tick (38) and pd-buyback-check (40).
+-- 07:22 PT: Papa Duck upgraded compute Nano -> Micro (same price on Pro). Launch Pad full load: 53 s -> 0.3 s.
+-- Back on: pd-week-tick (38) every minute (0.8 s a run); pd-buyback-check (40) now every 10 min (was 2; 12 s a run).
+-- select cron.alter_job(38, active := true); select cron.alter_job(40, schedule := '*/10 * * * *', active := true);
