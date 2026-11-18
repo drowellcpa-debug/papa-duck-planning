@@ -1,3 +1,4 @@
+// v3 (2026-11-18): Launch Pad refresh query is cut off at 24 s on the database side (it kept running after the page gave up and piled up).
 // v2 (2026-11-16, "ok ready for the next move"): also serves the Launch Pad web page (launchpad.html) - same rule: only function calls from an
 //   allowlist with plain literal arguments (numbers, true/false/null, quoted text, ::jsonb, number arrays), plus the page's exact refresh query
 //   and its two todo updates. Never free-form SQL.
@@ -72,7 +73,8 @@ Deno.serve(async (req) => {
       let patch: any; try { patch = JSON.parse(m[3]); } catch (_) { return json({ ok: false, error: "bad save data" }, 400); }
       rows = await sql`select pipeline.ui_save(${Number(m[1])}::bigint, ${sql.json(patch)}::jsonb) as r`;
     }
-    else if (norm(q) === LP_MAIN) rows = await sql.unsafe(LP_MAIN);
+    // v3 (2026-11-18): the page gives up after 25 s - stop the database work too, so slow loads can never pile up (froze the database 11/18 5:41 AM)
+    else if (norm(q) === LP_MAIN) { await sql`set statement_timeout = '24s'`; rows = await sql.unsafe(LP_MAIN); }
     else if ((m = q.match(LP_CALL)) && LP_FN.has(m[1])) rows = await sql.unsafe(q);
     else if ((m = q.match(LP_TODO))) {
       await sql`update pipeline.todos set answer = ${Number(m[1])}, answered_at = now(), done_at = case when ${Number(m[1])} = 0 then now() else null end where id = ${Number(m[2])} and kind = 'claude'`;
