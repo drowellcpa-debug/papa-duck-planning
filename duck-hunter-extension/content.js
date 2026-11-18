@@ -217,7 +217,15 @@
     const tw = String((r.ident || {}).title || "").toLowerCase().match(/[a-z]{4,}/g) || [];
     const own = String(L.ownText || "").toLowerCase();
     const keyWords = tw.filter((w) => !STOP.has(w));
-    return { mismatch: keyWords.length >= 1 && !keyWords.some((w) => own.includes(w)), notFound: !(r.stores || []).length };
+    // v1.6: the listing's TITLE decides first (a description can share a common word like "philosophy");
+    //   only a generic title ("brand new textbook") falls back to the whole listing text
+    const GEN = new Set(["brand","new","used","like","good","great","condition","textbook","book","books","hardcover","paperback","edition","lot","set","vintage","college","school","homeschool","with","tags","free","shipping","bundle"]);
+    const lw = (String(L.title || "") + " " + String(L.author || "")).toLowerCase().match(/[a-z]{4,}/g) || [];
+    const lKey = lw.filter((w) => !STOP.has(w) && !GEN.has(w));
+    const stem = (w) => w.replace(/(ies|es|s)$/, "");
+    const overlap = (a, b) => a.some((x) => b.some((y) => stem(x) === stem(y) || (x.length > 5 && y.length > 5 && (x.includes(y) || y.includes(x)))));
+    const mismatch = keyWords.length >= 1 && (lKey.length >= 1 ? !overlap(keyWords, lKey) : !keyWords.some((w) => own.includes(w)));
+    return { mismatch, notFound: !(r.stores || []).length };
   }
   async function run(force) {
     const L = state.listing; if (!L) return;
