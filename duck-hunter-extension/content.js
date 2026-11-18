@@ -48,7 +48,9 @@
     // the listing's own ISBN row first ("ISBN  978..."), then its title / description
     const lab = body.match(/\bISBN(?:-1[03])?\b[^\S\n]*:?\s*\n?\s*([0-9Xx][0-9Xx\- ]{8,20})/i);
     const isbn = (lab && isbnOk(lab[1])) || findIsbn([name, desc, details].join("\n"));
-    const ownText = [name, desc, details, body.slice(0, 6000)].join(" ");
+    // v1.5: the wrong-book guard compares ONLY against this listing's own words (title, description, details) - not Vinted's menus
+    const tIdx = name ? body.indexOf(name.replace(/\s*\|\s*Vinted.*$/i, "").trim().slice(0, 25)) : -1;
+    const ownText = [name, desc, details, tIdx >= 0 ? body.slice(tIdx, tIdx + 3000) : ""].join(" ");
     name = name.replace(/\s*\|\s*Vinted.*$/i, "").trim();
     let title = name, author = "";
     const by = name.match(/^(.*?)\s+by\s+(.+)$/i) || name.match(/^(.*?)\s+[-–—]\s+(.+)$/);

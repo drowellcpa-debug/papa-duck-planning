@@ -17,6 +17,7 @@
 // v5 (2026-11-17 20:13, "if it cant find the books, can it look at the picture?"): {photos:[up to 4 listing image URLs], use_photos}
 //   -> when the listing has no ISBN, or use_photos is set (the extension asks after "can't find" / wrong book), the photos are read by the
 //   Scout app's own photo reader (cover, back cover barcode, copyright page) and the book is priced from what they show.
+// v6 (2026-11-17 20:35): a book read from photos still gets its Amazon row (Keepa current used price incl. shipping, sales/year).
 // SAFETY: reads only. Writes: hunter.checks (a log) and, on "bought", the Scout Buys row (same as the Scout app's Bought button).
 import postgres from "npm:postgres@3.4.4";
 
@@ -175,7 +176,9 @@ Deno.serve(async (req) => {
       if (!priceSeries.some((x) => x != null) && p0) priceSeries = series(p0.csv?.[2], true).map((x) => (x == null ? null : r2(x + 3.99)));
       const m3 = mid3(priceSeries);
       const drops365 = typeof p0?.stats?.salesRankDrops365 === "number" && p0.stats.salesRankDrops365 >= 0 ? p0.stats.salesRankDrops365 : null;
-      const amzNow = amz.used_bb || amz.used_low || 0;
+      // v6: when Scout has no Amazon price (book read from photos), use Keepa's own current used price (incl. shipping)
+      const kNow = p0?.stats?.current?.[21] > 0 ? p0.stats.current[21] / 100 : p0?.stats?.current?.[2] > 0 ? p0.stats.current[2] / 100 + 3.99 : 0;
+      const amzNow = amz.used_bb || amz.used_low || r2(kNow) || 0;
       const amzSafe = amzNow && m3 ? Math.min(amzNow, m3.median) : amzNow;
       if (amzSafe) stores.push({ store: "Amazon", sells: r2(amzSafe), now: amzNow, median3: m3?.median ?? null,
         selling: drops365 != null ? `${drops365} sales / year` : amz.sales90 != null ? `${amz.sales90} / 90 days` : "no sales data",
