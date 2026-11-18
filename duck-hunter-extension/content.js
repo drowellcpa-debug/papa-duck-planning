@@ -34,22 +34,27 @@
     const meta = (p) => (document.querySelector(`meta[property="${p}"],meta[name="${p}"]`) || {}).content || "";
     name = name || meta("og:title") || (document.querySelector("h1") || {}).textContent || "";
     desc = desc || meta("og:description") || "";
-    const body = document.body.innerText || "";
+    // v1.3 (2026-11-17 "it has been saying this a lot"): only THIS listing's part of the page - Vinted shows other sellers' books
+    // below it ("Member's items", similar items), and their ISBNs were being picked up.
+    const body = (document.body.innerText || "").split(/\n\s*(?:Member['’]s items|Similar items|You (?:may|might) also like|Related items|More from this member|People also viewed)\b/i)[0];
     const priceEl = document.querySelector('[data-testid*="item-price"]');
     if (price == null && priceEl) price = num(priceEl.textContent);
     // what he pays: the "incl. Buyer Protection" total when Vinted shows it
-    const prot = body.match(/\$\s?(\d+(?:\.\d{2})?)\s*(?:\n|\s)*incl\.?\s*(?:of\s*)?Buyer Protection/i);
+    const prot = body.match(/\$\s?(\d+(?:\.\d{2})?)\s*(?:\n|\s)*incl\./i);
     const total = prot ? Number(prot[1]) : null;
     const shipM = body.match(/Shipping(?:\s*from)?\s*\$\s?(\d+(?:\.\d{2})?)/i);
     const crumbs = $$('[itemtype*="BreadcrumbList"] a, nav[aria-label*="readcrumb"] a, [data-testid*="breadcrumb"] a').map((a) => a.textContent.trim()).join(" / ");
     const details = $$('[data-testid*="item-details"], [data-testid*="item-attributes"], [itemprop="description"]').map((e) => e.innerText).join("\n");
-    const isbn = findIsbn([name, desc, details].join("\n")) || findIsbn(body.slice(0, 20000).replace(/\$\s?\d[\d.,]*/g, " "));
+    // the listing's own ISBN row first ("ISBN  978..."), then its title / description
+    const lab = body.match(/\bISBN(?:-1[03])?\b[^\S\n]*:?\s*\n?\s*([0-9Xx][0-9Xx\- ]{8,20})/i);
+    const isbn = (lab && isbnOk(lab[1])) || findIsbn([name, desc, details].join("\n"));
+    const ownText = [name, desc, details, body.slice(0, 6000)].join(" ");
     name = name.replace(/\s*\|\s*Vinted.*$/i, "").trim();
     let title = name, author = "";
     const by = name.match(/^(.*?)\s+by\s+(.+)$/i) || name.match(/^(.*?)\s+[-–—]\s+(.+)$/);
     if (by) { title = by[1].trim(); author = by[2].trim(); }
     const isBook = !!isbn || /\bbooks?\b/i.test(crumbs) || /\b(hardcover|paperback|novel|isbn|textbook|edition)\b/i.test(name + " " + desc);
-    return { title, author, isbn, price: total ?? price, ship: shipM ? Number(shipM[1]) : null, isBook, url: location.href.split("?")[0] };
+    return { title, author, isbn, ownText, price: total ?? price, ship: shipM ? Number(shipM[1]) : null, isBook, url: location.href.split("?")[0] };
   }
 
   // ---------- the panel ----------
@@ -113,7 +118,7 @@
 
   function paint() {
     if (!state.open) return tab();
-    const L = state.listing, r = state.res;
+    const L = state.listing; let r = state.res;
     if (!L) { box.innerHTML = ""; return; }
     if (state.needPass) {
       box.innerHTML = frame(`<form class="form" id="pf"><b>Type your Book Station passcode or PIN</b><span class="m">${esc(state.needPass === 2 ? "That passcode didn't work. Try again." : "Asked once on this computer.")}</span><input id="pp" type="password" autocomplete="current-password"><button class="b b1">Start hunting</button></form>`);
@@ -140,7 +145,16 @@
     if (state.err) { box.innerHTML = frame(`<div class="err">Couldn't check it: ${esc(state.err)}</div><div class="btns"><button class="b b1" id="again">Try again</button><button class="b" id="fix">✏️ Fix details</button></div>`); wire();
       root.getElementById("again").onclick = () => run(true); root.getElementById("fix").onclick = () => { state.edit = true; state.err = ""; paint(); }; return; }
 
-    const v = r.verdict, ic = { BUY: "🟢", MAYBE: "🟡", PASS: "🔴" }[v] || "⚪";
+    // v1.3: does the book the ISBN points to look like THIS listing? (wrong-ISBN guard)
+    const STOP = new Set(["with","from","edition","book","books","the","and","for","your","guide","volume","text","textbook","student","series"]);
+    const tw = String((r.ident || {}).title || "").toLowerCase().match(/[a-z]{4,}/g) || [];
+    const own = String(L.ownText || "").toLowerCase();
+    const keyWords = tw.filter((w) => !STOP.has(w));
+    const mismatch = keyWords.length >= 1 && !keyWords.some((w) => own.includes(w));
+    const notFound = !(r.stores || []).length;
+    const v = mismatch ? "PASS" : r.verdict, ic = { BUY: "🟢", MAYBE: "🟡", PASS: "🔴" }[v] || "⚪";
+    if (mismatch) r = Object.assign({}, r, { why: "⚠️ The ISBN found points to a different book - tap Fix it" });
+    else if (notFound) r = Object.assign({}, r, { why: "Couldn't find this book - check the ISBN (tap Fix it)" });
     const id = r.ident || {}, amz = r.amazon || {}, hist = r.history || { sold: [], on_hand: [] };
     const tg = (r.hard || []).find((h) => /Good and the Beautiful|self-printed/i.test(h));
     const rows = (r.stores || []).map((s) => `<div class="wr${s.best ? " best" : ""}"><span>${s.best ? "⭐ " : ""}${esc(s.store)}</span><span>${money(s.sells)}</span><span>${esc(s.selling)}</span><b class="${s.profit < 0 ? "neg" : ""}">${money(s.profit)}</b></div>${s.note ? `<div class="m" style="padding:0 9px 6px;color:#b45309">⚠️ ${esc(s.note)}</div>` : ""}`).join("");
@@ -162,13 +176,14 @@
       ${chartSvg(r.chart)}
       <div class="mine">📒 <b>Your history:</b> ${histTxt}${onHand}.</div>
       ${state.boughtMsg ? `<div class="pad ok">${esc(state.boughtMsg)}</div>` : ""}
-      <div class="btns"><button class="b b1" id="bought">🛒 Bought it</button><button class="b" id="amz">🔎 Check on Amazon</button></div>
+      <div class="btns">${mismatch || notFound ? `<button class="b b1" id="fix2">✏️ Fix the book</button>` : `<button class="b b1" id="bought">🛒 Bought it</button>`}<button class="b" id="amz">🔎 Check on Amazon</button></div>
       <div class="small">Only BUY or PASS. Profit = what it sells for minus your cost. Amazon uses the lower of today's price and its 3-year middle. Etsy is left out: it has no sold-price data for books. 🛒 saves the buy (cost, source Vinted, best store) to Scout Buys. <a href="#" id="fix">Wrong book? Fix it</a>${r.best && r.best.store === "eBay" && id.isbn ? ` · <a href="https://www.ebay.com/sch/i.html?_nkw=${esc(id.isbn)}&LH_Sold=1&LH_Complete=1" target="_blank">eBay sold</a>` : ""}</div>`);
     wire();
     root.getElementById("cost").onclick = root.getElementById("fix").onclick = (e) => { e.preventDefault(); state.edit = true; paint(); };
     root.getElementById("amz").onclick = () => window.open(amz.asin ? `https://www.amazon.com/dp/${amz.asin}` : `https://www.amazon.com/s?k=${encodeURIComponent(id.isbn || L.title)}&i=stripbooks`, "_blank");
+    const fx2 = root.getElementById("fix2"); if (fx2) fx2.onclick = () => { state.edit = true; paint(); };
     const bb = root.getElementById("bought");
-    bb.onclick = async () => {
+    if (bb) bb.onclick = async () => {
       if (bb.dataset.arm !== "1") { bb.dataset.arm = "1"; bb.textContent = `Tap again: bought for ${money(r.cost)}`; setTimeout(() => { if (bb.isConnected && bb.dataset.arm === "1") { bb.dataset.arm = ""; bb.textContent = "🛒 Bought it"; } }, 6000); return; }
       bb.disabled = true; bb.textContent = "Saving…";
       const k = await ask({ action: "bought", isbn: id.isbn || L.isbn, title: id.title || L.title, author: id.author || L.author, format: id.format, cost: r.cost,

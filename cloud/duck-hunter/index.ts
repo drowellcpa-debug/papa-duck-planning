@@ -12,6 +12,8 @@
 //   Keepa history is 3 years. Amazon counts at its SAFE price = the lower of today's used price and its 3-year middle (median), and
 //   "sells" = sales-rank drops in the last year. A store only counts toward BUY when it is proven to sell. BUY = proven store, profit >= $6.
 // v3 (2026-11-17 10:59, "only want profit greater than $20"): BUY needs profit of at least pipeline.config hunter_min_profit (20).
+// v4 (2026-11-17 20:10): the 3-year Amazon line now INCLUDES shipping (Keepa USED_GOOD_SHIPPING, csv[21]; falls back to USED + $3.99),
+//   so it compares fairly with today's used price (which includes shipping). Before, penny listings made the "3-year middle" $0.95.
 // SAFETY: reads only. Writes: hunter.checks (a log) and, on "bought", the Scout Buys row (same as the Scout app's Bought button).
 import postgres from "npm:postgres@3.4.4";
 
@@ -110,7 +112,7 @@ Deno.serve(async (req) => {
     let base: any = null;
     if (isbn) {
       const [c] = await sql`select result from hunter.checks where isbn = ${isbn} and at > now() - interval '6 hours' and result ? 'stores' order by at desc limit 1`;
-      if (c && c.result?.v === 2) base = c.result;
+      if (c && c.result?.v === 3) base = c.result;
     }
     if (!base) {
       // no ISBN on the listing: find it on Amazon by title + author
@@ -130,7 +132,8 @@ Deno.serve(async (req) => {
       const stores: any[] = [];
       if (eb.n > 0 && sc.list) stores.push({ store: "eBay", sells: sc.list, selling: eb.sold > 0 ? `${eb.sold} sold` : `${eb.n} listed, none sold yet`, proven: eb.sold > 0 });
       const p0 = kp2 || null;
-      const priceSeries = p0 ? series(p0.csv?.[2], true) : [];
+      let priceSeries = p0 ? series(p0.csv?.[21], true) : [];
+      if (!priceSeries.some((x) => x != null) && p0) priceSeries = series(p0.csv?.[2], true).map((x) => (x == null ? null : r2(x + 3.99)));
       const m3 = mid3(priceSeries);
       const drops365 = typeof p0?.stats?.salesRankDrops365 === "number" && p0.stats.salesRankDrops365 >= 0 ? p0.stats.salesRankDrops365 : null;
       const amzNow = amz.used_bb || amz.used_low || 0;
@@ -145,7 +148,7 @@ Deno.serve(async (req) => {
         stores, scout_verdict: sc.verdict, scout_reason: sc.reason, hard: sc.hard || [], flags: (sc.flags || []).slice(0, 6), family: sc.family || "",
         amazon: { asin: p?.asin || sc.amazon?.asin || "", rank: amz.rank || null, sales90: amz.sales90 ?? null, offers: p?.stats?.current?.[12] > 0 ? p.stats.current[12] : null,
                   title: p?.title || "", image: p?.images?.[0]?.l ? "https://m.media-amazon.com/images/I/" + p.images[0].l : p?.imagesCSV ? "https://m.media-amazon.com/images/I/" + String(p.imagesCSV).split(",")[0] : "" },
-        chart: p ? { price: priceSeries, rank: series(p.csv?.[3], false), years: 3, m3 } : null, v: 2,
+        chart: p ? { price: priceSeries, rank: series(p.csv?.[3], false), years: 3, m3 } : null, v: 3,
       };
       const asin = base.amazon.asin || isbn13to10(isbn);
       const [h] = await sql`select hunter.history(${isbn || null}, ${asin || null}) as h`;
