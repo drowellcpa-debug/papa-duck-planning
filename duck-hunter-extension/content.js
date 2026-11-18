@@ -62,7 +62,7 @@
       .filter((im) => /vinted\.(net|com)\//i.test(im.currentSrc || im.src || "") && !/avatar|logo|icon/i.test(im.src || "")
         && (!stopEl || (im.compareDocumentPosition(stopEl) & Node.DOCUMENT_POSITION_FOLLOWING)) && (im.naturalWidth || im.width || 0) >= 150)
       .map((im) => im.currentSrc || im.src))].slice(0, 4);
-    return { title, author, isbn, ownText, photos, price: total ?? price, ship: shipM ? Number(shipM[1]) : null, isBook, url: location.href.split("?")[0] };
+    return { title, author, isbn, ownText, photos, desc: [desc, details].join(" ").slice(0, 1500), price: total ?? price, ship: shipM ? Number(shipM[1]) : null, isBook, url: location.href.split("?")[0] };
   }
 
   // ---------- the panel ----------
@@ -149,12 +149,12 @@
         state.edit = false; run(true); };
       return;
     }
-    if (state.loading) { box.innerHTML = frame(`<div class="spin">${state.photoTry ? "📷 Couldn't match the ISBN - reading the listing photos…" : "🦆 Checking eBay, Amazon and AbeBooks…"}<br><span class="m">about 20–40 seconds the first time</span></div>`); wire(); return; }
+    if (state.loading) { box.innerHTML = frame(`<div class="spin">${state.photoTry ? "📷 Reading the cover, barcode and copyright page…" : "🦆 Checking eBay, Amazon and AbeBooks…"}<br><span class="m">about 20–40 seconds the first time</span></div>`); wire(); return; }
     if (state.err) { box.innerHTML = frame(`<div class="err">Couldn't check it: ${esc(state.err)}</div><div class="btns"><button class="b b1" id="again">Try again</button><button class="b" id="fix">✏️ Fix details</button></div>`); wire();
       root.getElementById("again").onclick = () => run(true); root.getElementById("fix").onclick = () => { state.edit = true; state.err = ""; paint(); }; return; }
 
     // v1.3: does the book the ISBN points to look like THIS listing? (wrong-ISBN guard)
-    const { mismatch, notFound } = r.from_photos ? { mismatch: false, notFound: !(r.stores || []).length } : judge(L, r);
+    const { mismatch, notFound } = r.from_photos || (r.id && r.id.photos_read) ? { mismatch: false, notFound: !(r.stores || []).length } : judge(L, r);
     const v = mismatch ? "PASS" : r.verdict, ic = { BUY: "🟢", MAYBE: "🟡", PASS: "🔴" }[v] || "⚪";
     if (mismatch) r = Object.assign({}, r, { why: "⚠️ The ISBN found points to a different book - tap Fix it" });
     else if (notFound) r = Object.assign({}, r, { why: "Couldn't find this book - check the ISBN (tap Fix it)" });
@@ -169,7 +169,7 @@
         <div class="pr">${r.best ? "Best profit" : "Profit"}<b>${r.best ? money(r.best.profit) : "—"}</b></div></div>
       <div class="book">${amz.image ? `<img src="${esc(amz.image)}" alt="">` : ""}<div><div class="t">${esc(id.title || L.title)}</div>
         <div class="m">${esc([id.author, id.format, id.isbn ? "ISBN " + id.isbn : ""].filter(Boolean).join(" · "))}</div>
-        ${r.from_photos ? `<div class="m ok">📷 Read from the listing photos${id.isbn ? " · ISBN " + esc(id.isbn) : ""}</div>` : id.isbn ? `<div class="m ok">✓ Matched by ISBN${L.isbn ? "" : " (found from the title, double-check)"}</div>` : `<div class="m" style="color:#b45309">No ISBN — matched by title, double-check the edition</div>`}</div></div>
+        ${r.id && r.id.method ? idBadge(r.id) : r.from_photos ? `<div class="m ok">📷 Read from the listing photos${id.isbn ? " · ISBN " + esc(id.isbn) : ""}</div>` : id.isbn ? `<div class="m ok">✓ Matched by ISBN${L.isbn ? "" : " (found from the title, double-check)"}</div>` : `<div class="m" style="color:#b45309">No ISBN — matched by title, double-check the edition</div>`}</div></div>
       ${rows ? `<div class="where"><div class="wh"><span>Where it sells</span><span>Sells for</span><span>Selling?</span><span>Profit</span></div>${rows}</div>` : `<div class="pad m">No copies found for sale on eBay, Amazon or AbeBooks.</div>`}
       <div class="grid">
         <div class="tile edit" id="cost" title="Change price or shipping"><div class="n">${money(r.cost)}</div><div class="l">Your cost ✏️<br>(price + ship)</div></div>
@@ -212,6 +212,19 @@
     }
     return out;
   }
+  // v1.7: how the book was identified - so he knows how much to trust it
+  function idBadge(d) {
+    const W = (t) => `<div class="m" style="color:#b45309;font-weight:700">${t}</div>`, G = (t) => `<div class="m ok">${t}</div>`;
+    const note = d.note ? `<div class="m" style="color:#b45309">${esc(d.note)}</div>` : "";
+    switch (d.method) {
+      case "photo-isbn": return G("✅ ISBN read from the photos");
+      case "photo-isbn-over-seller": return G("✅ ISBN read from the photos (the seller's ISBN was wrong)");
+      case "seller-isbn-confirmed": return G("✅ Seller's ISBN matches the cover");
+      case "cover-title": return W("⚠️ Found by the cover title - check the edition") + note;
+      case "seller-isbn-unchecked": return W("⚠️ Seller's ISBN - no photos to confirm it");
+      default: return W("⚠️ Matched by title only - check it") + note;
+    }
+  }
   function judge(L, r) {
     const STOP = new Set(["with","from","edition","book","books","the","and","for","your","guide","volume","text","textbook","student","series"]);
     const tw = String((r.ident || {}).title || "").toLowerCase().match(/[a-z]{4,}/g) || [];
@@ -232,12 +245,14 @@
     if (!force && !L.isBook) { state.res = null; paint(); return; }   // not a book: just the form
     if (!L.isbn && !L.title) { state.edit = true; paint(); return; }
     state.loading = true; state.err = ""; state.res = null; state.boughtMsg = ""; paint();
-    const body = { action: "check", isbn: L.isbn, title: L.title, author: L.author, price: L.price || 0, ship: L.ship || 0, url: L.url, photos: L.photos || [] };
-    if (!L.isbn && (L.photos || []).length) { state.photoTry = true; paint(); body.images = await photoData(L.photos); }
+    const body = { action: "check", isbn: L.isbn, title: L.title, author: L.author, desc: L.desc || "", price: L.price || 0, ship: L.ship || 0, url: L.url, photos: L.photos || [] };
+    // v1.7 (2026-11-17 "I need this to be a more higher accuracy"): the photos go with EVERY check - the cloud reads the cover,
+    //   barcode and copyright page and only trusts the seller's ISBN when the cover confirms it
+    if ((L.photos || []).length) { state.photoTry = true; paint(); body.images = await photoData(L.photos); }
     let k = await ask(body);
     state.photoTry = false;
-    // v1.4 (2026-11-17 "if it cant find the books, can it look at the picture?"): wrong book or not found -> read the listing photos once
-    if (k.ok && (L.photos || []).length && !k.from_photos) {
+    // no photos could be read: the old guard + nothing else to try
+    if (k.ok && (L.photos || []).length && !k.from_photos && !(body.images || []).length) {
       const j = judge(L, k);
       if (j.mismatch || j.notFound) {
         state.photoTry = true; paint();
@@ -305,5 +320,7 @@
     box.innerHTML = state.open ? frame(`<div class="spin">🦆 Reading the listing…</div>`) : "";
     setTimeout(() => { state.listing = readListing(); if (state.open) run(false); else paint(); }, 1800);
   }
-  setInterval(onPage, 1000); onPage();
+  // after the extension is reloaded, this old copy on an open page stops quietly (no "Extension context invalidated" errors)
+  const alive = () => { try { return !!(chrome.runtime && chrome.runtime.id); } catch (_) { return false; } };
+  const tick = setInterval(() => { if (!alive()) { clearInterval(tick); if (host.isConnected) host.remove(); return; } onPage(); }, 1000); onPage();
 })();

@@ -18,6 +18,9 @@
 //   -> when the listing has no ISBN, or use_photos is set (the extension asks after "can't find" / wrong book), the photos are read by the
 //   Scout app's own photo reader (cover, back cover barcode, copyright page) and the book is priced from what they show.
 // v6 (2026-11-17 20:35): a book read from photos still gets its Amazon row (Keepa current used price incl. shipping, sales/year).
+// v7c (21:05): Amazon-search picks re-read each candidate's editors/authors; a different author never wins; full-title matches rank first.
+// v7 (2026-11-17 20:46, "dig deeper I need this to be a more higher accuracy"): ACCURACY FIRST - every check reads the photos
+//   (config hunter_vision_model, default claude-sonnet-4-6) and the seller's ISBN is only used when the cover confirms it. See the check block.
 // SAFETY: reads only. Writes: hunter.checks (a log) and, on "bought", the Scout Buys row (same as the Scout app's Bought button).
 import postgres from "npm:postgres@3.4.4";
 
@@ -81,6 +84,100 @@ function series(csv: any, cents: boolean) {
   return pts;
 }
 
+// ---------- v7 identification helpers ----------
+const STOPW = new Set(["the","and","for","with","from","into","your","this","that","edition","book","books","volume","vol","text","textbook","student","series","guide","an","a","of","to","in","on","by","ed","new"]);
+const wordsOf = (t: string) => (String(t || "").toLowerCase().replace(/['’]/g, "").match(/[a-z0-9]{3,}/g) || []).filter((w) => !STOPW.has(w) && !/^\d+(st|nd|rd|th)$/.test(w)).map((w) => w.replace(/(ies|es|s)$/, ""));
+function titleMatch(a: string, b: string) {
+  const A = [...new Set(wordsOf(a))], B = [...new Set(wordsOf(b))];
+  if (!A.length || !B.length) return false;
+  const hit = A.filter((w) => B.includes(w)).length;
+  return hit >= 2 || hit / Math.min(A.length, B.length) >= 0.6;
+}
+const ORD: Record<string, number> = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10, eleventh: 11, twelfth: 12 };
+function edNum(t: string): number | null {
+  const s = String(t || "").toLowerCase();
+  const m = s.match(/(\d{1,2})(?:st|nd|rd|th)\s*(?:ed|edition)/) || s.match(/edition\s*(\d{1,2})\b/);
+  if (m) return Number(m[1]);
+  const w = s.match(/\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\s+edition/);
+  return w ? ORD[w[1]] : null;
+}
+function editionOk(coverEd: string, amzTitle: string) { const a = edNum(coverEd), b = edNum(amzTitle); return a == null || b == null || a === b; }
+async function keepaSearch(key: string, term: string): Promise<any[]> {
+  try {
+    const r = await fetch(`https://api.keepa.com/search?key=${encodeURIComponent(key)}&domain=1&type=product&term=${encodeURIComponent(term)}&page=0&stats=365&history=1&days=1095`, { signal: AbortSignal.timeout(20000) });
+    return ((await r.json()).products || []).slice(0, 10);
+  } catch (_) { return []; }
+}
+// v7c (2026-11-17 21:05): author check is 3-way: true = same author/editor, false = a DIFFERENT person, null = Amazon doesn't say.
+//   Keepa search often leaves author blank (Shafer-Landau's "Ethical Theory" 2nd ed. had none), so candidates are re-read with the
+//   product call, which lists contributors (editors too).
+function authorHit(p: any, author: string): boolean | null {
+  const aw = wordsOf(author).filter((w) => w.length >= 4);
+  if (!aw.length) return null;
+  const names = [p.author || "", ...((p.contributors || []) as any[]).map((c: any) => (Array.isArray(c) ? c[0] : String(c || "")))].join(" ");
+  if (aw.some((w) => wordsOf(names + " " + (p.title || "")).includes(w))) return true;
+  return wordsOf(names).length ? false : null;
+}
+const isbnOf = (p: any) => (p?.eanList || []).map(String).find((x: string) => validIsbn(x)) || (validIsbn(p?.asin) ? String(p.asin) : "");
+const peopleOf = (p: any) => wordsOf([p.author || "", ...((p.contributors || []) as any[]).map((c: any) => (Array.isArray(c) ? c[0] : ""))].join(" ")).sort().slice(0, 3).join(" ");
+async function keepaMany(key: string, codes: string[]): Promise<any[]> {
+  if (!codes.length) return [];
+  try {
+    const r = await fetch(`https://api.keepa.com/product?key=${encodeURIComponent(key)}&domain=1&code=${codes.join(",")}&stats=365&history=1&days=1095`, { signal: AbortSignal.timeout(20000) });
+    return (await r.json()).products || [];
+  } catch (_) { return []; }
+}
+// title-matching books with an ISBN from a Keepa search, re-read in full (contributors + 3-year history)
+async function candidates(key: string, prods: any[], cover: any) {
+  const c = prods.filter((p) => p?.title && isbnOf(p) && titleMatch(cover.title, p.title)).slice(0, 6);
+  const full = await keepaMany(key, c.map((p) => isbnOf(p)));
+  return full.length ? full : c;
+}
+function bestProduct(prods: any[], cover: any) {
+  let c = prods.filter((p) => p?.title && isbnOf(p) && titleMatch(cover.title, p.title));
+  if (cover.author) c = c.filter((p) => authorHit(p, cover.author) !== false);      // a book by someone else can never win
+  else if (new Set(c.map(peopleOf).filter(Boolean)).size > 1) return null;           // same title, different authors, no author to tell them apart
+  const cw = [...new Set(wordsOf(cover.title))];
+  let best: any = null, bestScore = -1;
+  for (const p of c) {
+    const pw = wordsOf(p.title);
+    let s = cw.filter((w) => pw.includes(w)).length;
+    if (cw.length && cw.every((w) => pw.includes(w))) s += 4;                         // every word of the cover title is in it
+    if (cover.author && authorHit(p, cover.author) === true) s += 2;
+    if (cover.edition) { if (edNum(cover.edition) != null && edNum(cover.edition) === edNum(p.title)) s += 3; else if (!editionOk(cover.edition, p.title)) s -= 5; }
+    if (cover.format && p.binding && String(p.binding).toLowerCase().includes(String(cover.format).toLowerCase().slice(0, 4))) s += 1;
+    if (s > bestScore) { bestScore = s; best = p; }
+  }
+  return bestScore >= 1 ? best : null;
+}
+async function readCover(model: string, shots: { data: string; mt: string }[], seller: any) {
+  const prompt = `These ${shots.length} photo(s) are from ONE used-book listing on Vinted (cover, back, spine, barcode or copyright page).
+Identify the book from what the PHOTOS show. The seller typed this (it can be WRONG - use it only as a hint, never copy it as a fact):
+title: ${seller.title}\nauthor: ${seller.author}\nISBN typed: ${seller.isbn}\ndescription: ${seller.desc}
+
+Rules:
+- isbn_seen: the ISBN exactly as printed in a photo (barcode text "ISBN 978-..." or copyright page). Copy every digit carefully. If any digit is blurry, cut off or covered, leave it "" and set isbn_clear false. Never use the seller's typed ISBN here.
+- author: the author/editor shown in the photos. If the photos don't show one, use the author/editor named in the seller's description ONLY if it fits this book, and set author_from_seller true.
+- edition: e.g. "5th edition" only if the photos show it.
+- is_book: false if this is not a book.
+- tgatb: true only if it is The Good and the Beautiful / Jenny Phillips material.
+Answer ONLY JSON: {"is_book":true,"title":"","author":"","author_from_seller":false,"edition":"","year":"","format":"Paperback | Hardcover | Spiral | Other","isbn_seen":"","isbn_clear":true,"tgatb":false,"confidence":"high | medium | low"}`;
+  for (let a = 1; a <= 2; a++) {
+    const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", signal: AbortSignal.timeout(45000),
+      headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model, max_tokens: 600, messages: [{ role: "user", content: [
+        ...shots.map((x) => ({ type: "image", source: { type: "base64", media_type: x.mt, data: x.data } })), { type: "text", text: prompt }] }] }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) {
+      const raw = (j.content || []).filter((x: any) => x.type === "text").map((x: any) => x.text).join("").replace(/```json|```/g, "");
+      try { return JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)); } catch (_) { continue; }
+    }
+    if (r.status === 429 || r.status >= 500) { await new Promise((z) => setTimeout(z, 2500 * a)); continue; }
+    break;
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ ok: false, error: "POST only" }, 405);
@@ -112,62 +209,60 @@ Deno.serve(async (req) => {
     const [kk] = await sql`select value from backup.config where key = 'keepa_key'`;
     const key = String(kk?.value || "");
 
-    // v5: the listing photos (Vinted image servers only), read when there's no ISBN or the extension asks
-    const photoUrls: string[] = (Array.isArray(b.photos) ? b.photos : []).map(String)
-      .filter((u: string) => /^https:\/\/[a-z0-9.-]*vinted\.(net|com)\//i.test(u)).slice(0, 4);
-    const usePhotos = photoUrls.length > 0 && (!!b.use_photos || !isbn);
-    let shots: { data: string; mt: string }[] = [];
-    // the extension sends the photos itself (read in his browser tab); the URLs are only a fallback
+    // ---------- v7 (2026-11-17 20:46, "dig deeper I need this to be a more higher accuracy"): ACCURACY FIRST ----------
+    // The seller's typed ISBN is never trusted on its own. Every check reads the listing photos (cover, back, barcode, copyright page)
+    // with a strong vision model, then picks the ISBN in this order:
+    //   1) an ISBN read clearly from the photos (barcode / copyright page)        -> "photo-isbn"
+    //   2) the seller's ISBN, only if its book matches the cover (title + edition) -> "seller-isbn-confirmed"
+    //   3) Amazon search by the cover's title + author (+ edition)                 -> "cover-title" (flagged: check the edition)
+    //   4) nothing found                                                           -> "title-only" (flagged)
+    // No photos at all -> the seller's ISBN, marked "seller-isbn-unchecked".
     const sent = (Array.isArray(b.images) ? b.images : []).filter((x: any) => x && typeof x.data === "string" && x.data.length > 3000 && x.data.length < 6_000_000).slice(0, 4)
       .map((x: any) => ({ data: x.data, mt: /^image\/(jpeg|png|webp)$/.test(String(x.mt)) ? String(x.mt) : "image/jpeg" }));
-    if ((b.use_photos || !isbn) && sent.length) shots = sent;
-    else if (usePhotos) {
-      shots = (await Promise.all(photoUrls.map(async (u) => {
-        try {
-          const r = await fetch(u, { signal: AbortSignal.timeout(15000) });
-          if (!r.ok) return null;
-          const buf = new Uint8Array(await r.arrayBuffer());
-          if (buf.length < 3000 || buf.length > 4_500_000) return null;
-          let s2 = ""; for (let i = 0; i < buf.length; i += 0x8000) s2 += String.fromCharCode(...buf.subarray(i, i + 0x8000));
-          return { data: btoa(s2), mt: (r.headers.get("content-type") || "image/jpeg").split(";")[0] };
-        } catch (_) { return null; }
-      }))).filter(Boolean) as any;
+    const listIsbn = isbn;
+    let method = "", idNote = "", cover: any = null, kpFound: any = null;
+    if (sent.length) {
+      const [vm] = await sql`select value from pipeline.config where key = 'hunter_vision_model'`;
+      cover = await readCover(String(vm?.value || "claude-sonnet-4-6"), sent, { title, author, desc: String(b.desc || "").slice(0, 1500), isbn: String(b.isbn || "") }).catch(() => null);
     }
+    if (cover && cover.is_book === false) {
+      return json({ ok: false, error: "The photos don't look like a book - use Fix it if it is one" });
+    }
+    if (cover?.title) {
+      const photoIsbn = validIsbn(cover.isbn_seen) && cover.isbn_clear !== false ? isbn10to13(cover.isbn_seen) : "";
+      if (photoIsbn) {
+        isbn = photoIsbn; method = listIsbn && listIsbn !== photoIsbn ? "photo-isbn-over-seller" : "photo-isbn";
+      } else if (listIsbn && key) {
+        const kpL = await keepa(key, { code: listIsbn });
+        const ok = kpL?.title && titleMatch(cover.title, kpL.title) && editionOk(cover.edition, kpL.title);
+        if (ok) { method = "seller-isbn-confirmed"; kpFound = kpL; }
+        else { isbn = ""; idNote = kpL?.title ? `The seller's ISBN is "${String(kpL.title).slice(0, 70)}" - not this book` : "The seller's ISBN isn't on Amazon"; }
+      }
+      if (!isbn && key) {
+        const prods = await keepaSearch(key, [cover.title, cover.author, cover.edition].filter(Boolean).join(" ").slice(0, 120));
+        const pick = bestProduct(await candidates(key, prods, cover), cover);
+        if (pick) { isbn = isbn10to13(isbnOf(pick)); kpFound = pick; method = "cover-title"; }
+      }
+      if (!isbn) method = "title-only";
+    } else {
+      method = listIsbn ? "seller-isbn-unchecked" : "title-only";
+    }
+    const idTitle = cover?.title || title, idAuthor = cover?.author || author;
 
-    // same book checked in the last 6 hours: reuse the store numbers (they don't move that fast), redo the profit with this cost
+    // same book checked in the last 6 hours: reuse the store numbers, redo the profit with this cost
     let base: any = null;
-    if (isbn && !shots.length) {
+    if (isbn) {
       const [c] = await sql`select result from hunter.checks where isbn = ${isbn} and at > now() - interval '6 hours' and result ? 'stores' order by at desc limit 1`;
-      if (c && c.result?.v === 3) base = c.result;
+      if (c && c.result?.v === 4) base = c.result;
     }
     if (!base) {
-      // no ISBN on the listing: find it on Amazon by title + author
-      let kp: any = null;
-      let sc: any = null;
-      if (shots.length) {
-        sc = await scout({ action: "evaluate", images: shots, cost, store: "Vinted" });
-        const pi = digits(sc?.ident?.isbn || "");
-        if (validIsbn(pi)) isbn = isbn10to13(pi);
-        else if (b.use_photos) isbn = "";      // the listing's ISBN was wrong and the photo shows none: don't keep the wrong one
-        if (!isbn && key && sc?.ident?.title) {  // find it on Amazon by the title the photos show
-          kp = await keepa(key, { term: [sc.ident.title, sc.ident.author].filter(Boolean).join(" ").slice(0, 120) });
-          const e = (kp?.eanList || []).map(String).find((x: string) => validIsbn(x));
-          if (e) isbn = isbn10to13(e); else kp = null;
-        }
-      }
-      if (!isbn && !shots.length && title && key) {
-        kp = await keepa(key, { term: [title, author].filter(Boolean).join(" ").slice(0, 120) });
-        const e = (kp?.eanList || []).map(String).find((x: string) => validIsbn(x));
-        if (e) isbn = isbn10to13(e);
-      }
-      const [sc0, kp2] = await Promise.all([
-        sc ? Promise.resolve(sc) : isbn ? scout({ action: "evaluate", isbn, cost, store: "Vinted" })
-             : scout({ action: "evaluate", ident: { title, author, isbn: "", search: [title, author].join(" "), confidence: "medium" }, cost, store: "Vinted" }),
-        kp ? Promise.resolve(kp) : isbn && key ? keepa(key, { code: isbn }) : Promise.resolve(null),
+      const [sc, kp2] = await Promise.all([
+        isbn ? scout({ action: "evaluate", isbn, cost, store: "Vinted" })
+             : scout({ action: "evaluate", ident: { title: idTitle, author: idAuthor, isbn: "", edition: cover?.edition || "", search: [idTitle, idAuthor].join(" "), confidence: "medium" }, cost, store: "Vinted" }),
+        kpFound ? Promise.resolve(kpFound) : isbn && key ? keepa(key, { code: isbn }) : Promise.resolve(null),
       ]);
-      sc = sc0;
       if (sc.error) return json({ ok: false, error: "Scout: " + sc.error });
-      if (sc.verdict === "RETAKE") return json({ ok: false, error: "Couldn't read the book from the photos - type the ISBN with Fix it" });
+      if (sc.verdict === "RETAKE") return json({ ok: false, error: "Couldn't identify the book - type the ISBN with Fix it" });
       const id = sc.ident || {}, g = sc.grid || {}, amz = g.amazon || {}, eb = g.ebay || {}, abe = g.abe || {};
       const stores: any[] = [];
       if (eb.n > 0 && sc.list) stores.push({ store: "eBay", sells: sc.list, selling: eb.sold > 0 ? `${eb.sold} sold` : `${eb.n} listed, none sold yet`, proven: eb.sold > 0 });
@@ -176,7 +271,6 @@ Deno.serve(async (req) => {
       if (!priceSeries.some((x) => x != null) && p0) priceSeries = series(p0.csv?.[2], true).map((x) => (x == null ? null : r2(x + 3.99)));
       const m3 = mid3(priceSeries);
       const drops365 = typeof p0?.stats?.salesRankDrops365 === "number" && p0.stats.salesRankDrops365 >= 0 ? p0.stats.salesRankDrops365 : null;
-      // v6: when Scout has no Amazon price (book read from photos), use Keepa's own current used price (incl. shipping)
       const kNow = p0?.stats?.current?.[21] > 0 ? p0.stats.current[21] / 100 : p0?.stats?.current?.[2] > 0 ? p0.stats.current[2] / 100 + 3.99 : 0;
       const amzNow = amz.used_bb || amz.used_low || r2(kNow) || 0;
       const amzSafe = amzNow && m3 ? Math.min(amzNow, m3.median) : amzNow;
@@ -186,20 +280,23 @@ Deno.serve(async (req) => {
       if (abe.n > 0) stores.push({ store: "AbeBooks", sells: abe.avg, selling: `${abe.n} ${abe.n === 1 ? "copy" : "copies"} listed`, proven: false });
       const p = kp2 || null;
       base = {
-        ident: { title: id.title || title, author: id.author || author, isbn: isbn || digits(id.isbn), format: id.format || "", publisher: id.publisher || "", tgatb: !!id.tgatb },
+        ident: { title: id.title || idTitle, author: id.author || idAuthor, isbn: isbn || digits(id.isbn), format: id.format || cover?.format || "", publisher: id.publisher || "",
+                 edition: cover?.edition || id.edition || "", tgatb: !!id.tgatb },
         stores, scout_verdict: sc.verdict, scout_reason: sc.reason, hard: sc.hard || [], flags: (sc.flags || []).slice(0, 6), family: sc.family || "",
         amazon: { asin: p?.asin || sc.amazon?.asin || "", rank: amz.rank || null, sales90: amz.sales90 ?? null, offers: p?.stats?.current?.[12] > 0 ? p.stats.current[12] : null,
                   title: p?.title || "", image: p?.images?.[0]?.l ? "https://m.media-amazon.com/images/I/" + p.images[0].l : p?.imagesCSV ? "https://m.media-amazon.com/images/I/" + String(p.imagesCSV).split(",")[0] : "" },
-        chart: p ? { price: priceSeries, rank: series(p.csv?.[3], false), years: 3, m3 } : null, v: 3, from_photos: shots.length > 0,
+        chart: p ? { price: priceSeries, rank: series(p.csv?.[3], false), years: 3, m3 } : null, v: 4,
       };
       const asin = base.amazon.asin || isbn13to10(isbn);
       const [h] = await sql`select hunter.history(${isbn || null}, ${asin || null}) as h`;
       base.history = h.h;
       const [bd] = await sql`select buy_target, sell_target from bd.check where asin = ${asin || ""}`.catch(() => [] as any[]);
       base.bargain = bd ? { buy: Number(bd.buy_target) || null, sell: Number(bd.sell_target) || null } : null;
-      // TGATB check on Keepa's publisher too
       if (/good and the beautiful|jenny phillips/i.test([p?.manufacturer, p?.publisher, p?.title, base.ident.title, base.ident.publisher].join(" "))) base.ident.tgatb = true;
     }
+    if (cover?.tgatb) base.ident.tgatb = true;
+    base.id = { method, note: idNote, cover_title: cover?.title || "", cover_edition: cover?.edition || "", seller_isbn: listIsbn || "", photos_read: sent.length };
+    base.from_photos = sent.length > 0;
 
     // ---------- profit per store and the call (profit = what it sells for minus his cost) ----------
     const stores = (base.stores || []).map((s: any) => ({ ...s, profit: r2(s.sells - cost) })).sort((a: any, b2: any) => b2.profit - a.profit);
