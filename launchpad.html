@@ -1021,7 +1021,9 @@ const pullSort = (a, b) => {
   return na - nb;
 };
 function shipCard() {
-  if (!toShip.length) return "";
+  // 2026-11-18 Papa Duck "the sales to ship is not showing the card": it hid when everything was shipped - now it always shows
+  if (!toShip.length) return `<section class="card" aria-label="To ship"><h2 style="margin:0">📬 To ship · 0 sales</h2>
+    <p class="muted" style="margin:0">All caught up. Nothing waiting to ship. New sales show up here within about 5 minutes.</p></section>`;
   const names = { ebay: "eBay", ebay_other: "eBay Other", abe: "AbeBooks", etsy: "Etsy", amazon: "Amazon" };
   const order = ["abe", "ebay", "etsy", "amazon"];
   const byPd = pullSort;
