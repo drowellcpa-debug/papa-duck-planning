@@ -174,6 +174,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
   </div>
   <div class="conn" id="conn"><svg class="lclock" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line class="hand" id="lhand" x1="12" y1="12" x2="12" y2="4" stroke="#F2C230" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg><span id="connt">Connecting to Supabase…</span></div>
 </header>
+<div id="shiptop" style="max-width:1320px;margin:0 auto;padding:14px max(16px, 2vw) 0"></div>
 <div id="healthbox" style="max-width:1320px;margin:0 auto;padding:14px max(16px, 2vw) 0"></div>
 <div class="wrap">
   <div style="display:flex;flex-direction:column;gap:18px;min-width:0"><div id="combinebox"></div><main id="main"><p class="empty">Loading tonight's blast off…</p></main>
@@ -309,6 +310,11 @@ function jobState(list) {
 function render() {
   try { gwRender(); } catch (e) {}
   { const sb = $("salesbox"); if (sb) sb.innerHTML = salesCard(); }
+  // 2026-11-18 Papa Duck: "Can it be at the very top of app" - 📬 To ship sits above everything (its own spot, wired here)
+  { const sp = $("shiptop"); if (sp && !(sp.contains(document.activeElement) && document.activeElement.tagName === "INPUT")) { sp.innerHTML = shipCard();
+      sp.querySelectorAll("[data-ship]").forEach((b) => b.onclick = () => shipTap(b.dataset.ship));
+      sp.querySelectorAll("[data-shipcancel]").forEach((b) => b.onclick = () => cancelTap(b.dataset.shipcancel));
+      sp.querySelectorAll("[data-shipsort]").forEach((b) => b.onclick = () => { shipSort = b.dataset.shipsort; try { localStorage.setItem("lp_ship_sort", shipSort); } catch (e) {} render(); }); } }
   try { renderBd(); } catch (e) { console.log("[bd]", e); }
   try { renderAudit(); } catch (e) { console.log("[audit]", e); }
   try { renderTodo(); } catch (e) { console.log("[todo]", e); }
@@ -319,7 +325,7 @@ function render() {
   if (!n) {
     $("nightline").textContent = "No blast off waiting";
     box.innerHTML = h + `<section class="card"><h2>Nothing waiting yet</h2><p class="muted" style="margin:0">When tonight's books are ready, press the button. I gather everything in Sent, ask you anything I need, then build the files.</p>
-      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + alertCard() + shipCard() + fbaTrackCard() + weekCard() + historyCard();
+      <div class="row"><button id="startbtn">🚀 Start tonight's blast off</button></div></section>` + alertCard() + fbaTrackCard() + weekCard() + historyCard();
     wire(); return;
   }
   const qs = st.questions || [], rc = st.reconsider || [];
@@ -356,14 +362,14 @@ function render() {
     h += `<section class="card" aria-label="Night closed"><h2>✅ Night ${esc(n.night.replace(/-.*/, ""))} is closed · all cleared and listed</h2>
       <p style="margin:0">${n.pds.length} books, ${esc(n.pds[0])} to ${esc(n.pds[n.pds.length - 1])}. Every store sent, Airtable correct, live on the stores. The summary is saved in 🚀 Blast offs below.</p>
       <div class="row"><button class="ghost" id="startbtn">🚀 Start the next blast off</button><span class="muted" style="font-size:.9rem">or press 🚀 Blast off to Launch Pad in Drafts</span></div></section>`;
-    h += alertCard() + shipCard() + fbaTrackCard() + weekCard() + historyCard();
+    h += alertCard() + fbaTrackCard() + weekCard() + historyCard();
     box.innerHTML = h; wire(); return;
   }
   if (building || n.status === "ready_to_send" || n.status === "dry_built") h += buildCard(n, building);
   // 4) send, one step at a time
   if (n.status === "ready_to_send") h += sendCard() + verifyCard();
   if (n.status === "dry_built") h += `<section class="card"><h2>Test run finished</h2><p style="margin:0">The test files were built and checked. Nothing was sent.</p></section>`;
-  h += alertCard() + shipCard() + fbaTrackCard() + weekCard() + historyCard();
+  h += alertCard() + fbaTrackCard() + weekCard() + historyCard();
   box.innerHTML = h;
   wire();
 }
