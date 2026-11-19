@@ -153,6 +153,12 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 .soldgrid td { padding: 6px 3px; border-bottom: 1px solid var(--line); vertical-align: middle }
 .soldgrid td.sc { text-align: center; font-size: 1.05rem; width: 46px }
 .soldgrid td.sc.none { color: var(--muted) } .soldgrid td.sc.left { font-size: .8rem; font-weight: 700 } .soldgrid td.sc.bad { background: var(--red-bg) }
+/* 2026-11-18 Papa Duck: "can everything be in collapsed mode except sales to be shipped out" - tap a card's title to open it */
+.card.cz-closed > :not(.cz-head) { display: none !important }
+.card.cz > .cz-head { cursor: pointer }
+.cz-h::before { content: "▾ "; color: var(--muted); font-size: .8em }
+.card.cz-closed .cz-h::before { content: "▸ " }
+.card.cz-closed { padding-bottom: 12px }
 </style>
 
 <header class="top">
@@ -1711,6 +1717,35 @@ function renderSold() {
   if (!mcp) { $("conn").textContent = "Open this page inside claude.ai to connect."; $("main").innerHTML = '<p class="empty">This page talks to Supabase through your claude.ai connector, so it only works when opened in claude.ai.</p>'; return; }
   window.claude.use("sample").then((s) => { sample = s; if (!s) { $("duckhint").textContent = "Grandpa Duck isn't available in this view."; $("askbtn").disabled = true; } });
   refresh(true);
+})();
+
+// ---------- Collapsed cards (Papa Duck 2026-11-18 23:14): "On launch app can everything be in collapsed mode except sales to be shipped out".
+// Every card starts closed except 📬 To ship; tap its title to open or close. Open/closed is remembered on this device.
+// Cards re-draw often, so a watcher re-applies the state to each new card. The Store audit keeps its own ▸ open button.
+(() => {
+  // To ship stays open, and so do the blast off steps while a night is running (questions he must answer, Build, Send, summary).
+  const KEEP_OPEN = new Set(["To ship", "Question", "Prayerfully Reconsider", "Build", "Build progress", "Send", "Confirmation", "PD number check",
+    "Night closed", "Tonight's summary", "To deal with", "Combined invoice"]), OWN = new Set(["Store audit"]);
+  let open = {}; try { open = JSON.parse(localStorage.getItem("lp_open_cards") || "{}") || {}; } catch (e) { open = {}; }
+  const save = () => { try { localStorage.setItem("lp_open_cards", JSON.stringify(open)); } catch (e) {} };
+  const isOpen = (k) => (k in open ? !!open[k] : KEEP_OPEN.has(k));
+  function prep(card) {
+    const k = card.getAttribute("aria-label");
+    if (!k || OWN.has(k) || card.dataset.cz) return;
+    if (card.parentElement && card.parentElement.closest(".card")) return;            // only top-level cards
+    const head = card.firstElementChild; if (!head || card.children.length < 2) return;
+    card.dataset.cz = "1"; card.classList.add("cz"); head.classList.add("cz-head");
+    const h = head.matches("h2,h3") ? head : head.querySelector("h2,h3"); if (h) h.classList.add("cz-h");
+    card.classList.toggle("cz-closed", !isOpen(k));
+    head.addEventListener("click", (e) => {
+      if (e.target.closest("button,a,input,select,textarea,label,[data-sview]")) return;   // the card's own buttons still work
+      open[k] = card.classList.contains("cz-closed"); save();
+      card.classList.toggle("cz-closed", !open[k]);
+    });
+  }
+  const scan = () => document.querySelectorAll("section.card[aria-label], aside.card[aria-label]").forEach(prep);
+  new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
+  scan();
 })();
 </script>
 
