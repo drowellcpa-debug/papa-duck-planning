@@ -1,3 +1,4 @@
+// v6 (2026-11-18): + pipeline.sold_today for the "Sold today" grid (replaces Check a find on the Launch Pad).
 // v5 (2026-11-18): + combine_list / combine_send / combine_dismiss for the combined invoice card.
 // v4 (2026-11-18): + pipeline.health_board / health_kick for the System Health card.
 // v3 (2026-11-18): Launch Pad refresh query is cut off at 24 s on the database side (it kept running after the page gave up and piled up).
@@ -32,7 +33,7 @@ const LP_FN = new Set(["audit.report_full","bd.add_book","bd.board","bd.bought",
   "pipeline.unrestrict_applied","pipeline.unrestrict_recheck","pipeline.vinted_box","pipeline.vinted_lot_make","pipeline.vinted_lot_ready",
   "pipeline.vinted_lot_remove","pipeline.vinted_lot_save","pipeline.vinted_lot_write","pipeline.week_check","pipeline.week_keep","pipeline.week_print",
   "pipeline.week_print_draft","pipeline.bin_board","pipeline.health_board","pipeline.health_kick",
-  "pipeline.combine_list","pipeline.combine_send","pipeline.combine_dismiss"]);
+  "pipeline.combine_list","pipeline.combine_send","pipeline.combine_dismiss","pipeline.sold_today"]);
 const LIT = "(?:-?\\d+(?:\\.\\d+)?|null|true|false|'(?:[^']|'')*'(?:::jsonb)?|array\\[(?:\\d+(?:,\\d+)*)?\\]::bigint\\[\\])";
 const LP_CALL = new RegExp("^select ((?:pipeline|bd|audit)\\.[a-z_]+)\\((" + LIT + "(?:, ?" + LIT + ")*)?\\)(?: as [a-z]+)?$", "s");
 const norm = (x: string) => x.replace(/\s+/g, " ").trim();

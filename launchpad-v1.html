@@ -148,6 +148,11 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 .hdots i.green { background: var(--green) } .hdots i.yellow { background: var(--yellow) } .hdots i.red { background: var(--red) }
 .boxbar { height: 14px; background: var(--gray); border-radius: 7px; overflow: hidden }
 .boxbar > i { display: block; height: 100%; background: var(--green) }
+.soldgrid { width: 100%; border-collapse: collapse; font-size: .9rem }
+.soldgrid th { font-size: .78rem; color: var(--muted); font-weight: 700; padding: 4px 3px; border-bottom: 2px solid var(--line); text-align: center }
+.soldgrid td { padding: 6px 3px; border-bottom: 1px solid var(--line); vertical-align: middle }
+.soldgrid td.sc { text-align: center; font-size: 1.05rem; width: 46px }
+.soldgrid td.sc.none { color: var(--muted) } .soldgrid td.sc.left { font-size: .8rem; font-weight: 700 } .soldgrid td.sc.bad { background: var(--red-bg) }
 </style>
 
 <header class="top">
@@ -165,18 +170,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
   <div id="auditbox"></div></div>
   <div class="rcol">
   <div id="gwbox"></div>
-  <section class="card" id="findcard" aria-label="Check a find">
-    <h2 style="margin:0">🔎 Check a find</h2>
-    <p class="muted" style="margin:0;font-size:.9rem">Saw a book on Vinted? Paste the ISBN or title (or add a screenshot) and the price with shipping. I'll give you buy or pass. You still tap Buy yourself.</p>
-    <label class="muted" for="fdisbn" style="font-size:.85rem">ISBN or title</label>
-    <input id="fdisbn" type="text" placeholder="9781565770386 or Saxon Math 76">
-    <label class="muted" for="fdcost" style="font-size:.85rem">Price with shipping ($)</label>
-    <input id="fdcost" type="text" inputmode="decimal" placeholder="8.50">
-    <label class="muted" for="fdpic" style="font-size:.85rem">Screenshot or photo (optional)</label>
-    <input id="fdpic" type="file" accept="image/*">
-    <div class="row"><button id="fdgo">Check it</button><button id="fdclear" class="ghost" type="button">Clear</button></div>
-    <div id="fdout" aria-live="polite"></div>
-  </section>
+  <div id="soldbox"></div>
   <aside class="card duck" aria-label="Ask Grandpa Duck">
     <h2>Ask Grandpa Duck</h2>
     <div class="chat" id="chat" aria-live="polite"><p class="msg duck">Hi Papa Duck. Ask me anything about tonight's books, a photo that turned red, or why a book went where it did.</p></div>
@@ -1660,7 +1654,7 @@ async function refresh(force) {
     gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
     tickClock();
     if (!hist || Date.now() - histAt > 60000) { histAt = Date.now(); loadHist(); }
-    loadBd(); loadTodo(); loadVb(); loadHealth(); loadCombine();
+    loadBd(); loadTodo(); loadVb(); loadHealth(); loadCombine(); loadSold();
     render();
     autoVerify();
   } catch (e) { showError(e); }
@@ -1675,47 +1669,42 @@ function schedule() {
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(true); });
 $("askform").onsubmit = ask;
 
-// ---------- 🔎 Check a find (v57, 2026-11-08): Vinted finds -> pipeline.check_find -> Scout brain. Never buys anything. ----------
-function fdShrink(file) {
-  return new Promise((ok, bad) => {
-    const img = new Image(), u = URL.createObjectURL(file);
-    img.onload = () => { const s = Math.min(1, 1100 / Math.max(img.width, img.height)); const c = document.createElement("canvas");
-      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(u); ok(c.toDataURL("image/jpeg", 0.8).split(",")[1]); };
-    img.onerror = () => bad(new Error("Couldn't open that picture"));
-    img.src = u;
-  });
+// ---------- ✅ Sold today (Papa Duck 2026-11-18): "take that off since you have the vinted app and add the daily book autit there that on a grid
+//   shows me the book sold and then removed for today, then it goes to the audit report the next day and starts over, make it clean and clear".
+//   One row per sale caught today (Pacific). One square per store: 💵 sold there · ✅ taken off · — wasn't listed there · # copies left.
+//   Yesterday's sales live in the 🧾 Store audit. Data: pipeline.sold_today().
+let sold = null, soldAt = 0;
+async function loadSold(force) {
+  if (!force && Date.now() - soldAt < 60000) return;
+  soldAt = Date.now();
+  try { const r = await q("select pipeline.sold_today() as s"); sold = (r[0] && r[0].s) || null; } catch (e) { console.log("[sold]", e); }
+  renderSold();
 }
-function fdShow(r) {
-  if (!r || r.ok === false || r.error) return `<div class="notice bad">${esc((r && r.error) || "Something went wrong — try again.")}</div>`;
-  const v = String(r.verdict || "CHECK"), good = v === "BUY";
-  const icon = good ? "🟢 BUY" : v === "PASS" ? "🔴 Pass" : v === "TOSS" ? "🔴 Pass" : "🟡 " + v.charAt(0) + v.slice(1).toLowerCase();
-  const t = (r.ident && (r.ident.title || "")) || "";
-  const hard = (r.hard || []).map((x) => `<li>${esc(x)}</li>`).join("");
-  return `<div class="notice ${good ? "good" : "bad"}" style="display:flex;flex-direction:column;gap:4px">
-    <span style="font-size:1.15rem">${icon}</span>
-    ${t ? `<span>${esc(t)}</span>` : ""}
-    <span>Retail ${r.list != null ? money(r.list) : "—"} · Cost ${r.cost != null ? money(r.cost) : "—"} · Profit ${r.profit != null ? money(r.profit) : "—"}</span>
-    <span class="muted" style="font-weight:400">${esc(r.reason || "")}</span>
-    ${hard ? `<ul style="margin:0;padding-left:18px">${hard}</ul>` : ""}</div>`;
+function soldCell(v) {
+  const t = String(v || "");
+  if (t === "sold") return `<td class="sc sold" title="Sold here">💵</td>`;
+  if (t === "removed" || t === "ended" || t === "deleted") return `<td class="sc off" title="Taken off">✅</td>`;
+  if (t === "" || t === "none") return `<td class="sc none" title="Wasn't listed here">—</td>`;
+  const m = t.match(/^(?:kept|qty):(\d+)/); if (m) return `<td class="sc left" title="${m[1]} copies still for sale (more than one copy)">${m[1]} left</td>`;
+  return `<td class="sc bad" title="${esc(t)}">⚠️</td>`;
 }
-$("fdgo").addEventListener("click", async () => {
-  const out = $("fdout"), btn = $("fdgo");
-  if (!mcp) { out.innerHTML = `<div class="notice bad">Still connecting — try again in a moment.</div>`; return; }
-  const raw = $("fdisbn").value.trim(), cost = $("fdcost").value.replace(/[^0-9.]/g, ""), f = $("fdpic").files[0];
-  const p = { cost: cost === "" ? null : Number(cost) };
-  if (/^[0-9Xx\- ]{10,17}$/.test(raw)) p.isbn = raw; else if (f) { try { p.image = await fdShrink(f); } catch (e) { out.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; } }
-  if (!p.isbn && !p.image && raw) p.title = raw;
-  if (!p.isbn && !p.image && !p.title) { out.innerHTML = `<div class="notice bad">Add an ISBN, a title, or a screenshot.</div>`; return; }
-  btn.disabled = true; out.innerHTML = `<p class="muted" style="margin:0">Checking eBay, AbeBooks and Amazon… about 10–30 seconds.</p>`;
-  try {
-    const rows = await q(`select pipeline.check_find('${JSON.stringify(p).replace(/'/g, "''")}'::jsonb) as r`);
-    let r = rows && rows[0] && rows[0].r; if (typeof r === "string") r = JSON.parse(r);
-    out.innerHTML = fdShow(r);
-  } catch (e) { out.innerHTML = `<div class="notice bad">${esc(String(e.message || e))}</div>`; }
-  btn.disabled = false;
-});
-$("fdclear").addEventListener("click", () => { $("fdisbn").value = ""; $("fdcost").value = ""; $("fdpic").value = ""; $("fdout").innerHTML = ""; });
+function renderSold() {
+  const el = $("soldbox"); if (!el) return;
+  if (!sold) { el.innerHTML = `<section class="card" aria-label="Sold today"><h2 style="margin:0">✅ Sold today</h2><p class="muted" style="margin:0">Loading…</p></section>`; return; }
+  const rows = sold.rows || [], ST = [["ebay", "eBay"], ["abe", "Abe"], ["etsy", "Etsy"], ["amazon", "Amz"]];
+  const bad = rows.filter((r) => ST.some(([k]) => { const v = String(r[k] || ""); return !/^(sold|removed|ended|deleted|none|kept:\d+|qty:\d+)?$/.test(v); }) || r.airtable !== "logged");
+  const day = new Date(String(sold.today) + "T12:00:00").toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
+  const pill = !rows.length ? "" : bad.length ? `<span class="hpill red">${bad.length} to check</span>` : `<span class="hpill green">All clear</span>`;
+  const body = !rows.length ? `<p class="muted" style="margin:0">No sales yet today.</p>` : `<div style="overflow-x:auto"><table class="soldgrid">
+      <thead><tr><th style="text-align:left">Book</th>${ST.map(([, n]) => `<th>${n}</th>`).join("")}<th>Airtable</th></tr></thead>
+      <tbody>${rows.map((r) => `<tr><td style="text-align:left"><b>${esc(r.pd)}</b> <span class="sbadge ${esc(r.ch)}">${esc({ ebay: "eBay", abe: "Abe", etsy: "Etsy", amazon: "Amz" }[r.ch] || r.ch)}</span> ${r.price != null ? money(r.price) : ""}<br><span class="muted" style="font-size:.82rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" title="${esc(r.title)}">${esc(r.title)}</span></td>
+        ${ST.map(([k]) => soldCell(r[k])).join("")}<td class="sc ${r.airtable === "logged" ? "off" : "bad"}">${r.airtable === "logged" ? "✅" : "⚠️"}</td></tr>`).join("")}</tbody></table></div>
+      <p class="muted" style="margin:0;font-size:.8rem">💵 sold there · ✅ taken off · — wasn't listed there · “2 left” = more copies still for sale</p>`;
+  el.innerHTML = `<section class="card" aria-label="Sold today">
+    <div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">✅ Sold today</h2>${pill}</div>
+    <p class="muted" style="margin:0;font-size:.88rem">${esc(day)} · ${rows.length} sale${rows.length === 1 ? "" : "s"}. Tomorrow these move to the Store audit and this starts over.</p>
+    ${body}</section>`;
+}
 
 (async () => {
   mcp = window.claude && await window.claude.use("mcp");
