@@ -1,0 +1,8 @@
+-- 2026-11-19 21:33 Papa Duck: "yes but put both pd# on it" - PD-6017 is a 2nd copy of PD-6013 (Selected Poetry, Wordsworth, Good, $9.99).
+-- eBay blocked PD-6017 (21919067: identical item already listed as 407376182947). Done by hand:
+--   * qty-set {"pd":"PD-6013","qty":2}: eBay 407376182947 quantity 2, Airtable PD-6013 Quantity 2, draft qty 2
+--   * AbeBooks job 149 data file: PD-6017 row removed, PD-6013 quantity 2; PD-6017 send_items removed from jobs 149/150
+--   * eBay job 147 closed (PD-6017 item note: 2nd copy of PD-6013)
+--   * Airtable: PD-6013 Notes "2 copies on this one listing: PD-6013 + PD-6017"; PD-6017 Status Merged + note
+--   * drafts id 1118 (PD-6017): answers.copy_of = PD-6013, built_at set
+-- The eBay custom label stays PD-6013 (one label per listing, so sales match); either sticker ships.
