@@ -30,6 +30,11 @@
 //   the used-seller count is read so it can say "list a month early" when sellers pile in at the peak. See seasonOf.
 // v8d (2026-11-19 18:10, "when inventory is down that means my prices will go up with less sellers"): today's used-seller count vs its
 //   usual 3-year level. Half or less = low supply: Duck Hunter says the price is likely to rise, and a held book turns READY at 85% of target.
+// v8e (2026-11-19 18:14, from BookMine's Keepa tutorial, "yes if you think it is more accurate"): the season price is what the book
+//   actually SOLD for (used price at each sales-rank drop in the season window, 75th percentile per year), not just the highest asking
+//   price; and every check shows the most he can offer and still make his minimum profit (pipeline.config hunter_min_profit).
+// v8f (2026-11-19 18:17): the season row only appears when the book proves it sells in that season, and only a proven store can be
+//   the headline "Best profit" (a PASS showed "Best profit $55.67" from a season price with 0 sales).
 // v8b (2026-11-19 18:00, "track when i buy them and watch the real prices weekly to let me know when to list them. I will not list them
 //   until the prices reaches the good time for profit"): every Duck Hunter "bought" goes into hunter.holds with its target (the season
 //   high). POST {action:"watch"} (cron weekly + Launch Pad "Check now") reads today's Amazon used price for every book on hold; at 95% of
@@ -116,6 +121,24 @@ function rankDropsByMonth(csv: any) {
 //   (Aug-Sep fall rush, Jan spring rush). Every month is scored by its average high across the 3 years AND the sales in it; the best
 //   month wins, then each year's high is taken from that same window (month before to month after). Also reads the used-seller count
 //   line (Keepa COUNT_USED): if sellers pile in at the peak, it says to list a few weeks BEFORE the season.
+// v8e (2026-11-19 18:14, BookMine's Keepa method, "yes if you think it is more accurate"): every sales-rank drop is a sale, and the
+//   used price at that moment is about what it SOLD for. soldPoints() pairs each drop with the used price (incl. shipping) at that time.
+function soldPoints(rankCsv: any, priceCsv: any, cents: boolean, addShip = 0) {
+  const out: { t: number; m: number; v: number }[] = [];
+  if (!Array.isArray(rankCsv) || !Array.isArray(priceCsv) || priceCsv.length < 2) return out;
+  const cut = Date.now() / 60000 - 1095 * 1440;
+  const pr: [number, number][] = [];
+  for (let i = 0; i + 1 < priceCsv.length; i += 2) pr.push([priceCsv[i] + KMIN, priceCsv[i + 1]]);
+  let prev: number | null = null, j = 0, cur = -1;
+  for (let i = 0; i + 1 < rankCsv.length; i += 2) {
+    const tm = rankCsv[i] + KMIN, v = rankCsv[i + 1];
+    if (!(v > 0)) continue;
+    while (j < pr.length && pr[j][0] <= tm) { cur = pr[j][1]; j++; }
+    if (prev != null && tm >= cut && v <= prev * 0.95 && cur > 0) out.push({ t: tm, m: new Date(tm * 60000).getUTCMonth(), v: r2((cents ? cur / 100 : cur) + addShip) });
+    prev = v;
+  }
+  return out;
+}
 function bucketsByMonth(cutMin: number, n: number) { return Array.from({ length: n }, (_, w) => new Date((cutMin + (w + 1) * 14 * 1440) * 60000).getUTCMonth()); }
 function seasonOf(p: any, price: (number | null)[]) {
   if (!p || price.length < 52) return null;
@@ -142,7 +165,17 @@ function seasonOf(p: any, price: (number | null)[]) {
     if (score > bestScore) { bestScore = score; bestM = m; }
   }
   if (bestM < 0) return null;
-  const years = yearsWithData.map((y) => ({ y, high: highIn(y, win(bestM)) })).filter((x): x is { y: number; high: number } => x.high != null).map((x) => ({ high: r2(x.high), month: bestM }));
+  // each year's season price: what it actually SOLD for in that window (75th percentile of the sale prices, so one lucky sale
+  // can't set it), falling back to the 4-week high when that year has fewer than 3 sales on record
+  const usedCsv = Array.isArray(p.csv?.[21]) && p.csv[21].length > 2 ? p.csv[21] : p.csv?.[2];
+  const sold = soldPoints(p.csv?.[3], usedCsv, true, usedCsv === p.csv?.[21] ? 0 : 3.99);
+  const yearOf = (t: number) => Math.floor((t - cutMin) / (14 * 1440) / 26);
+  let soldBased = 0;
+  const years = yearsWithData.map((y) => {
+    const v = sold.filter((x) => yearOf(x.t) === y && win(bestM).includes(x.m)).map((x) => x.v).sort((a1, b1) => a1 - b1);
+    if (v.length >= 3) { soldBased++; return { y, high: v[Math.min(v.length - 1, Math.floor(v.length * 0.75))] }; }
+    return { y, high: highIn(y, win(bestM)) };
+  }).filter((x): x is { y: number; high: number } => x.high != null).map((x) => ({ high: r2(x.high), month: bestM }));
   if (years.length < 2) return null;
   const last = years[years.length - 1], earlier = years.slice(0, -1);
   const earlyAvg = earlier.reduce((t, y) => t + y.high, 0) / earlier.length;
@@ -171,6 +204,7 @@ function seasonOf(p: any, price: (number | null)[]) {
   const listFrom = MONTHS[(bestM + (flood ? 11 : 0)) % 12];       // flood -> list a month early, before the other sellers show up
   return { high, month: MONTHS[bestM], months_away: months, years: years.map((y) => ({ high: y.high, month: MONTHS[y.month] })),
     falling, in_season_sales: inSeason, sales_3y: d.total, amazon_new: amazonNew, capped, used_offers: offers,
+    sold_based: soldBased, sold_in_season: sold.filter((x) => win(bestM).includes(x.m)).length,
     sellers_in_season: sellersIn, sellers_off_season: sellersOut, flood, list_from: listFrom, sellers_now: sellersNow, sellers_usual: sellersUsual, low_stock: lowStock };
 }
 
@@ -397,7 +431,7 @@ Deno.serve(async (req) => {
     let base: any = null;
     if (isbn) {
       const [c] = await sql`select result from hunter.checks where isbn = ${isbn} and at > now() - interval '6 hours' and result ? 'stores' order by at desc limit 1`;
-      if (c && c.result?.v === 5) base = c.result;
+      if (c && c.result?.v === 7) base = c.result;
     }
     if (!base) {
       const [sc, kp2] = await Promise.all([
@@ -423,9 +457,11 @@ Deno.serve(async (req) => {
         proven: drops365 != null ? drops365 >= 4 : (amz.sales90 || 0) >= 3 });
       // v8: the season-high row (only when the graph proves it sells in that season)
       const sea = seasonOf(p0, priceSeries);
-      if (sea && sea.high > (amzSafe || 0) + 0.5) {
-        const sellsIn = sea.in_season_sales >= 2 && (drops365 == null || drops365 >= 4);
-        stores.push({ store: `Amazon · season high (${sea.month})`, sells: sea.high, season: sea,
+      // v8f (18:17, his screenshot: "season high $108.87, 0 sales around Mar" shown as Best profit $55.67): the season row only shows
+      //   when the book really sells in that season - a season price nobody paid is not a price
+      const sellsIn = !!sea && sea.in_season_sales >= 2 && (drops365 == null || drops365 >= 4);
+      if (sea && sellsIn && sea.high > (amzSafe || 0) + 0.5) {
+        stores.push({ store: `Amazon · season ${sea.sold_based ? "sold price" : "high"} (${sea.month})`, sells: sea.high, season: sea,
           selling: `${sea.in_season_sales} sales around ${sea.month} in 3 yrs` + (sea.months_away ? ` · hold ~${sea.months_away} mo` : " · in season now")
             + (sea.falling ? " · highs falling, using latest year" : "") + (sea.capped ? " · capped at Amazon's own price" : "")
             + (sea.flood ? ` · sellers pile in at the peak (${sea.sellers_off_season}→${sea.sellers_in_season}) - list in ${sea.list_from}` : "")
@@ -440,7 +476,7 @@ Deno.serve(async (req) => {
         stores, scout_verdict: sc.verdict, scout_reason: sc.reason, hard: sc.hard || [], flags: (sc.flags || []).slice(0, 6), family: sc.family || "",
         amazon: { asin: p?.asin || sc.amazon?.asin || "", rank: amz.rank || null, sales90: amz.sales90 ?? null, offers: p?.stats?.current?.[12] > 0 ? p.stats.current[12] : null,
                   title: p?.title || "", image: p?.images?.[0]?.l ? "https://m.media-amazon.com/images/I/" + p.images[0].l : p?.imagesCSV ? "https://m.media-amazon.com/images/I/" + String(p.imagesCSV).split(",")[0] : "" },
-        chart: p ? { price: priceSeries, rank: series(p.csv?.[3], false), years: 3, m3, season: sea } : null, v: 5,
+        chart: p ? { price: priceSeries, rank: series(p.csv?.[3], false), years: 3, m3, season: sea } : null, v: 7,
       };
       const asin = base.amazon.asin || isbn13to10(isbn);
       const [h] = await sql`select hunter.history(${isbn || null}, ${asin || null}) as h`;
@@ -456,7 +492,7 @@ Deno.serve(async (req) => {
     // ---------- profit per store and the call (profit = what it sells for minus his cost) ----------
     const stores = (base.stores || []).map((s: any) => ({ ...s, profit: r2(s.sells - cost) })).sort((a: any, b2: any) => b2.profit - a.profit);
     const proven = stores.filter((s: any) => s.proven);
-    const best = proven[0] || stores[0] || null;   // proven stores first; AbeBooks / unproven are only shown
+    const best = proven[0] || null;   // v8f: only a store that PROVES it sells can be "best" - unproven rows are shown, never headlined
     if (best) best.best = true;
     const hard = [...(base.hard || [])];
     if (base.ident.tgatb && !hard.some((h: string) => /Good and the Beautiful/.test(h))) hard.unshift("🚨 The Good and the Beautiful — never list");
@@ -465,14 +501,21 @@ Deno.serve(async (req) => {
     let verdict = "PASS", why = "";
     const bp = best ? best.profit : 0;
     if (hard.length) { verdict = "PASS"; why = hard[0]; }
-    else if (!best) { verdict = "PASS"; why = "Not found for sale anywhere"; }
-    else if (!best.proven) { verdict = "PASS"; why = "No proof it sells on eBay or Amazon"; }
-    else if (bp >= minP && best.season) { verdict = "BUY"; why = `Season high on Amazon: $${best.sells.toFixed(2)} around ${best.season.month}` + (best.season.months_away ? ` - hold ~${best.season.months_away} months` : " - in season now"); }
+    else if (!best) { verdict = "PASS"; why = stores.length ? "No proof it sells on eBay or Amazon" : "Not found for sale anywhere"; }
+    else if (bp >= minP && best.season) { verdict = "BUY"; why = `Amazon season ${best.season.sold_based ? "sold price" : "high"}: $${best.sells.toFixed(2)} around ${best.season.month}` + (best.season.months_away ? ` - hold ~${best.season.months_away} months` : " - in season now"); }
     else if (bp >= minP) { verdict = "BUY"; why = `Sells on ${best.store}` + (best.store === "Amazon" && best.median3 ? " · 3-year price holds" : ""); }
     else { verdict = "PASS"; why = bp > 0 ? `Profit under $${minP}` : "Costs more than it sells for"; }
+    // v8e: the most he can pay for the book itself (shipping on top) and still make his minimum profit on the best proven store
+    const maxOffer = best && best.proven && !hard.length ? r2(best.sells - minP - ship) : null;
+    if (maxOffer != null) {
+      if (maxOffer <= 0) why += " · can't reach $" + minP + " profit at any price";
+      else if (verdict === "PASS") why += ` · offer at most $${maxOffer.toFixed(2)} to make $${minP}`;
+      else if (maxOffer < price) why += ` · offer at most $${maxOffer.toFixed(2)}`;
+      else why += ` · would still work up to $${maxOffer.toFixed(2)}`;
+    }
     const amzRow = stores.find((s: any) => s.store === "Amazon");
     if (amzRow && amzRow.now && amzRow.median3 && amzRow.now > amzRow.median3 * 1.3) amzRow.note = `today $${amzRow.now.toFixed(2)} is high: 3-year middle is $${amzRow.median3.toFixed(2)}`;
-    const out = { ok: true, ...base, verdict, why, cost, best: best ? { store: best.store, profit: best.profit, sells: best.sells } : null, stores, hard };
+    const out = { ok: true, ...base, verdict, why, cost, max_offer: maxOffer, best: best ? { store: best.store, profit: best.profit, sells: best.sells } : null, stores, hard };
     await sql`insert into hunter.checks (url, isbn, title, cost, verdict, best_store, best_profit, result)
       values (${String(b.url || "").split("?")[0] || null}, ${base.ident.isbn || null}, ${base.ident.title || title || null}, ${cost}, ${verdict}, ${best?.store || null}, ${best?.profit ?? null}, ${sql.json(base)})`;
     return json(out);
