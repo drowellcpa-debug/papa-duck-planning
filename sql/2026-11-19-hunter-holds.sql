@@ -58,3 +58,20 @@ $f$;
 select cron.schedule('pd-hold-watch', '17 15 * * 1', $c$select pipeline.hold_check()$c$);
 
 -- the Duck Hunter books already bought Nov 17-18 were added to hunter.holds by hand
+
+-- 18:17 update: the eBay rule only runs once the weekly watch has set a target (a reset target no longer flips everything to ready)
+create or replace function hunter.holds_ebay_check() returns trigger
+language plpgsql set search_path to 'hunter', 'pipeline', 'pg_catalog' as $f$
+begin
+  if new.list_price is null and new.buy_id is not null then
+    select suggested_list into new.list_price from pipeline.scout_buys where id = new.buy_id;
+  end if;
+  if new.status = 'holding' and new.list_price is not null and new.target is not null and coalesce(new.season->>'keep', '') <> 'true'
+     and new.list_price >= new.target * 0.95 then
+    new.status := 'ready'; new.ready_at := coalesce(new.ready_at, now());
+    new.season := coalesce(new.season, '{}'::jsonb) || jsonb_build_object('note',
+      'eBay already pays $' || to_char(new.list_price, 'FM9990.00') || ' - more than Amazon''s season price ($' || to_char(new.target, 'FM9990.00') || '). List it now on eBay');
+  end if;
+  return new;
+end $f$;
+-- targets of the 6 held books were reset and re-figured with duck-hunter v16 (season price = real sold prices)
