@@ -26,6 +26,10 @@
 //   price window (when it sells highest), the year-over-year trend (falling highs -> use the latest year, not the 3-year average),
 //   rank drops (= sales) in that season, today's used competition, and Amazon itself in stock (caps the price). A second Amazon row
 //   "Amazon · season high (Aug)" is priced at that season high and counts toward BUY only when the book proves it sells in season.
+// v8c (2026-11-19 18:09, "textbooks have a pattern"): season month = the same months every year (best average high + sales), and
+//   the used-seller count is read so it can say "list a month early" when sellers pile in at the peak. See seasonOf.
+// v8d (2026-11-19 18:10, "when inventory is down that means my prices will go up with less sellers"): today's used-seller count vs its
+//   usual 3-year level. Half or less = low supply: Duck Hunter says the price is likely to rise, and a held book turns READY at 85% of target.
 // v8b (2026-11-19 18:00, "track when i buy them and watch the real prices weekly to let me know when to list them. I will not list them
 //   until the prices reaches the good time for profit"): every Duck Hunter "bought" goes into hunter.holds with its target (the season
 //   high). POST {action:"watch"} (cron weekly + Launch Pad "Check now") reads today's Amazon used price for every book on hold; at 95% of
@@ -108,23 +112,37 @@ function rankDropsByMonth(csv: any) {
   }
   return { by, total };
 }
+// v8c (2026-11-19 18:09, "textbooks have a pattern"): the season is picked the way textbooks actually sell - the SAME months every year
+//   (Aug-Sep fall rush, Jan spring rush). Every month is scored by its average high across the 3 years AND the sales in it; the best
+//   month wins, then each year's high is taken from that same window (month before to month after). Also reads the used-seller count
+//   line (Keepa COUNT_USED): if sellers pile in at the peak, it says to list a few weeks BEFORE the season.
+function bucketsByMonth(cutMin: number, n: number) { return Array.from({ length: n }, (_, w) => new Date((cutMin + (w + 1) * 14 * 1440) * 60000).getUTCMonth()); }
 function seasonOf(p: any, price: (number | null)[]) {
   if (!p || price.length < 52) return null;
   const cutMin = Date.now() / 60000 - 1095 * 1440;
-  const monthOf = (w: number) => new Date((cutMin + (w + 1) * 14 * 1440) * 60000).getUTCMonth();
-  // each year (26 two-week points): the best 4-week window = average of 2 neighbouring points (one-day spikes don't count)
-  const years: { high: number; month: number }[] = [];
-  for (let y = 0; y < 3; y++) {
-    const seg = price.slice(y * 26, y * 26 + 26);
-    if (seg.filter((x) => x != null).length < 10) continue;          // not enough history that year
-    let best = 0, at = -1;
-    for (let i = 0; i + 1 < seg.length; i++) {
-      const a = seg[i], b = seg[i + 1];
-      const v = a != null && b != null ? (a + b) / 2 : null;
-      if (v != null && v > best) { best = v; at = y * 26 + i + 1; }
-    }
-    if (at >= 0) years.push({ high: r2(best), month: monthOf(at) });
+  const mon = bucketsByMonth(cutMin, price.length);
+  const d = rankDropsByMonth(p.csv?.[3]);
+  const win = (m: number) => [(m + 11) % 12, m, (m + 1) % 12];
+  // 4-week windows (2 neighbouring 2-week points, so one-day spikes don't count), each tagged with its year and month
+  const w4: { y: number; m: number; v: number }[] = [];
+  for (let i = 0; i + 1 < price.length; i++) {
+    const a = price[i], b = price[i + 1];
+    if (a != null && b != null) w4.push({ y: Math.floor((i + 1) / 26), m: mon[i + 1], v: (a + b) / 2 });
   }
+  const yearsWithData = [0, 1, 2].filter((y) => price.slice(y * 26, y * 26 + 26).filter((x) => x != null).length >= 10);
+  if (yearsWithData.length < 2) return null;
+  const highIn = (y: number, ms: number[]) => { let h = 0; for (const x of w4) if (x.y === y && ms.includes(x.m) && x.v > h) h = x.v; return h || null; };
+  // score each month: average of the yearly highs in its window, nudged by how many sales happen in that window
+  let bestM = -1, bestScore = -1;
+  for (let m = 0; m < 12; m++) {
+    const hs = yearsWithData.map((y) => highIn(y, win(m))).filter((x): x is number => x != null);
+    if (hs.length < 2) continue;
+    const avg = hs.reduce((t, x) => t + x, 0) / hs.length, sales = win(m).reduce((t, k) => t + d.by[k], 0);
+    const score = avg * (1 + Math.min(sales, 60) / 300);          // a sales-heavy month wins a near tie on price
+    if (score > bestScore) { bestScore = score; bestM = m; }
+  }
+  if (bestM < 0) return null;
+  const years = yearsWithData.map((y) => ({ y, high: highIn(y, win(bestM)) })).filter((x): x is { y: number; high: number } => x.high != null).map((x) => ({ high: r2(x.high), month: bestM }));
   if (years.length < 2) return null;
   const last = years[years.length - 1], earlier = years.slice(0, -1);
   const earlyAvg = earlier.reduce((t, y) => t + y.high, 0) / earlier.length;
@@ -132,21 +150,28 @@ function seasonOf(p: any, price: (number | null)[]) {
   const stepsDown = years.every((y, i) => i === 0 || y.high < years[i - 1].high) && last.high < years[0].high * 0.95;
   const falling = stepsDown || last.high < earlyAvg * 0.85;
   let high = falling ? last.high : r2(years.reduce((t, y) => t + y.high, 0) / years.length);
-  // season month = the month most years peak in (latest year breaks a tie)
-  const cnt = new Array(12).fill(0); years.forEach((y) => cnt[y.month]++);
-  let month = last.month; cnt.forEach((c, m) => { if (c > cnt[month]) month = m; });
-  // sales in season: rank drops in the peak month and the month on each side, over 3 years
-  const d = rankDropsByMonth(p.csv?.[3]);
-  const win = [(month + 11) % 12, month, (month + 1) % 12];
-  const inSeason = win.reduce((t, m) => t + d.by[m], 0);
+  const inSeason = win(bestM).reduce((t, m) => t + d.by[m], 0);
+  // used sellers: average count in the season window vs the rest of the year (Keepa COUNT_USED, csv[12])
+  const offS = series(p.csv?.[12], false);
+  let inS = 0, nIn = 0, outS = 0, nOut = 0;
+  offS.forEach((v, i) => { if (v == null) return; if (win(bestM).includes(mon[i])) { inS += v; nIn++; } else { outS += v; nOut++; } });
+  const sellersIn = nIn ? Math.round(inS / nIn) : null, sellersOut = nOut ? Math.round(outS / nOut) : null;
+  // v8d (18:10, "when inventory is down that means my prices will go up with less sellers"): sellers now vs their usual 3-year level
+  const offV = offS.filter((x): x is number => x != null).sort((x, y) => x - y);
+  const sellersUsual = offV.length ? offV[Math.floor(offV.length / 2)] : null;
+  const sellersNow = p?.stats?.current?.[12] > 0 ? p.stats.current[12] : null;
+  const lowStock = sellersNow != null && sellersUsual != null && sellersUsual >= 4 && sellersNow <= sellersUsual * 0.5;
+  const flood = sellersIn != null && sellersOut != null && sellersOut > 0 && sellersIn >= sellersOut * 1.4 && sellersIn - sellersOut >= 3;
   // Amazon itself selling new caps what a used copy can bring
   const amazonNew = p?.stats?.current?.[0] > 0 ? p.stats.current[0] / 100 : null;
   let capped = false;
   if (amazonNew && amazonNew < high) { high = r2(amazonNew); capped = true; }
   const offers = p?.stats?.current?.[12] > 0 ? p.stats.current[12] : null;
-  const now = new Date().getUTCMonth(), months = (month - now + 12) % 12;
-  return { high, month: MONTHS[month], months_away: months, years: years.map((y) => ({ high: y.high, month: MONTHS[y.month] })),
-    falling, in_season_sales: inSeason, sales_3y: d.total, amazon_new: amazonNew, capped, used_offers: offers };
+  const now = new Date().getUTCMonth(), months = (bestM - now + 12) % 12;
+  const listFrom = MONTHS[(bestM + (flood ? 11 : 0)) % 12];       // flood -> list a month early, before the other sellers show up
+  return { high, month: MONTHS[bestM], months_away: months, years: years.map((y) => ({ high: y.high, month: MONTHS[y.month] })),
+    falling, in_season_sales: inSeason, sales_3y: d.total, amazon_new: amazonNew, capped, used_offers: offers,
+    sellers_in_season: sellersIn, sellers_off_season: sellersOut, flood, list_from: listFrom, sellers_now: sellersNow, sellers_usual: sellersUsual, low_stock: lowStock };
 }
 
 // ---------- v8b holds: watch the real price weekly, say when to list ----------
@@ -176,8 +201,13 @@ async function watchHolds(sql: any, key: string, buyId: number | null) {
     if (target == null) note = "No season pattern on Amazon - list it now";
     else if (now == null) note = `No used copies on Amazon right now - waiting for about $${target.toFixed(2)}${h.season_month || sea?.month ? " around " + (h.season_month || sea?.month) : ""}`;
     else if (now >= target * 0.95) note = `Price is up to $${now.toFixed(2)} - target was $${target.toFixed(2)}. List it now`;
-    else note = `Now $${now.toFixed(2)} - waiting for about $${target.toFixed(2)}${h.season_month || sea?.month ? " around " + (h.season_month || sea?.month) : ""}`;
-    const isReady = target == null || (now != null && now >= target * 0.95);
+    else note = `Now $${now.toFixed(2)} - waiting for about $${target.toFixed(2)}${h.season_month || sea?.month ? " around " + (h.season_month || sea?.month) : ""}`
+      + (sea?.flood ? ` - sellers pile in at the peak, list in ${sea.list_from}` : "");
+    // few sellers right now (half the usual or less) -> prices are climbing; ready at 85% of target instead of 95%
+    const lowReady = !!sea?.low_stock && target != null && now != null && now >= target * 0.85 && now < target * 0.95;
+    if (lowReady) note = `Only ${sea.sellers_now} sellers on Amazon now (usually ${sea.sellers_usual}) and the price is $${now.toFixed(2)} - list it now while supply is low`;
+    else if (sea?.low_stock && target != null && now != null && now < target * 0.85) note += ` - only ${sea.sellers_now} sellers now (usually ${sea.sellers_usual}), price should climb`;
+    const isReady = target == null || (now != null && now >= target * 0.95) || lowReady;
     if (isReady) ready++;
     const hist = [...(Array.isArray(h.history) ? h.history : []).filter((x: any) => x.d !== day), { d: day, now }].slice(-60);
     await sql`update hunter.holds set asin = coalesce(asin, ${p.asin || null}), now_price = ${now}, checked_at = now(), target = ${target},
@@ -397,7 +427,9 @@ Deno.serve(async (req) => {
         const sellsIn = sea.in_season_sales >= 2 && (drops365 == null || drops365 >= 4);
         stores.push({ store: `Amazon · season high (${sea.month})`, sells: sea.high, season: sea,
           selling: `${sea.in_season_sales} sales around ${sea.month} in 3 yrs` + (sea.months_away ? ` · hold ~${sea.months_away} mo` : " · in season now")
-            + (sea.falling ? " · highs falling, using latest year" : "") + (sea.capped ? " · capped at Amazon's own price" : ""),
+            + (sea.falling ? " · highs falling, using latest year" : "") + (sea.capped ? " · capped at Amazon's own price" : "")
+            + (sea.flood ? ` · sellers pile in at the peak (${sea.sellers_off_season}→${sea.sellers_in_season}) - list in ${sea.list_from}` : "")
+            + (sea.low_stock ? ` · only ${sea.sellers_now} sellers now (usually ${sea.sellers_usual}) - price likely to rise` : ""),
           proven: sellsIn });
       }
       if (abe.n > 0) stores.push({ store: "AbeBooks", sells: abe.avg, selling: `${abe.n} ${abe.n === 1 ? "copy" : "copies"} listed`, proven: false });
