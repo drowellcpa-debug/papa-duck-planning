@@ -165,6 +165,10 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
 .cz-h::before { content: "▾ "; color: var(--muted); font-size: .8em }
 .card.cz-closed .cz-h::before { content: "▸ " }
 .card.cz-closed { padding-bottom: 12px }
+.hrow { display: flex; gap: 10px; justify-content: space-between; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px }
+.hrow.hready { border-color: var(--green-text); background: var(--green-bg, #eaf6ec) }
+.hbtns { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto } .hbtns button { padding: 6px 10px; font-size: .85rem }
+.hbar { height: 6px; background: var(--line); border-radius: 4px; margin-top: 4px; overflow: hidden } .hbar span { display: block; height: 100%; background: var(--green-text) }
 </style>
 
 <header class="top">
@@ -184,6 +188,7 @@ textarea.pdlist { width: 100%; font-family: var(--f-mono); font-size: .9rem; pad
   <div class="rcol">
   <div id="gwbox"></div>
   <div id="soldbox"></div>
+  <div id="holdbox"></div>
   <aside class="card duck" aria-label="Ask Grandpa Duck">
     <h2>Ask Grandpa Duck</h2>
     <div class="chat" id="chat" aria-live="polite"><p class="msg duck">Hi Papa Duck. Ask me anything about tonight's books, a photo that turned red, or why a book went where it did.</p></div>
@@ -1702,7 +1707,7 @@ async function refresh(force) {
     gaps = (rows[0] && rows[0].g) || []; live = (rows[0] && rows[0].lc) || [];
     tickClock();
     if (!hist || Date.now() - histAt > 60000) { histAt = Date.now(); loadHist(); }
-    loadBd(); loadTodo(); loadVb(); loadHealth(); loadCombine(); loadSold();
+    loadBd(); loadTodo(); loadVb(); loadHealth(); loadCombine(); loadSold(); loadHold();
     render();
     autoVerify();
   } catch (e) { showError(e); }
@@ -1761,6 +1766,53 @@ function renderSold() {
   refresh(true);
 })();
 
+// ---------- 🦆 Holding for the season (Papa Duck 2026-11-19): "track when i buy them and watch the real prices weekly to let me know when
+//   to list them. I will not list them until the prices reaches the good time for profit". Every Duck Hunter buy is held with a target
+//   (its season high from the 3-year Keepa graph). Every Monday the cloud reads today's Amazon used price; at 95% of target it says List now.
+let holds = null, holdAt = 0, holdArm = "";
+async function loadHold(force) {
+  if (!force && Date.now() - holdAt < 300000) return;
+  holdAt = Date.now();
+  try { const r = await q("select pipeline.hold_board() as h"); holds = (r[0] && r[0].h) || null; } catch (e) { console.log("[hold]", e); }
+  renderHold();
+}
+async function holdTap(id, st) {
+  const k = id + ":" + st;
+  if (holdArm !== k) { holdArm = k; setTimeout(() => { if (holdArm === k) { holdArm = ""; renderHold(); } }, 6000); return renderHold(); }
+  holdArm = "";
+  try { const r = await q(`select pipeline.hold_mark(${Number(id)}, ${lit(st)}) as h`); holds = (r[0] && r[0].h) || holds; } catch (e) { showError(e); }
+  renderHold();
+}
+function renderHold() {
+  const el = $("holdbox"); if (!el) return;
+  if (!holds) { el.innerHTML = ""; return; }
+  const rows = holds.rows || [], ready = rows.filter((r) => r.status === "ready");
+  if (!rows.length) { el.innerHTML = `<section class="card" aria-label="Holding for the season"><h2 style="margin:0">🦆 Holding for the season</h2>
+      <p class="muted" style="margin:0">Nothing on hold. Books you buy with Duck Hunter show up here.</p></section>`; return; }
+  const pill = ready.length ? `<span class="hpill green">${ready.length} ready to list</span>` : `<span class="hpill">${rows.length} holding</span>`;
+  const last = holds.last_check ? new Date(holds.last_check).toLocaleDateString([], { month: "short", day: "numeric" }) : "never";
+  const row = (r) => {
+    const isR = r.status === "ready", done = r.status === "listed" || r.status === "dropped";
+    const profit = r.now != null ? Number(r.now) - Number(r.cost) : null;
+    const pct = r.target && r.now != null ? Math.min(100, Math.round(Number(r.now) / Number(r.target) * 100)) : 0;
+    return `<div class="hrow${isR ? " hready" : ""}">
+      <div style="min-width:0"><b>${isR ? "📈 " : ""}${esc(r.title)}</b>
+        <div class="muted" style="font-size:.84rem">Paid ${money(r.cost)} · target ${r.target != null ? money(r.target) : "—"}${r.month ? " around " + esc(r.month) : ""} · now ${r.now != null ? money(r.now) : "—"}${profit != null ? ` · profit now <b style="color:${profit >= 20 ? "var(--green-text)" : "inherit"}">${money(profit)}</b>` : ""}</div>
+        ${r.target ? `<div class="hbar"><span style="width:${pct}%"></span></div>` : ""}
+        ${r.note ? `<div style="font-size:.84rem;margin-top:2px">${esc(r.note)}</div>` : ""}</div>
+      <div class="hbtns">${done ? `<span class="muted">${r.status === "listed" ? "✓ Listed" : "Dropped"}</span>` : isR
+        ? `<button data-hold="${r.id}" data-hst="listed">${holdArm === r.id + ":listed" ? "Tap again" : "✓ I listed it"}</button><button class="ghost" data-hold="${r.id}" data-hst="holding">${holdArm === r.id + ":holding" ? "Tap again" : "Keep holding"}</button>`
+        : `<button class="ghost" data-hold="${r.id}" data-hst="listed">${holdArm === r.id + ":listed" ? "Tap again" : "List anyway"}</button>`}</div></div>`;
+  };
+  el.innerHTML = `<section class="card" aria-label="Holding for the season">
+    <div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">🦆 Holding for the season</h2>${pill}</div>
+    <p class="muted" style="margin:0;font-size:.86rem">Duck Hunter buys wait here until Amazon's real used price reaches the season high. Prices checked every Monday · last ${esc(last)}.</p>
+    ${rows.map(row).join("")}
+    <div class="row"><button class="ghost" id="holdnow">🔄 Check prices now</button></div></section>`;
+  el.querySelectorAll("[data-hold]").forEach((b) => b.onclick = () => holdTap(b.dataset.hold, b.dataset.hst));
+  const hn = $("holdnow"); if (hn) hn.onclick = async () => { hn.disabled = true; hn.textContent = "Checking Amazon…";
+    try { await q("select pipeline.hold_check() as r"); } catch (e) { showError(e); } setTimeout(() => loadHold(true), 25000); };
+}
 // ---------- Collapsed cards (Papa Duck 2026-11-18 23:14): "On launch app can everything be in collapsed mode except sales to be shipped out".
 // Every card starts closed except 📬 To ship; tap its title to open or close. Open/closed is remembered on this device.
 // Cards re-draw often, so a watcher re-applies the state to each new card. The Store audit keeps its own ▸ open button.

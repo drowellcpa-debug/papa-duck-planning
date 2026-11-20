@@ -21,6 +21,15 @@
 // v7c (21:05): Amazon-search picks re-read each candidate's editors/authors; a different author never wins; full-title matches rank first.
 // v7 (2026-11-17 20:46, "dig deeper I need this to be a more higher accuracy"): ACCURACY FIRST - every check reads the photos
 //   (config hunter_vision_model, default claude-sonnet-4-6) and the seller's ISBN is only used when the cover confirms it. See the check block.
+// v8 (2026-11-19 17:59, "base the profit on the average high price during the three years when it sells at the highest" / "analyze the
+//   keepa graph, you are a professional keepa analyzer"): seasonOf() reads the 3-year Keepa graph like a pro: each year's best 4-week
+//   price window (when it sells highest), the year-over-year trend (falling highs -> use the latest year, not the 3-year average),
+//   rank drops (= sales) in that season, today's used competition, and Amazon itself in stock (caps the price). A second Amazon row
+//   "Amazon · season high (Aug)" is priced at that season high and counts toward BUY only when the book proves it sells in season.
+// v8b (2026-11-19 18:00, "track when i buy them and watch the real prices weekly to let me know when to list them. I will not list them
+//   until the prices reaches the good time for profit"): every Duck Hunter "bought" goes into hunter.holds with its target (the season
+//   high). POST {action:"watch"} (cron weekly + Launch Pad "Check now") reads today's Amazon used price for every book on hold; at 95% of
+//   the target it turns READY ("List now") on the Launch Pad card 🦆 Holding for the season.
 // SAFETY: reads only. Writes: hunter.checks (a log) and, on "bought", the Scout Buys row (same as the Scout app's Bought button).
 import postgres from "npm:postgres@3.4.4";
 
@@ -82,6 +91,101 @@ function series(csv: any, cents: boolean) {
     pts.push(v);
   }
   return pts;
+}
+
+// ---------- v8 season analysis (the 3-year Keepa graph, read the way a professional Keepa seller reads it) ----------
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function rankDropsByMonth(csv: any) {
+  // a sale shows on Keepa as the sales rank dropping (getting better). Count drops of 5%+ per calendar month, last 3 years.
+  const by = new Array(12).fill(0); let total = 0;
+  if (!Array.isArray(csv) || csv.length < 4) return { by, total };
+  const cut = Date.now() / 60000 - 1095 * 1440; let prev: number | null = null;
+  for (let i = 0; i + 1 < csv.length; i += 2) {
+    const tm = csv[i] + KMIN, v = csv[i + 1];
+    if (!(v > 0)) continue;
+    if (prev != null && tm >= cut && v <= prev * 0.95) { by[new Date(tm * 60000).getUTCMonth()]++; total++; }
+    prev = v;
+  }
+  return { by, total };
+}
+function seasonOf(p: any, price: (number | null)[]) {
+  if (!p || price.length < 52) return null;
+  const cutMin = Date.now() / 60000 - 1095 * 1440;
+  const monthOf = (w: number) => new Date((cutMin + (w + 1) * 14 * 1440) * 60000).getUTCMonth();
+  // each year (26 two-week points): the best 4-week window = average of 2 neighbouring points (one-day spikes don't count)
+  const years: { high: number; month: number }[] = [];
+  for (let y = 0; y < 3; y++) {
+    const seg = price.slice(y * 26, y * 26 + 26);
+    if (seg.filter((x) => x != null).length < 10) continue;          // not enough history that year
+    let best = 0, at = -1;
+    for (let i = 0; i + 1 < seg.length; i++) {
+      const a = seg[i], b = seg[i + 1];
+      const v = a != null && b != null ? (a + b) / 2 : null;
+      if (v != null && v > best) { best = v; at = y * 26 + i + 1; }
+    }
+    if (at >= 0) years.push({ high: r2(best), month: monthOf(at) });
+  }
+  if (years.length < 2) return null;
+  const last = years[years.length - 1], earlier = years.slice(0, -1);
+  const earlyAvg = earlier.reduce((t, y) => t + y.high, 0) / earlier.length;
+  // falling = every year's high lower than the year before (new edition, more sellers), or the latest year well under the earlier ones
+  const stepsDown = years.every((y, i) => i === 0 || y.high < years[i - 1].high) && last.high < years[0].high * 0.95;
+  const falling = stepsDown || last.high < earlyAvg * 0.85;
+  let high = falling ? last.high : r2(years.reduce((t, y) => t + y.high, 0) / years.length);
+  // season month = the month most years peak in (latest year breaks a tie)
+  const cnt = new Array(12).fill(0); years.forEach((y) => cnt[y.month]++);
+  let month = last.month; cnt.forEach((c, m) => { if (c > cnt[month]) month = m; });
+  // sales in season: rank drops in the peak month and the month on each side, over 3 years
+  const d = rankDropsByMonth(p.csv?.[3]);
+  const win = [(month + 11) % 12, month, (month + 1) % 12];
+  const inSeason = win.reduce((t, m) => t + d.by[m], 0);
+  // Amazon itself selling new caps what a used copy can bring
+  const amazonNew = p?.stats?.current?.[0] > 0 ? p.stats.current[0] / 100 : null;
+  let capped = false;
+  if (amazonNew && amazonNew < high) { high = r2(amazonNew); capped = true; }
+  const offers = p?.stats?.current?.[12] > 0 ? p.stats.current[12] : null;
+  const now = new Date().getUTCMonth(), months = (month - now + 12) % 12;
+  return { high, month: MONTHS[month], months_away: months, years: years.map((y) => ({ high: y.high, month: MONTHS[y.month] })),
+    falling, in_season_sales: inSeason, sales_3y: d.total, amazon_new: amazonNew, capped, used_offers: offers };
+}
+
+// ---------- v8b holds: watch the real price weekly, say when to list ----------
+async function watchHolds(sql: any, key: string, buyId: number | null) {
+  const hs = buyId ? await sql`select * from hunter.holds where buy_id = ${buyId}` : await sql`select * from hunter.holds where status = 'holding' order by id`;
+  if (!hs.length) return { ok: true, checked: 0 };
+  const codes = [...new Set(hs.map((h: any) => digits(h.isbn)).filter(Boolean))] as string[];
+  const prods: any[] = [];
+  for (let i = 0; i < codes.length; i += 20) prods.push(...await keepaMany(key, codes.slice(i, i + 20)));
+  const byCode = new Map<string, any>();
+  for (const p of prods) for (const c of [...(p.eanList || []), isbnOf(p)].filter(Boolean)) byCode.set(isbn10to13(String(c)), p);
+  let ready = 0;
+  for (const h of hs) {
+    const p = byCode.get(isbn10to13(digits(h.isbn)));
+    const day = new Date().toISOString().slice(0, 10);
+    if (!p) {
+      await sql`update hunter.holds set checked_at = now(), status = 'ready', ready_at = coalesce(ready_at, now()),
+        season = coalesce(season, '{}'::jsonb) || ${sql.json({ note: "Amazon has no price history for it - list it now (eBay)" })} where id = ${h.id}`;
+      ready++; continue;
+    }
+    let ps = series(p.csv?.[21], true);
+    if (!ps.some((x) => x != null)) ps = series(p.csv?.[2], true).map((x) => (x == null ? null : r2(x + 3.99)));
+    const now = p?.stats?.current?.[21] > 0 ? r2(p.stats.current[21] / 100) : p?.stats?.current?.[2] > 0 ? r2(p.stats.current[2] / 100 + 3.99) : null;
+    const sea = seasonOf(p, ps);
+    const target = h.target != null ? Number(h.target) : sea?.high ?? null;     // the target set when he bought it stays
+    let note = "";
+    if (target == null) note = "No season pattern on Amazon - list it now";
+    else if (now == null) note = `No used copies on Amazon right now - waiting for about $${target.toFixed(2)}${h.season_month || sea?.month ? " around " + (h.season_month || sea?.month) : ""}`;
+    else if (now >= target * 0.95) note = `Price is up to $${now.toFixed(2)} - target was $${target.toFixed(2)}. List it now`;
+    else note = `Now $${now.toFixed(2)} - waiting for about $${target.toFixed(2)}${h.season_month || sea?.month ? " around " + (h.season_month || sea?.month) : ""}`;
+    const isReady = target == null || (now != null && now >= target * 0.95);
+    if (isReady) ready++;
+    const hist = [...(Array.isArray(h.history) ? h.history : []).filter((x: any) => x.d !== day), { d: day, now }].slice(-60);
+    await sql`update hunter.holds set asin = coalesce(asin, ${p.asin || null}), now_price = ${now}, checked_at = now(), target = ${target},
+        season_month = coalesce(season_month, ${sea?.month || null}), season = ${sql.json({ ...(sea || {}), note })}, history = ${sql.json(hist)},
+        status = case when ${isReady} and status = 'holding' then 'ready' else status end,
+        ready_at = case when ${isReady} and ready_at is null then now() else ready_at end where id = ${h.id}`;
+  }
+  return { ok: true, checked: hs.length, ready };
 }
 
 // ---------- v7 identification helpers ----------
@@ -195,12 +299,22 @@ Deno.serve(async (req) => {
     const scout = (body: any) => fetch(SCOUT, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pin: sp?.value, ...body }) })
       .then((r) => r.json());
 
+    const key0 = String((await sql`select value from backup.config where key = 'keepa_key'`)[0]?.value || "");
     if (action === "bought") {
       const ident = { isbn: digits(b.isbn), title: String(b.title || "").slice(0, 250), author: String(b.author || ""), format: String(b.format || "") };
       const r = await scout({ action: "bought", ident, cost: b.cost, list: b.list, store: "Vinted",
         notes: [`Duck Hunter${b.best ? " · best store: " + b.best : ""}`, b.url ? String(b.url).split("?")[0] : ""].filter(Boolean).join(" · ") });
+      if (r.ok && r.id) {
+        const [c] = ident.isbn ? await sql`select result from hunter.checks where isbn = ${ident.isbn} and at > now() - interval '2 days' order by at desc limit 1` : [];
+        const sea = c?.result?.chart?.season || null;
+        await sql`insert into hunter.holds (buy_id, isbn, asin, title, cost, target, season_month, best_store, season)
+          values (${r.id}, ${ident.isbn || null}, ${c?.result?.amazon?.asin || null}, ${ident.title}, ${Number(b.cost) || 0}, ${sea?.high ?? null},
+                  ${sea?.month ?? null}, ${b.best || null}, ${sea ? sql.json(sea) : null}) on conflict (buy_id) do nothing`;
+        if (key0) await watchHolds(sql, key0, r.id);
+      }
       return json({ ok: !!r.ok, id: r.id, airtable: r.airtable, error: r.error });
     }
+    if (action === "watch") return json(await watchHolds(sql, key0, null));
 
     // ---------- check ----------
     const price = Number(b.price) || 0, ship = Number(b.ship) || 0, cost = r2(price + ship);
@@ -253,7 +367,7 @@ Deno.serve(async (req) => {
     let base: any = null;
     if (isbn) {
       const [c] = await sql`select result from hunter.checks where isbn = ${isbn} and at > now() - interval '6 hours' and result ? 'stores' order by at desc limit 1`;
-      if (c && c.result?.v === 4) base = c.result;
+      if (c && c.result?.v === 5) base = c.result;
     }
     if (!base) {
       const [sc, kp2] = await Promise.all([
@@ -277,6 +391,15 @@ Deno.serve(async (req) => {
       if (amzSafe) stores.push({ store: "Amazon", sells: r2(amzSafe), now: amzNow, median3: m3?.median ?? null,
         selling: drops365 != null ? `${drops365} sales / year` : amz.sales90 != null ? `${amz.sales90} / 90 days` : "no sales data",
         proven: drops365 != null ? drops365 >= 4 : (amz.sales90 || 0) >= 3 });
+      // v8: the season-high row (only when the graph proves it sells in that season)
+      const sea = seasonOf(p0, priceSeries);
+      if (sea && sea.high > (amzSafe || 0) + 0.5) {
+        const sellsIn = sea.in_season_sales >= 2 && (drops365 == null || drops365 >= 4);
+        stores.push({ store: `Amazon · season high (${sea.month})`, sells: sea.high, season: sea,
+          selling: `${sea.in_season_sales} sales around ${sea.month} in 3 yrs` + (sea.months_away ? ` · hold ~${sea.months_away} mo` : " · in season now")
+            + (sea.falling ? " · highs falling, using latest year" : "") + (sea.capped ? " · capped at Amazon's own price" : ""),
+          proven: sellsIn });
+      }
       if (abe.n > 0) stores.push({ store: "AbeBooks", sells: abe.avg, selling: `${abe.n} ${abe.n === 1 ? "copy" : "copies"} listed`, proven: false });
       const p = kp2 || null;
       base = {
@@ -285,7 +408,7 @@ Deno.serve(async (req) => {
         stores, scout_verdict: sc.verdict, scout_reason: sc.reason, hard: sc.hard || [], flags: (sc.flags || []).slice(0, 6), family: sc.family || "",
         amazon: { asin: p?.asin || sc.amazon?.asin || "", rank: amz.rank || null, sales90: amz.sales90 ?? null, offers: p?.stats?.current?.[12] > 0 ? p.stats.current[12] : null,
                   title: p?.title || "", image: p?.images?.[0]?.l ? "https://m.media-amazon.com/images/I/" + p.images[0].l : p?.imagesCSV ? "https://m.media-amazon.com/images/I/" + String(p.imagesCSV).split(",")[0] : "" },
-        chart: p ? { price: priceSeries, rank: series(p.csv?.[3], false), years: 3, m3 } : null, v: 4,
+        chart: p ? { price: priceSeries, rank: series(p.csv?.[3], false), years: 3, m3, season: sea } : null, v: 5,
       };
       const asin = base.amazon.asin || isbn13to10(isbn);
       const [h] = await sql`select hunter.history(${isbn || null}, ${asin || null}) as h`;
@@ -312,6 +435,7 @@ Deno.serve(async (req) => {
     if (hard.length) { verdict = "PASS"; why = hard[0]; }
     else if (!best) { verdict = "PASS"; why = "Not found for sale anywhere"; }
     else if (!best.proven) { verdict = "PASS"; why = "No proof it sells on eBay or Amazon"; }
+    else if (bp >= minP && best.season) { verdict = "BUY"; why = `Season high on Amazon: $${best.sells.toFixed(2)} around ${best.season.month}` + (best.season.months_away ? ` - hold ~${best.season.months_away} months` : " - in season now"); }
     else if (bp >= minP) { verdict = "BUY"; why = `Sells on ${best.store}` + (best.store === "Amazon" && best.median3 ? " · 3-year price holds" : ""); }
     else { verdict = "PASS"; why = bp > 0 ? `Profit under $${minP}` : "Costs more than it sells for"; }
     const amzRow = stores.find((s: any) => s.store === "Amazon");
