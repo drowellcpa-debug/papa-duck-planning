@@ -21,3 +21,8 @@ $f$;
 --   when exists (select 1 from pipeline.drafts dr where upper(dr.pd) = l.pd and dr.answers ? 'relist') then null
 -- PD-3190 went out through the mini launch (not relist_return), so its marker was added by hand:
 update pipeline.drafts set answers = answers || '{"relist":"2026-11-17"}'::jsonb where id = 318;
+
+-- 2026-11-19 20:54: audit.report() 'since_oct7' still_ok also counts a relisted return as fine (PD-3190 showed "Sold 2026-10-12 on amazon,
+-- still on eBay"). Added at the start of still_ok:
+--   exists (select 1 from pipeline.drafts dr where upper(dr.pd) = upper(s.info->>'pd') and dr.answers ? 'relist') or ...
+-- PD-0249 plates: the 11/19 buyer took the last 4 ($91.96) - the flags were from the 11/18 store scan; a fresh scan shows them gone.
