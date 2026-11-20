@@ -1,4 +1,4 @@
-// Papa Duck - Edge Function "ebay-combine" v1 (2026-11-18). Combined-shipping invoices with one tap on the Launch Pad.
+// Papa Duck - Edge Function "ebay-combine" v3 (2026-11-19: "items" wording for non-book orders). v1 (2026-11-18). Combined-shipping invoices with one tap on the Launch Pad.
 // Papa Duck (mkruz83 bought 3 Moving Beyond the Page books and asked to combine shipping): "you have api can you do this automatically fo rme" /
 //   "in the future do this for me ask and I will click do and estimate shipping".
 //   POST {action:"scan"}        (cron every 15 min) eBay GetOrders, last 4 days: a buyer with 2+ UNPAID single orders becomes a card in
@@ -19,8 +19,10 @@ const money = (n: number) => n.toFixed(2);
 
 function message(firstName: string, n: number, ship: number, media: boolean) {
   const hi = firstName ? `Hi ${firstName}!` : "Hi!";
-  return `${hi} Thanks so much for your order. I combined all ${n} books into one package, so you only pay shipping once ($${money(ship)}). ` +
-    `They'll go out ${media ? "by Media Mail " : ""}as soon as payment comes through. Enjoy your books! - Papa Duck Homeschool`;
+  // v3 (2026-11-19): "items" when they aren't all books (ge502544 bought two dollhouse miniature kits - the card said "books")
+  const what = media ? "books" : "items";
+  return `${hi} Thanks so much for your order. I combined all ${n} ${what} into one package, so you only pay shipping once ($${money(ship)}). ` +
+    `They'll go out ${media ? "by Media Mail " : ""}as soon as payment comes through. Enjoy your ${what}! - Papa Duck Homeschool`;
 }
 
 Deno.serve(async (req) => {
