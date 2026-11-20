@@ -6,3 +6,8 @@
 --   * Airtable: PD-6013 Notes "2 copies on this one listing: PD-6013 + PD-6017"; PD-6017 Status Merged + note
 --   * drafts id 1118 (PD-6017): answers.copy_of = PD-6013, built_at set
 -- The eBay custom label stays PD-6013 (one label per listing, so sales match); either sticker ships.
+
+-- 21:36 "still says needs a look": pipeline.launch_verify now counts a merged 2nd copy (Airtable Status Merged, send item done) as fine.
+-- Added right before the "no Airtable record" check:
+--   if r.cnt = 1 and r.status = 'Merged' and r.state = 'done' then atok := atok + 1; continue; end if;
+-- Night 47 eBay re-checked: 18 listed, 18 Airtable, no problems.
