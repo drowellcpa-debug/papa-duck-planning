@@ -13,3 +13,4 @@ end $$;
 drop trigger if exists piles_no_basket on pipeline.cleanup_piles;
 create trigger piles_no_basket before insert or update of pile on pipeline.cleanup_piles for each row execute function pipeline.piles_no_basket();
 -- Launch Pad todos 86 (lot maker) and 91 (course kits from the basket pile) closed.
+-- 2026-11-21 09:45 "yes taking them at lunch": the 86 books in the Morning Basket box moved to GOODWILL (update pipeline.cleanup_piles set pile = 'GOODWILL' where pile = 'BASKET').
