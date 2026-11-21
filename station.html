@@ -4214,6 +4214,7 @@ function qcShow(r){
     ? '<div style="margin-top:8px;padding:10px;border-radius:10px;border:3px solid var(--warn);background:#fff7e6"><b style="color:var(--warn)">⚠️ Family check:</b> ' + qcEsc(fam) +
       '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button type="button" id="qcfamok" style="min-height:44px">OK to list</button><button type="button" id="qcfamno" style="min-height:44px">Don\'t list</button></div></div>'
     : (r.family_checked === false ? '<div style="margin-top:6px;color:var(--dim)">Family check didn\'t answer — look it over yourself.</div>' : '<div style="margin-top:6px;color:var(--ok);font-weight:600">✅ Family check: no concerns</div>');
+  qcNoBasket(r);
   const v = fam ? 'CHECK' : String(r.verdict || '');
   const look = { LIST: ['LIST IT', 'var(--ok)'], SELL: ['SELL BACK', 'var(--ship)'], GOODWILL: ['GOODWILL', 'var(--err)'], VINTED: ['🛍️ VINTED BOX', '#7b3fa0'], TOSS: ['TOSS', 'var(--err)'], BASKET: ['🧺 MORNING BASKET', '#a0522d'], CHECK: ['YOUR CALL', 'var(--warn)'], RETAKE: ['TRY AGAIN', 'var(--warn)'] }[v] || [v, 'var(--txt)'];
   const prices = '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px">' +
@@ -4226,7 +4227,7 @@ function qcShow(r){
     : v === 'RETAKE' ? ''
     : '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px">' +
       (v === 'VINTED' || v === 'GOODWILL' || v === 'SELL' || v === 'CHECK' ? '<button type="button" data-qcp="VINTED" style="min-height:48px;grid-column:1 / -1;border:3px solid #7b3fa0;color:#7b3fa0;font-weight:800">🛍️ Vinted box' + (v === 'VINTED' ? '' : ' (kids books, lots…)') + '</button>' : '') +
-      '<button type="button" data-qcp="BASKET" style="min-height:48px;grid-column:1 / -1;border:3px solid #a0522d;color:#a0522d;font-weight:800">🧺 Morning Basket box</button>' + '<button type="button" data-qcp="GOODWILL" style="min-height:48px">📦 Goodwill</button><button type="button" data-qcp="SELL" style="min-height:48px">💵 Sell back</button>' +
+      '<button type="button" data-qcp="GOODWILL" style="min-height:48px">📦 Goodwill</button><button type="button" data-qcp="SELL" style="min-height:48px">💵 Sell back</button>' +
       '<button type="button" data-qcp="MAYBE" style="min-height:48px">🕒 Maybe later box</button><button type="button" id="qclist" style="min-height:48px">📸 List it anyway</button></div>';
   // 2026-11-14 Papa Duck ("I dont have tapes"): read-along book - no tape = Read-Along lot stack
   const tapeBox = r.readalong ? '<div style="margin-top:8px;padding:10px;border-radius:10px;border:3px solid var(--warn);background:#fff7e6"><b>📼 Read-along book.</b> If the tape (or record) is missing, it goes in the lot stack.' +
@@ -4244,6 +4245,9 @@ function qcShow(r){
 /* v62 (Papa Duck 2026-11-10): "have it scan and list and then go to the next, keep always the 10 last ones showing in my queue with name of item
    and buy or goodwill, it needs to clear quickly automatically so I can continue to scan". Each check runs in the background; the box clears at once. */
 let qcQueue = [], qcSeq = 0;
+// 2026-11-21 Papa Duck: "I decided against morning baskets and instead goodwill bins and buy back only" - a BASKET answer is shown as GOODWILL
+// (the database turns any BASKET pile into GOODWILL too, trigger piles_no_basket)
+function qcNoBasket(r) { if (r && String(r.verdict || '') === 'BASKET') { r.verdict = 'GOODWILL'; r.basket_theme = ''; r.reason = String(r.reason || '').replace(/Worth more in a 🧺 Morning Basket lot[^.]*\./, 'Not worth listing.'); } }
 const QC_LOOK = { LIST: ['LIST IT', 'var(--ok)'], SELL: ['SELL BACK', 'var(--ship)'], GOODWILL: ['GOODWILL', 'var(--err)'], VINTED: ['🛍️ VINTED BOX', '#7b3fa0'], TOSS: ['TOSS', 'var(--err)'], BASKET: ['🧺 MORNING BASKET', '#a0522d'], CHECK: ['YOUR CALL', 'var(--warn)'], RETAKE: ['TRY AGAIN', 'var(--warn)'] };
 function qcRenderQ(){
   const el = $('qcq'); if (!el) return;
@@ -4255,6 +4259,7 @@ function qcRenderQ(){
       else if (q.state === 'err') chip = '<span style="color:var(--err);font-weight:700">⚠️ didn\'t work</span>';
       else {
         const r = q.r || {}, fam = r.family ? true : false;
+        qcNoBasket(r);
         const v = fam ? 'CHECK' : String(r.verdict || ''), lk = QC_LOOK[v] || [v, 'var(--txt)'];
         chip = '<span style="display:inline-block;min-width:92px;text-align:center;border-radius:6px;padding:3px 6px;font-weight:900;color:#fff;background:' + lk[1] + '">' + lk[0] + '</span>';
         name = (r.ident && r.ident.title) || q.label;

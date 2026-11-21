@@ -199,7 +199,7 @@ function home(note){
     <p class="hint">No barcode? Tap 📷 and take a photo of the cover or the copyright page.</p>
     <div id="out">${note || `<div class="legend" style="margin-top:8px">
       <span style="background:var(--list)">🟢 LIST box + sticker</span><span style="background:var(--vinted)">🟣 VINTED bag</span>
-      <span style="background:var(--sell)">🔵 SELL BACK box</span><span style="background:var(--basket)">🧺 MORNING BASKET box</span><span style="background:var(--goodwill)">⚪ GOODWILL box</span>
+      <span style="background:var(--sell)">🔵 SELL BACK box</span><span style="background:var(--goodwill)">⚪ GOODWILL box</span>
       <span style="background:var(--toss)">🔴 SET ASIDE for Dad</span></div>`}</div>${recentHtml()}`;
   // 2026-11-14 Papa Duck: "I need cancel scan again" - undo the last result and scan it again
   if (note && last && last.pile_id && $('out')) {
@@ -305,7 +305,8 @@ async function decide(j){
   // 2026-11-14 Papa Duck: Morning Basket lots - low-value books that suit a homeschool morning basket get bundled by theme
   const basketDone = (theme) => { count('BASKET'); remember('BASKET', title);
     home(`<div class="res BASKET"><div class="bin">🧺 MORNING BASKET</div><div class="what">Put it in the MORNING BASKET box.</div>${theme ? `<div class="big" style="font-size:1.4rem">${esc(theme)}</div>` : ''}<div class="title">${esc(title)}</div></div>`); };
-  if (v === 'BASKET') return basketDone(j.basket_theme || '');
+  // 2026-11-21 Papa Duck: no more Morning Baskets - Goodwill or Sell back only
+  if (v === 'BASKET') { v = 'GOODWILL'; j.reason = String(j.reason || '').replace(/Worth more in a 🧺 Morning Basket lot[^.]*\./, 'Not worth listing.'); }
   if (v === 'TOSS' || v === 'ASK') { try { if (j.pile_id) await api('pile', { id: j.pile_id, pile: 'MAYBE' }); } catch(e){} }
   // 2026-11-14 Papa Duck: "Ask Dad should not show on scan app" - an unsure book is decided right here, with its title, price and why.
   if (v === 'ASK') {
@@ -331,7 +332,7 @@ async function decide(j){
   const binKey = map[0].includes('SELL') ? 'SELL' : map[0].includes('GOODWILL') ? 'GOODWILL' : v === 'TOSS' ? 'TOSS' : 'ASK';
   count(binKey); remember(binKey, title);
   home(`<div class="res ${v === 'SELL' || v === 'GOODWILL' || v === 'TOSS' ? v : 'ASK'}"><div class="bin">${map[0]}</div><div class="what">${esc(map[1])}</div><div class="title">${esc(title)}</div>
-    ${v === 'GOODWILL' && j.pile_id ? `<button id="tobasket" style="margin-top:8px;background:#fff;color:var(--basket)">🧺 Morning Basket instead</button>` : ''}</div>`);
+    </div>`);
   if ($('tobasket')) $('tobasket').onclick = async () => { try { await api('pile', { id: j.pile_id, pile: 'BASKET' }); } catch(e){}
     tally.GOODWILL = Math.max(0, (tally.GOODWILL || 0) - 1); basketDone(''); };
 }
