@@ -425,6 +425,10 @@ body.nobar .wrap{padding-bottom:40px}
 <div class="binpanel" id="binpanel" hidden role="dialog" aria-label="Bin check"></div>
 
 <script>
+// 2026-11-20: bins 900+ are named holding bins (Papa Duck: sets scanned outside that wait for the office)
+const BIN_NAMES = { 900: "Office Hold" };
+function binName(b) { return BIN_NAMES[Number(b)] || ("Bin " + b); }
+
 (function(){
 "use strict";
 const PROJECT = "gdwxwiwckxthwcsrgywh";
@@ -500,7 +504,7 @@ function justIn(){
   const b = bins.find((x) => x.bin === a.bin) || a, win = b.done >= b.total;
   j.className = "justin" + (win ? " win" : "");
   j.innerHTML = '<div class="ji-h">' + (win ? "🎉 BIN COMPLETE" : "JUST IN") + '</div><div class="ji-d">🦆</div><div class="ji-pd">' + esc(a.pd) + '</div><div class="ji-t">' + esc(a.title || "") + '</div>' +
-    '<div class="ji-b">Bin ' + a.bin + ' · ' + b.done + ' of ' + b.total + '</div>' +
+    '<div class="ji-b">' + binName(a.bin) + ' · ' + b.done + ' of ' + b.total + '</div>' +
     (arrivals.length > 1 ? '<div class="ji-old">' + arrivals.slice(1).map((x) => esc(x.pd)).join(" · ") + '</div>' : "");
   j.hidden = false; void j.offsetWidth; j.classList.add("pop");
 }
@@ -515,10 +519,10 @@ function tttRender(){
   const open = bins.filter((b) => b.done < b.total), won = bins.filter((b) => b.done >= b.total);
   if (tttSel == null || !bins.some((b) => b.bin === tttSel)) tttSel = (open[0] || won[0] || {}).bin ?? null;
   const cur = bins.find((b) => b.bin === tttSel);
-  let h = '<div class="th"><h2>🦆 Tic-Tac-Duck' + (cur ? ' · Bin ' + cur.bin + ' · ' + cur.done + ' of ' + cur.total : '') + '</h2>' +
+  let h = '<div class="th"><h2>🦆 Tic-Tac-Duck' + (cur ? ' · ' + binName(cur.bin) + ' · ' + cur.done + ' of ' + cur.total : '') + '</h2>' +
     '<button class="btn small" type="button" id="tttmin">' + (tttMin ? "Show board" : "Hide board") + '</button></div>';
   if (!tttMin) {
-    if (open.length) h += '<div class="binchips">' + open.map((b) => '<button type="button" class="binchip' + (b.bin === tttSel ? " on" : "") + '" data-ttt="' + b.bin + '">Bin ' + b.bin + " · " + b.done + "/" + b.total + "</button>").join("") + "</div>";
+    if (open.length) h += '<div class="binchips">' + open.map((b) => '<button type="button" class="binchip' + (b.bin === tttSel ? " on" : "") + '" data-ttt="' + b.bin + '">' + binName(b.bin) + " · " + b.done + "/" + b.total + "</button>").join("") + "</div>";
     if (cur) {
       const pct = Math.round(100 * cur.done / Math.max(1, cur.total));
       h += '<div class="binbar2"><i style="width:' + pct + '%"></i></div>';
@@ -548,12 +552,12 @@ function binRender(){
   if (!bins.length) h += '<div class="gwi">No bins with stickered books right now.</div>';
   else {
     h += '<div class="binchips">' + bins.map((b) => '<button type="button" class="binchip' + (b.bin === binSel ? " on" : "") + (b.done >= b.total ? " full" : "") + '" data-bin="' + b.bin + '">' +
-      (b.done >= b.total ? "🎉 " : "") + "Bin " + b.bin + " · " + b.done + "/" + b.total + "</button>").join("") + "</div>";
+      (b.done >= b.total ? "🎉 " : "") + binName(b.bin) + " · " + b.done + "/" + b.total + "</button>").join("") + "</div>";
     if (cur) {
       const pct = Math.round(100 * cur.done / Math.max(1, cur.total));
-      h += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:1.2rem">Bin ' + cur.bin + (cur.who ? ' <small style="color:var(--muted);font-weight:600">(' + esc(String(cur.who).replace(/^\w/, (c) => c.toUpperCase())) + ")</small>" : "") + '</b><b>' + cur.done + " of " + cur.total + " 🦆</b></div>" +
+      h += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:1.2rem">' + binName(cur.bin) + (cur.who ? ' <small style="color:var(--muted);font-weight:600">(' + esc(String(cur.who).replace(/^\w/, (c) => c.toUpperCase())) + ")</small>" : "") + '</b><b>' + cur.done + " of " + cur.total + " 🦆</b></div>" +
         '<div class="binbar2"><i style="width:' + pct + '%"></i></div>';
-      if (cur.done >= cur.total) h += '<div class="binwin">🎉🦆 Bin ' + cur.bin + " is complete — every book made it to Drafts!</div>";
+      if (cur.done >= cur.total) h += '<div class="binwin">🎉🦆 ' + binName(cur.bin) + " is complete — every book made it to Drafts!</div>";
       const sq = (it, extra) => '<div class="sq ' + (extra ? "extra " : "") + (it.state === "waiting" ? "waiting" : it.state === "pulled" ? "pulled" : "done") + '" title="' + esc(BIN_WORD[it.state] || "") + '">' +
         '<div class="mk">' + (BIN_MARK[it.state] || "⬜") + '</div><div class="pd">' + esc(String(it.pd || "").replace(/^PD-/, "")) + '</div><div class="tt">' + esc(it.title || "") + "</div></div>";
       h += '<div class="ttt">' + (cur.items || []).map((it) => sq(it, false)).join("") + "</div>";
@@ -1123,7 +1127,7 @@ function rowHtml(d){
     chips += nq ? '<span class="chip q">' + nq + " question" + (nq === 1 ? "" : "s") + "</span>" : (miss.length || d.price_stale ? "" : '<span class="chip ok">✅ Ready — tap Send</span>');
   }
   if (d.location && d.location !== "Garage") chips += '<span class="chip">📍 ' + esc(d.location) + "</span>";
-  if (d.bin) chips += '<span class="chip">📦 Bin ' + esc(d.bin) + "</span>";   // 2026-11-12 "add Bin#"
+  if (d.bin) chips += '<span class="chip">📦 ' + esc(binName(d.bin)) + "</span>";   // 2026-11-12 "add Bin#"
   // 2026-11-14 Papa Duck: "if it cant decide on price it should be listed, flag it, and have it show flagged on drafts"
   if ((d.answers || {}).price_flag && d.status !== "sent" && d.price_override == null) chips += '<span class="chip q" title="' + esc(d.answers.price_flag) + '">🚩 Price check: ' + esc(d.answers.price_flag) + "</span>";
   // v56 (2026-10-31): Papa Duck "also list the cost that i paid for it if known"

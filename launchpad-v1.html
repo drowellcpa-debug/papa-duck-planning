@@ -1009,7 +1009,7 @@ function shipCard() {
   const fbaN = toShip.filter((x) => x.fba).length, shipN = toShip.length - fbaN;
   // one row: PD | title + store/price/order | Shipped button, in fixed columns so the buttons line up
   const row = (x) => `<div class="shiprow${x.channel === "abe" ? " abe" : ""}">
-      <b class="mono">${esc(x.pd || "—")}</b>${x.bin ? ` <b style="background:#fff3b0;border-radius:6px;padding:0 6px">📦 Bin ${esc(x.bin)}</b>` : ""}
+      <b class="mono">${esc(x.pd || "—")}</b>${x.bin ? ` <b style="background:#fff3b0;border-radius:6px;padding:0 6px">📦 ${esc(binName(x.bin))}</b>` : ""}
       <span class="st">${esc(x.title || "")}<br><span class="muted"><span class="sbadge ${esc(x.channel)}">${names[x.channel] || esc(x.channel)}</span> ${money(x.price)} · ${esc(x.date || "")}${x.order ? " · order " + esc(x.order) : ""}</span></span>
       ${x.fba ? `<span style="font-weight:700;color:var(--green-text);text-align:center">📦 Sold · Amazon FBA<br><span class="muted" style="font-weight:400">nothing to ship</span></span>` : `<span style="display:grid;gap:4px"><button class="${shipArm === x.key ? "" : "ghost"}" data-ship="${esc(x.key)}">${shipArm === x.key ? "Tap again" : "✓ Shipped"}</button>
         <button class="${cancelArm === x.key ? "danger" : "quiet"}" data-shipcancel="${esc(x.key)}" style="min-height:34px;padding:2px 6px;font-size:.85rem">${cancelArm === x.key ? "Tap again: cancelled" : "✗ Cancelled"}</button></span>`}</div>`;
@@ -1072,7 +1072,7 @@ function weekCard() {
       else if (bg) state = `${Number(x.copies) > 1 ? x.copies + " × " : ""}${money(x.offer)}${Number(x.keep) ? " · keep " + x.keep : ""}`;
       if (bg && x.cleared && x.clear_state !== "problem") state = Number(x.keep) ? `✓ packed · ${x.keep} still listed` : "✓ packed · off all stores";
     }
-    const inner = `<span class="pdn">${esc(x.pd)}${x.bin ? ` <b style="background:#fff3b0;border-radius:6px;padding:0 5px;font-size:.85em">📦 Bin ${esc(x.bin)}</b>` : ""}${x.src === "drafts" ? ' <span style="font-size:.75rem;font-weight:400">📝 Drafts</span>' : ""}</span><span class="tt">${esc(x.title || "")}</span>${isFba && x.printed && x.src !== "drafts" ? storeChecks(x) : ""}
+    const inner = `<span class="pdn">${esc(x.pd)}${x.bin ? ` <b style="background:#fff3b0;border-radius:6px;padding:0 5px;font-size:.85em">📦 ${esc(binName(x.bin))}</b>` : ""}${x.src === "drafts" ? ' <span style="font-size:.75rem;font-weight:400">📝 Drafts</span>' : ""}</span><span class="tt">${esc(x.title || "")}</span>${isFba && x.printed && x.src !== "drafts" ? storeChecks(x) : ""}
         <span class="meta"><span>${Number(x.lb || 0).toFixed(1)} lb</span><span>${esc(state)}</span></span>`;
     // Keep (Papa Duck 2026-10-29): leaves the board, stays listed exactly as it is, the next book fills the spot. Two taps.
     const kArm = keepArm === x.id;
@@ -1108,7 +1108,7 @@ function weekCard() {
       <details id="bblist" ${bbListOpen ? "open" : ""}><summary style="cursor:pointer;font-weight:700">📄 Box list (PD order)</summary>
         <div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:3px 12px;font-size:.92rem;margin-top:6px">
           <span class="muted">PD</span><span class="muted">Book</span><span class="muted">Copies</span><span class="muted">Price</span>
-          ${list.map((x) => `<span class="mono">${esc(x.pd)}${x.bin ? ` <b style="background:#fff3b0;border-radius:6px;padding:0 5px;font-size:.85em">📦 Bin ${esc(x.bin)}</b>` : ""}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.title || "")}</span><span>${x.copies}</span><span>${money(Number(x.offer) * Number(x.copies || 1))}</span>`).join("")}
+          ${list.map((x) => `<span class="mono">${esc(x.pd)}${x.bin ? ` <b style="background:#fff3b0;border-radius:6px;padding:0 5px;font-size:.85em">📦 ${esc(binName(x.bin))}</b>` : ""}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.title || "")}</span><span>${x.copies}</span><span>${money(Number(x.offer) * Number(x.copies || 1))}</span>`).join("")}
           <b></b><b>Estimated total</b><b>${copies}</b><b>${money(bbTot(bg))}</b></div></details>`;
   } else {
     const lb = don.reduce((a, x) => a + Number(x.lb || 0), 0);
@@ -1688,6 +1688,9 @@ function schedule() {
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(true); });
 $("askform").onsubmit = ask;
 
+// 2026-11-20 Papa Duck: "a bin for these that will accumulate until I scan them" - bins 900+ are named holding bins
+const BIN_NAMES = { 900: "Office Hold" };
+const binName = (b) => BIN_NAMES[Number(b)] || ("Bin " + b);
 // ---------- ✅ Sold today (Papa Duck 2026-11-18): "take that off since you have the vinted app and add the daily book autit there that on a grid
 //   shows me the book sold and then removed for today, then it goes to the audit report the next day and starts over, make it clean and clear".
 //   One row per sale caught today (Pacific). One square per store: 💵 sold there · ✅ taken off · — wasn't listed there · # copies left.
