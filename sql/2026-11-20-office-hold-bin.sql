@@ -15,3 +15,18 @@ begin
   return pipeline.bin_status(b);
 end $$;
 -- moved tonight: PD-0318 .. PD-332 (Americana Annual 1990-94, The Book of Popular Science vols) from bin 16 to 900. Bin 16 is empty again.
+
+-- 21:37 "yes if you can fix it": PD-319..PD-332 were saved without the leading zero. Every PD is now stored 4-digit on the way in.
+create or replace function pipeline.pd_norm(p text) returns text language sql immutable as $$
+  select case when p ~* '^\s*PD-?\d{1,3}\s*$' then 'PD-' || lpad(regexp_replace(p, '\D', '', 'g'), 4, '0') else p end $$;
+create or replace function pipeline.pd_norm_trg() returns trigger language plpgsql as $$
+begin new.pd := pipeline.pd_norm(new.pd); return new; end $$;
+-- presets first: cleanup_piles' piles_flag_push upserts a preset under the new PD
+update pipeline.draft_presets set pd = pipeline.pd_norm(pd) where pd ~* '^PD-?\d{1,3}$';
+update pipeline.cleanup_piles set pd = pipeline.pd_norm(pd) where pd ~* '^PD-?\d{1,3}$';
+drop trigger if exists pd_norm on pipeline.cleanup_piles;
+create trigger pd_norm before insert or update of pd on pipeline.cleanup_piles for each row execute function pipeline.pd_norm_trg();
+drop trigger if exists pd_norm on pipeline.draft_presets;
+create trigger pd_norm before insert or update of pd on pipeline.draft_presets for each row execute function pipeline.pd_norm_trg();
+drop trigger if exists pd_norm on pipeline.drafts;
+create trigger pd_norm before insert or update of pd on pipeline.drafts for each row execute function pipeline.pd_norm_trg();
