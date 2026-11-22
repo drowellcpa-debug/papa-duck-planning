@@ -555,6 +555,7 @@
   </div>
   <input type="file" id="qcfile" accept="image/*,.heic,.heif" style="display:none">
   <div id="qcbin" style="margin-top:10px"></div>
+  <div id="qchave" aria-live="polite"></div>
   <div id="qcout" aria-live="polite" style="margin-top:10px"></div>
   <div id="qcq" aria-live="polite"></div>
 </div>
@@ -4313,7 +4314,9 @@ $('qcgo').addEventListener('click', async () => {
     const body = {};
     if ([8, 10, 12, 13].indexOf(isbn.length) !== -1) body.isbn = isbn;   // 12 / 8 = UPC barcode (VHS, DVDs, games)
     else { const d = await qcShrink(file); body.image = d.split(',')[1]; }
+    if (body.isbn) haveCheck(body.isbn, q);
     q.r = await ((a, b) => api(a, b, 2))('check', body);
+    if (!body.isbn && q.r && (q.r.read_isbn || (q.r.ident && q.r.ident.isbn))) haveCheck(q.r.read_isbn || q.r.ident.isbn, q);
     q.state = 'done';
     // 2026-11-13 ("still called up family even though price was 5.99"): under the $7.99 minimum it is Goodwill anyway - skip the family question
     if (q.r && q.r.family && q.r.list != null && Number(q.r.list) < 7.99) {
@@ -4325,6 +4328,88 @@ $('qcgo').addEventListener('click', async () => {
   qcRenderQ();
 });
 
+
+/* 2026-11-22 Papa Duck: "should that feature also be on the book station?" -> "yes please". When a scanned book is ALREADY LIVE in the store,
+   a big card shows its PD number, cover and the CONDITION it is listed as, with ➕ Add copies (same condition) or "This one's different"
+   (new PD number as usual). Add copies updates eBay, Etsy, AbeBooks and Airtable together (Launch Pad Add copies, qty-set v5) and takes
+   the scan back out of the bin so it isn't counted as a new book. */
+const DAPI_URL = 'https://gdwxwiwckxthwcsrgywh.supabase.co/functions/v1/drafts-api';
+async function dq2(sqlText){
+  const r = await fetch(DAPI_URL, { method:'POST', headers:{ 'content-type':'application/json', 'x-station-pass': getPass() }, body: JSON.stringify({ q: sqlText }) });
+  const j = await r.json().catch(() => null);
+  if (!j || !j.ok) throw new Error((j && j.error) || ('the cloud answered ' + r.status));
+  return j.rows && j.rows[0] && j.rows[0].r;
+}
+const sq = (x) => "'" + String(x).replace(/'/g, "''") + "'";
+let haveList = [];   // [{key, isbn, q, live, drafts, n, arm, state, msg, job}]
+async function haveCheck(isbn, q){
+  try {
+    const h = await dq2('select pipeline.have_isbn(' + sq(isbn) + ') as r');
+    if (!h || !h.ok || (!(h.live || []).length && !(h.drafts || []).length)) return;
+    haveList = haveList.filter((x) => x.isbn !== h.isbn);
+    haveList.unshift({ key: Date.now() + Math.random(), isbn: h.isbn, q: q, live: h.live || [], drafts: h.drafts || [], n: '1', arm: '', state: '', msg: '' });
+    haveList = haveList.slice(0, 3); haveRender();
+  } catch(e){ /* the normal scan carries on either way */ }
+}
+function haveRender(){
+  const el = $('qchave'); if (!el) return;
+  if (!haveList.length) { el.innerHTML = ''; return; }
+  el.innerHTML = haveList.map((h) => {
+    const lv = h.live.map((L) => {
+      const now = Number(L.qty) || 0, n = Math.max(1, Math.floor(Number(h.n) || 1)), armed = h.arm === L.pd;
+      return '<div style="display:flex;gap:10px;align-items:flex-start;margin-top:8px">' +
+        (L.cover ? '<img src="' + qcEsc(L.cover) + '" alt="" style="width:62px;height:82px;object-fit:cover;border-radius:6px;flex:none">' : '') +
+        '<div style="flex:1;min-width:0"><div style="font-size:1.25em;font-weight:900">' + qcEsc(L.pd) + '</div>' +
+        '<div style="font-weight:600">' + qcEsc(L.title || '') + '</div>' +
+        '<div style="margin:4px 0"><span style="display:inline-block;background:#fff3b0;border:2px solid #e0b84a;border-radius:999px;padding:2px 10px;font-weight:800">Listed as: ' + qcEsc(L.condition || 'not set') + '</span></div>' +
+        '<div style="color:var(--dim)">' + now + ' cop' + (now === 1 ? 'y' : 'ies') + ' now · ' + (L.price ? qcMoney(L.price) : 'no price') + '</div>' +
+        (h.state === 'sending' || h.state === 'done' || h.state === 'problem' ? '' :
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><label>How many in your hand?</label>' +
+          '<input type="number" min="1" max="500" inputmode="numeric" data-hn="' + h.key + '" value="' + qcEsc(h.n) + '" style="width:80px;min-height:44px">' +
+          '<button type="button" data-hadd="' + h.key + '" data-hpd="' + qcEsc(L.pd) + '" style="min-height:48px;font-weight:800;background:var(--ok);color:#fff;border:0;border-radius:10px;padding:0 14px">' +
+          (armed ? 'Tap again: ' + now + ' → ' + (now + n) : '➕ Add to ' + qcEsc(L.pd) + ' (same condition)') + '</button></div>') + '</div></div>'; }).join('');
+    const dr = h.drafts.map((d) => '<div style="margin-top:6px;color:var(--dim)">Also waiting in Drafts (not live yet): <b>' + qcEsc(d.pd) + '</b>' + (d.condition ? ' · ' + qcEsc(d.condition) : '') + ' · ' + Number(d.qty) + ' cop' + (Number(d.qty) === 1 ? 'y' : 'ies') + ' - change its Quantity in Drafts.</div>').join('');
+    const st = h.state === 'sending' ? '<div style="margin-top:8px;font-weight:700">⏳ Adding copies - updating eBay, Etsy, AbeBooks and Airtable (about a minute)…</div>'
+      : h.state === 'done' ? '<div style="margin-top:8px;font-weight:800;color:var(--ok)">✅ ' + qcEsc(h.msg) + '</div>'
+      : h.state === 'problem' ? '<div style="margin-top:8px;font-weight:800;color:var(--err)">⚠️ ' + qcEsc(h.msg) + '</div>'
+      : (h.msg ? '<div style="margin-top:6px;color:var(--err);font-weight:700">' + qcEsc(h.msg) + '</div>' : '');
+    return '<div style="margin-top:10px;padding:12px;border-radius:12px;border:4px solid #2b6cb0;background:#eef5fc">' +
+      '<div style="font-size:1.15em;font-weight:900;color:#2b6cb0">📚 You already have this one</div>' + lv + dr + st +
+      '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' + (h.state ? '<button type="button" data-hok="' + h.key + '" style="min-height:44px">OK</button>'
+        : (h.live.length ? '<button type="button" data-hok="' + h.key + '" style="min-height:44px">This one\'s different - give it a new number</button>' : '<button type="button" data-hok="' + h.key + '" style="min-height:44px">OK</button>')) + '</div></div>';
+  }).join('');
+  el.querySelectorAll('[data-hn]').forEach((i) => i.oninput = () => { const h = haveList.find((x) => String(x.key) === i.dataset.hn); if (h) { h.n = i.value; if (h.arm) { h.arm = ''; haveRender(); const k = el.querySelector('[data-hn="' + i.dataset.hn + '"]'); if (k) k.focus(); } } });
+  el.querySelectorAll('[data-hok]').forEach((b) => b.onclick = () => { haveList = haveList.filter((x) => String(x.key) !== b.dataset.hok); haveRender(); });
+  el.querySelectorAll('[data-hadd]').forEach((b) => b.onclick = () => haveAdd(b.dataset.hadd, b.dataset.hpd));
+}
+async function haveAdd(key, pd){
+  const h = haveList.find((x) => String(x.key) === key); if (!h) return;
+  const n = Math.floor(Number(h.n) || 0);
+  if (!(n >= 1 && n <= 500)) { h.msg = 'How many? 1 to 500.'; return haveRender(); }
+  if (h.arm !== pd) { h.arm = pd; setTimeout(() => { if (h.arm === pd) { h.arm = ''; haveRender(); } }, 8000); return haveRender(); }
+  h.arm = ''; h.state = 'sending'; h.msg = ''; haveRender();
+  try {
+    const r = await dq2('select pipeline.qty_add(' + sq(pd) + ', ' + n + ') as r');
+    if (!r || !r.ok) { h.state = 'problem'; h.msg = (r && r.error) || 'Could not start.'; return haveRender(); }
+    h.job = r.id;
+    // the scan is not a new book - take it back out of the bin / LIST pile
+    const pid = h.q && h.q.r && h.q.r.pile_id;
+    if (pid) { try { await api('undo', { id: pid }, 1); } catch(e){} if (h.q) { h.q.pile = 'Added to ' + pd; qcRenderQ(); } }
+    for (let i = 0; i < 24; i++) {
+      await sleepMs(8000);
+      let rows = []; try { rows = await dq2('select pipeline.qty_adds_recent() as r') || []; } catch(e){}
+      const x = rows.find((y) => Number(y.id) === Number(h.job));
+      if (x && x.status !== 'sending') {
+        const R = x.result || {};
+        const ch = ['ebay', 'etsy', 'abe', 'airtable'].filter((k) => R[k] && R[k] !== 'not listed').map((k) => ({ ebay: 'eBay', etsy: 'Etsy', abe: 'AbeBooks', airtable: 'Airtable' })[k] + ' ' + String(R[k]).replace(/\s*\((item|listing) \d+\)/, '')).join(' · ');
+        h.state = x.status === 'done' ? 'done' : 'problem';
+        h.msg = x.status === 'done' ? pd + ' now has ' + (R.qty || '?') + ' copies. ' + ch : (R.error || 'A store did not update') + (ch ? ' - ' + ch : '');
+        return haveRender();
+      }
+    }
+    h.state = 'problem'; h.msg = 'No answer yet - look at ' + pd + ' on the Launch Pad Add copies card.'; haveRender();
+  } catch(e){ h.state = 'problem'; h.msg = String(e.message || e).slice(0, 160); haveRender(); }
+}
 
 // 2026-11-15 Papa Duck: "this needs to happen at the scanner time or in the papa duck book station quick check, almost immediately
 //   and a big warning shows up to pull it back" - the Goodwill double-check (every minute) shows here in red right away.

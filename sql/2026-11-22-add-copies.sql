@@ -37,3 +37,17 @@ CREATE OR REPLACE FUNCTION pipeline.qty_adds_recent() RETURNS jsonb LANGUAGE sql
       coalesce(result, case when status = 'sending' and created_at < now() - interval '4 minutes' then '{"error":"no answer from the stores - check the listing, then try again"}'::jsonb end) result,
       created_at from pipeline.qty_adds where created_at > now() - interval '3 days' order by id desc limit 5) x
 $function$;
+
+-- Book Station scan-match (2026-11-22, "yes please"): a scanned ISBN already LIVE in the store -> "You already have this one" card with Add copies.
+CREATE OR REPLACE FUNCTION pipeline.have_isbn(p_isbn text) RETURNS jsonb LANGUAGE sql STABLE SET search_path TO 'pipeline', 'pg_catalog' AS $$
+  with k as (select pipeline.isbn13(p_isbn) i),
+  live as (select a.fields f from backup.airtable_records a, k
+    where k.i is not null and a.table_id = 'tblKxgB4q7v9SPqze' and not coalesce(a.deleted_in_airtable, false)
+      and a.fields->>'Status' = 'Listed' and pipeline.isbn13(a.fields->>'ISBN') = k.i),
+  dr as (select d.pd, d.ident->>'title' t, coalesce(d.ident->>'grade', '') g, coalesce((d.answers->'station'->>'qty')::int, 1) q from pipeline.drafts d, k
+    where k.i is not null and d.built_at is null and d.status in ('drafted','sent') and pipeline.isbn13(d.ident->>'isbn') = k.i)
+  select jsonb_build_object('ok', true, 'isbn', (select i from k),
+    'live', coalesce((select jsonb_agg(jsonb_build_object('pd', f->>'Tracking Number', 'title', f->>'Title', 'condition', f->>'Condition',
+        'qty', coalesce((f->>'Quantity')::int, 1), 'price', f->>'Listed Price', 'cover', split_part(coalesce(f->>'PicURLs',''), '|', 1)) order by f->>'Tracking Number') from live), '[]'::jsonb),
+    'drafts', coalesce((select jsonb_agg(jsonb_build_object('pd', pd, 'title', t, 'condition', g, 'qty', q)) from dr), '[]'::jsonb))
+$$;
