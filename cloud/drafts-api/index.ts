@@ -1,3 +1,4 @@
+// v10 (2026-11-22): + pipeline.have_book (cover-photo match - "abeka does not have bar code") and pipeline.title_set (Change name everywhere).
 // v9 (2026-11-22): + pipeline.have_isbn - the Book Station asks "do I already have this book live?" on every ISBN scan (Add copies pop-up).
 // v8 (2026-11-22): + pipeline.qty_lookup / qty_add / qty_adds_recent for the ➕ Add copies card ("grab an old Pd# and add additional quanity").
 // v7 (2026-11-19): + pipeline.hold_board / hold_mark / hold_check for the 🦆 Holding for the season card.
@@ -38,7 +39,7 @@ const LP_FN = new Set(["audit.report_full","bd.add_book","bd.board","bd.bought",
   "pipeline.week_print_draft","pipeline.bin_board","pipeline.health_board","pipeline.health_kick",
   "pipeline.combine_list","pipeline.combine_send","pipeline.combine_dismiss","pipeline.sold_today",
   "pipeline.hold_board","pipeline.hold_mark","pipeline.hold_check",
-  "pipeline.qty_lookup","pipeline.qty_add","pipeline.qty_adds_recent","pipeline.have_isbn"]);
+  "pipeline.qty_lookup","pipeline.qty_add","pipeline.qty_adds_recent","pipeline.have_isbn","pipeline.have_book","pipeline.title_set"]);
 const LIT = "(?:-?\\d+(?:\\.\\d+)?|null|true|false|'(?:[^']|'')*'(?:::jsonb)?|array\\[(?:\\d+(?:,\\d+)*)?\\]::bigint\\[\\])";
 const LP_CALL = new RegExp("^select ((?:pipeline|bd|audit)\\.[a-z_]+)\\((" + LIT + "(?:, ?" + LIT + ")*)?\\)(?: as [a-z]+)?$", "s");
 const norm = (x: string) => x.replace(/\s+/g, " ").trim();

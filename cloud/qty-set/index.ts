@@ -1,4 +1,4 @@
-// Papa Duck - Edge Function "qty-set" v4 (2026-11-02; v3 adds price, v4 adds restock). v1 (2026-10-31). Papa Duck: "on pd 0164 i forgot to indicate 5 of them".
+// Papa Duck - Edge Function "qty-set" v6 (2026-11-02; v3 adds price, v4 adds restock). v1 (2026-10-31). Papa Duck: "on pd 0164 i forgot to indicate 5 of them".
 // Changes how many copies a LIVE item has, everywhere at once: eBay (ReviseInventoryStatus), Etsy (listing inventory),
 // Airtable Quantity, and the draft's station qty. POST {"pd":"PD-0164","qty":5}. Auth: x-backup-secret = backup.config cron_secret.
 // v3: {"pd","price":22.99} (qty optional) also sets the PRICE everywhere: eBay StartPrice + Best Offer (auto 80%, min 65%), Etsy offering price,
@@ -8,6 +8,8 @@
 // v5 (2026-11-22, Papa Duck: "I need the ability to grab an old Pd# and add additional quanity"): the Launch Pad "Add copies" box.
 //   {"pd","add":N,"job":id} - add up to 500 copies. Finds the listings even for books listed before the cloud (Airtable eBay ItemID /
 //   Etsy ListingID), also sets the AbeBooks count (abe-qty), and writes the result back to pipeline.qty_adds row "job".
+// v6 (2026-11-22, "the ability for me to change the titel myself if I want to right here" ... "these changes effect everything not just
+//   the airtable"): {"pd","title":"...","job"?} renames the book EVERYWHERE: eBay title (80 max), Etsy title, AbeBooks (abe-qty v6), Airtable, draft.
 // Uses the same store lock as sales-cloud (7342001) so it never collides with the Etsy token rotation.
 import postgres from "npm:postgres@3.4.4";
 import { XMLParser } from "npm:fast-xml-parser@4";
@@ -16,7 +18,7 @@ const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_
 const json = (o: unknown, s = 200) => new Response(JSON.stringify(o, null, 1), { status: s, headers: { "Content-Type": "application/json" } });
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const BASE = "appdMXzb9U4sdXpAr", T_INV = "tblKxgB4q7v9SPqze", ETSY_CLIENT = "n9os0m3u7hm64f7cdqzb2fgu";
-const F_EBAY = "fldKGZyyXy0Gjox5b", F_ETSY = "fld3GGIsBv0tXqjFL";
+const F_EBAY = "fldKGZyyXy0Gjox5b", F_ETSY = "fld3GGIsBv0tXqjFL", F_TITLE = "fld4IZiZDz3Glnf7B";
 const F_TRACK = "fldxiwKYi6z1t0iDx", F_QTY = "fld7MrQXX1D8iD0ap", F_LIST = "fldqfykAq3wumx32C", F_AUTO = "fldSpnDZLINeJyA0c", F_MIN = "fldvRL78ZiKrr3Vrh";
 const r50 = (x: number) => Math.round(x * 2) / 2;
 const arr = (v: any) => (v == null ? [] : Array.isArray(v) ? v : [v]);
@@ -42,9 +44,11 @@ Deno.serve(async (req) => {
     jobId = job;
     let qty = b.qty == null ? 0 : Math.floor(Number(b.qty));
     const price = b.price == null ? 0 : Math.round(Number(b.price) * 100) / 100;
+    const title = String(b.title || "").replace(/\s+/g, " ").trim().slice(0, 200);
     const auto = price ? Math.min(r50(price * 0.8), price - 0.5) : 0, mn = price ? Math.min(r50(price * 0.65), auto) : 0;
-    if (!/^PD-\d{4}[A-Z]?$/.test(pd) || (!qty && !price && !(add > 0 && add <= 500)) || (qty && !(qty >= 1 && qty <= 999)) || (price && !(price >= 6.99 && price <= 5000)))
-      return json({ error: "need pd like PD-0164 and qty 1-999 and/or price 6.99-5000" }, 400);
+    const rename = /^PD-\d{4}[A-Z]?$/.test(pd) && title.length >= 3 && !qty && !price && !add;
+    if (!rename && (!/^PD-\d{4}[A-Z]?$/.test(pd) || (!qty && !price && !(add > 0 && add <= 500)) || (qty && !(qty >= 1 && qty <= 999)) || (price && !(price >= 6.99 && price <= 5000))))
+      return json({ error: "need pd like PD-0164 and qty 1-999 and/or price 6.99-5000, or a title" }, 400);
     for (let a = 0; a < 20 && !locked; a++) { locked = (await sql`select pg_try_advisory_lock(7342001) as ok`)[0].ok; if (!locked) await sleep(3000); }
     if (!locked) { if (job) await sql`update pipeline.qty_adds set status = 'problem', result = '{"ok":false,"error":"the store worker was busy - try again in a minute"}'::jsonb, done_at = now() where id = ${job}`; return json({ ok: false, error: "the store worker is busy - try again in a minute" }, 409); }
     const vr = await sql`select id, decrypted_secret from vault.decrypted_secrets where name = 'papaduck_keys'`;
@@ -61,6 +65,60 @@ Deno.serve(async (req) => {
     const atId: Record<string, string> = { ebay: String(rec?.fields?.[F_EBAY] || "").replace(/\D/g, ""), etsy: String(rec?.fields?.[F_ETSY] || "").replace(/\D/g, "") };
     const id = (ch: string) => (ids.find((r: any) => r.channel === ch) || {}).listing_id || atId[ch] || "";
     const out: any = { pd, qty: qty || null, price: price || null };
+    if (rename) {
+      // v6 (2026-11-22, "these changes effect everything not just the airtable"): the new name goes to every store at once.
+      const ebT = title.length <= 80 ? title : title.slice(0, 80).replace(/\s+\S*$/, "");
+      let etT = title.slice(0, 140); let amp = 0; etT = etT.replace(/&/g, () => (++amp > 1 ? "and" : "&"));
+      out.title = title;
+      const eid = id("ebay");
+      if (eid) {
+        try {
+          const e = K.ebay, x = (s2: string) => s2.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          const hdr = (n: string) => ({ "X-EBAY-API-CALL-NAME": n, "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "1193",
+            "X-EBAY-API-APP-NAME": e.app_id, "X-EBAY-API-DEV-NAME": e.dev_id, "X-EBAY-API-CERT-NAME": e.cert_id, "Content-Type": "text/xml" });
+          const g = await call("https://api.ebay.com/ws/api.dll", { method: "POST", headers: hdr("GetItem"),
+            body: `<?xml version="1.0" encoding="utf-8"?><GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents"><RequesterCredentials><eBayAuthToken>${x(e.auth_token)}</eBayAuthToken></RequesterCredentials><ItemID>${eid}</ItemID></GetItemRequest>` });
+          out.ebay_was = txt(((parser.parse(g.body).GetItemResponse || {}).Item || {}).Title);
+          const r = await call("https://api.ebay.com/ws/api.dll", { method: "POST", headers: hdr("ReviseFixedPriceItem"),
+            body: `<?xml version="1.0" encoding="utf-8"?><ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents"><RequesterCredentials><eBayAuthToken>${x(e.auth_token)}</eBayAuthToken></RequesterCredentials><Item><ItemID>${eid}</ItemID><Title>${x(ebT)}</Title></Item></ReviseFixedPriceItemRequest>` });
+          const xr = parser.parse(r.body).ReviseFixedPriceItemResponse || {}, ack = txt(xr.Ack);
+          out.ebay = ack === "Success" || ack === "Warning" ? `renamed${ebT !== title ? " (shortened to 80 letters)" : ""} (item ${eid})` : "error: " + arr(xr.Errors).map((z: any) => `${txt(z.ErrorCode)} ${txt(z.LongMessage)}`).join("; ").slice(0, 200);
+        } catch (e) { out.ebay = "error: " + String((e as Error).message).slice(0, 200); }
+      } else out.ebay = "not listed";
+      const tid = id("etsy");
+      if (tid) {
+        try {
+          const e = K.etsy;
+          if (!(e.access_token && (e.expires_at || 0) > Date.now() + 5 * 60e3)) {
+            const r = await call("https://api.etsy.com/v3/public/oauth/token", { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ grant_type: "refresh_token", client_id: ETSY_CLIENT, refresh_token: e.refresh_token }) });
+            const j = J(r.body);
+            if (!j.access_token || !j.refresh_token) throw new Error(`Etsy token refresh failed (${r.status})`);
+            e.access_token = j.access_token; e.refresh_token = j.refresh_token; e.expires_at = Date.now() + Number(j.expires_in || 3600) * 1000;
+            await saveEtsy();
+          }
+          const h = { "x-api-key": `${ETSY_CLIENT}:${e.shared_secret}`, Authorization: "Bearer " + e.access_token, Accept: "application/json" };
+          const p = await call(`https://openapi.etsy.com/v3/application/shops/65331509/listings/${tid}`, { method: "PATCH",
+            headers: { ...h, "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ title: etT }).toString() });
+          out.etsy = p.status < 300 ? `renamed (listing ${tid})` : `error ${p.status}: ${p.body.slice(0, 200)}`;
+        } catch (e) { out.etsy = "error: " + String((e as Error).message).slice(0, 200); }
+      } else out.etsy = "not listed";
+      try {
+        if (!rec) out.airtable = "no record";
+        else { const u = await at("PATCH", "", { typecast: true, records: [{ id: rec.id, fields: { [F_TITLE]: title } }] }); out.airtable = u.status < 300 ? "renamed" : `error ${u.status}`; }
+      } catch (e) { out.airtable = "error: " + String((e as Error).message).slice(0, 160); }
+      try {
+        const r = await call("https://gdwxwiwckxthwcsrgywh.supabase.co/functions/v1/abe-qty", { method: "POST",
+          headers: { "Content-Type": "application/json", "x-backup-secret": cfg.value }, body: JSON.stringify({ pd, title, wait: 5000 }) }, 1);
+        const j = J(r.body);
+        out.abe = j.not_on_abe ? "not listed" : j.ok ? "renamed" + (j.lid ? ` (listing ${j.lid})` : "") : "error: " + String(j.error || r.status).slice(0, 160);
+      } catch (e) { out.abe = "error: " + String((e as Error).message).slice(0, 160); }
+      await sql`update pipeline.drafts set pricing = coalesce(pricing, '{}'::jsonb) || jsonb_build_object('ebay_title', ${ebT}::text) where pd = ${pd} and pricing is not null`;
+      await sql`update backup.airtable_records set fields = jsonb_set(fields, '{Title}', to_jsonb(${title}::text)) where table_id = ${T_INV} and upper(fields->>'Tracking Number') = ${pd}`;
+      out.ok = !/error/.test(JSON.stringify([out.ebay, out.etsy, out.airtable, out.abe]));
+      if (job) await sql`update pipeline.qty_adds set status = ${out.ok ? "done" : "problem"}, result = ${sql.json(out)}, done_at = now() where id = ${job}`;
+      return json(out);
+    }
     if (add > 0 && !qty) {
       // how many are available right now, eBay first, then Etsy, then the draft
       let now = -1;

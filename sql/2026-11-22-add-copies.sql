@@ -51,3 +51,41 @@ CREATE OR REPLACE FUNCTION pipeline.have_isbn(p_isbn text) RETURNS jsonb LANGUAG
         'qty', coalesce((f->>'Quantity')::int, 1), 'price', f->>'Listed Price', 'cover', split_part(coalesce(f->>'PicURLs',''), '|', 1)) order by f->>'Tracking Number') from live), '[]'::jsonb),
     'drafts', coalesce((select jsonb_agg(jsonb_build_object('pd', pd, 'title', t, 'condition', g, 'qty', q)) from dr), '[]'::jsonb))
 $$;
+
+-- 2026-11-22 "remember abeka does not have bar code": cover-photo match by title words (numbers must match: grade 4 is not grade 5)
+CREATE OR REPLACE FUNCTION pipeline.have_words(p text) RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
+  select coalesce(array_agg(distinct w), '{}') from regexp_split_to_table(lower(regexp_replace(coalesce(p,''), '[^A-Za-z0-9]+', ' ', 'g')), '\s+') w
+  where (length(w) >= 2 or w ~ '^[0-9]+$') and w not in ('the','and','of','a','an','by','for','to','in','on','with','ed','edition','book','books','hc','pb','qty','batch','lot','vintage','new','used','set','vol','volume','paperback','hardcover')
+$$;
+CREATE OR REPLACE FUNCTION pipeline.have_book(p_isbn text, p_title text) RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path TO 'pipeline', 'pg_catalog' AS $$
+declare h jsonb := pipeline.have_isbn(p_isbn); qw text[] := pipeline.have_words(p_title); qn text[]; live jsonb;
+begin
+  if coalesce(jsonb_array_length(h->'live'), 0) + coalesce(jsonb_array_length(h->'drafts'), 0) > 0 then return h || '{"by":"isbn"}'; end if;
+  if coalesce(array_length(qw, 1), 0) < 2 then return jsonb_build_object('ok', true, 'live', '[]'::jsonb, 'drafts', '[]'::jsonb); end if;
+  qn := array(select x from unnest(qw) x where x ~ '\d');
+  select coalesce(jsonb_agg(m.j order by m.score desc, m.pd), '[]'::jsonb) into live from (
+    select f->>'Tracking Number' pd, jsonb_build_object('pd', f->>'Tracking Number', 'title', f->>'Title', 'condition', f->>'Condition',
+        'qty', coalesce((f->>'Quantity')::int, 1), 'price', f->>'Listed Price', 'cover', split_part(coalesce(f->>'PicURLs',''), '|', 1)) j,
+      (select count(*) from unnest(qw) x where x = any(tw))::numeric / array_length(qw, 1) score
+    from (select a.fields f, pipeline.have_words(a.fields->>'Title') tw from backup.airtable_records a
+          where a.table_id = 'tblKxgB4q7v9SPqze' and not coalesce(a.deleted_in_airtable, false) and a.fields->>'Status' = 'Listed') c
+    where qn <@ c.tw and (select count(*) from unnest(qw) x where x = any(c.tw)) >= least(3, array_length(qw, 1))
+    order by 3 desc limit 3) m where m.score >= 0.7;
+  return jsonb_build_object('ok', true, 'by', 'title', 'live', live, 'drafts', '[]'::jsonb);
+end $$;
+
+-- 2026-11-22 "change the titel myself ... these changes effect everything": rename everywhere via qty-set v6 (+ abe-qty v6)
+CREATE OR REPLACE FUNCTION pipeline.title_set(p_pd text, p_title text) RETURNS jsonb LANGUAGE plpgsql SET search_path TO 'pipeline', 'pg_catalog' AS $$
+declare L jsonb := pipeline.qty_lookup(p_pd); t text := regexp_replace(trim(coalesce(p_title,'')), '\s+', ' ', 'g'); jid bigint;
+begin
+  if not coalesce((L->>'ok')::boolean, false) then return L; end if;
+  if length(t) < 3 then return jsonb_build_object('ok', false, 'error', 'Type the new name (at least 3 letters).'); end if;
+  if length(t) > 200 then return jsonb_build_object('ok', false, 'error', 'That name is too long (200 letters max; eBay shows the first 80).'); end if;
+  if exists (select 1 from pipeline.qty_adds where pd = L->>'pd' and status = 'sending' and created_at > now() - interval '5 minutes') then
+    return jsonb_build_object('ok', false, 'error', (L->>'pd') || ' is still updating - give it a minute.'); end if;
+  insert into pipeline.qty_adds (pd, add_n, before_qty, condition, title) values (L->>'pd', 0, (L->>'qty')::int, L->>'condition', t) returning id into jid;
+  perform net.http_post(url := 'https://gdwxwiwckxthwcsrgywh.supabase.co/functions/v1/qty-set',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-backup-secret', (select value from backup.config where key = 'cron_secret')),
+    body := jsonb_build_object('pd', L->>'pd', 'title', t, 'job', jid), timeout_milliseconds := 150000);
+  return jsonb_build_object('ok', true, 'id', jid);
+end $$;

@@ -1,4 +1,5 @@
-// Papa Duck - Edge Function "abe-qty" v5 (2026-11-17). v4 (2026-11-04; v2: strips copy-count wording from the description; v3: no qty = keep current, skips when nothing changes; v4: also "units", keeps print-run/set wording). Papa Duck: "can you dig deeper on abe books, I cant believe they have no api way of chaning quanity".
+// Papa Duck - Edge Function "abe-qty" v6 (2026-11-22). v5 (2026-11-17). v4 (2026-11-04; v2: strips copy-count wording from the description; v3: no qty = keep current, skips when nothing changes; v4: also "units", keeps print-run/set wording). Papa Duck: "can you dig deeper on abe books, I cant believe they have no api way of chaning quanity".
+// v6 (2026-11-22, "these changes effect everything not just the airtable"): {"pd","title"} renames the AbeBooks listing too (qty kept).
 // v5 (2026-11-17, "abe books you could not set the count down, we have already figured out a way to do this, please make this automatic for me"):
 //   the AbeBooks listing number is no longer required. When it isn't passed (or the store audit doesn't have it), this finds it in his own
 //   AbeBooks store by searching his PD number (kn=PD-xxxx, the same search the Launch Pad live check uses), then by title.
@@ -99,6 +100,7 @@ Deno.serve(async (req) => {
       return json(o, s);
     };
     const T = "@" + Date.now(), pd = String(b.pd || "").toUpperCase(), qty = Number(b.qty);
+    const newTitle = String(b.title || "").replace(/\s+/g, " ").trim().slice(0, 500);
     let lid = String(b.lid || "").replace(/\D/g, "");
     if (!/^PD-\w+$/.test(pd) || !(b.qty == null || (qty >= 1 && qty <= 999))) return await out({ ok: false, error: "need pd, qty 1-999 (or no qty = keep)" }, 400);
     if (!lid) {
@@ -110,15 +112,17 @@ Deno.serve(async (req) => {
     const L = before.listing;
     if (!L) return await out({ ok: false, error: "could not read the listing page", lid });
     if (String(L.vendorListingId || "").toUpperCase() !== pd) return await out({ ok: false, error: `listing ${lid} is ${L.vendorListingId}, not ${pd}` });
+    const titleChanged = newTitle.length >= 3 && newTitle !== String(L.title || "");
+    if (titleChanged) L.title = newTitle;
     const K = JSON.parse((await sql`select decrypted_secret from vault.decrypted_secrets where name = 'papaduck_keys'`)[0].decrypted_secret).abe;
     const q = b.qty == null ? Number(L.quantity) : qty, descChanged = cleanDesc(L.description) !== String(L.description || "").replace(/\s{2,}/g, " ").trim();
-    if (!descChanged && q === Number(L.quantity)) return await out({ ok: true, nothing: true, pd, lid, qty: q });
+    if (!descChanged && !titleChanged && q === Number(L.quantity)) return await out({ ok: true, nothing: true, pd, lid, qty: q });
     const xml = buildXml(L, pd, q, K.username, K.password);
     await sql`insert into pipeline.abe_probe (k, html, at) values (${"abeqty-xml:" + pd + T}, ${xml.replace(/<password>[^<]*</, "<password>***<")}, now())`;
     const keep = (x: any) => x && ({ qty: x.quantity, title: x.title, author: x.author, publisher: x.publisher, year: x.publishYear, binding: x.binding, cond: x.vendorCondition,
       price: x.priceInPurchaseCurrency?.amount, ship: (x.shippingRates || []).map((r: any) => r.shippingPriceInPurchaseCurrency?.amount), pics: (x.pictureSequence || []).length,
       bsa: x.bsaCodes, desc: String(x.description || "").slice(0, 80), isbn: x.isbn13 || x.isbn10 || "" });
-    if (b.dry) return await out({ ok: true, dry: true, lid, descChanged, desc_after: cleanDesc(L.description), before: keep(L), xml: xml.replace(/<password>[^<]*</, "<password>***<") });
+    if (b.dry) return await out({ ok: true, dry: true, lid, descChanged, titleChanged, desc_after: cleanDesc(L.description), before: keep(L), xml: xml.replace(/<password>[^<]*</, "<password>***<") });
     const res = await (await fetch("https://inventoryupdate.abebooks.com:10027", { method: "POST", body: xml, headers: { "Content-Type": "text/xml; charset=utf-8" } })).text();
     await sql`insert into pipeline.abe_probe (k, html, at) values (${"abeqty-res:" + pd + T}, ${res}, now())`;
     const ok = /<code>600<\/code>/.test(res);

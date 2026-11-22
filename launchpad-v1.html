@@ -1786,7 +1786,7 @@ function renderHold() {
 // ---------- ➕ Add copies (Papa Duck 2026-11-22): "I need the ability to grab an old Pd# and add additional quanity" ...
 //   "the only issue is how do I know the condition we listed before?" -> type the PD, Look up shows the cover, title and the CONDITION it is
 //   listed as, then add copies. The cloud (qty-set) updates eBay, Etsy, AbeBooks and Airtable together. Different condition = new PD instead.
-let qa = { pd: "", look: null, n: "", arm: false, busy: false, msg: "" }, qaRecent = [], qaAt = 0, qaPoll = null;
+let qa = { pd: "", look: null, n: "", arm: false, busy: false, msg: "", edit: false, t: "" }, qaRecent = [], qaAt = 0, qaPoll = null;
 async function loadQty(force) {
   if (!force && Date.now() - qaAt < 300000) return renderQty();
   qaAt = Date.now();
@@ -1817,16 +1817,19 @@ function renderQty() {
   const L = qa.look, n = Math.floor(Number(qa.n || 0));
   const look = L ? `<div class="hrow" style="align-items:flex-start">
       ${L.cover ? `<img src="${esc(L.cover)}" alt="" style="width:64px;height:84px;object-fit:cover;border-radius:6px;flex:none">` : ""}
-      <div style="min-width:0;flex:1"><b>${esc(L.pd)}</b> · ${esc(L.title || "")}
+      <div style="min-width:0;flex:1"><b>${esc(L.pd)}</b> · ${qa.edit ? "" : esc(L.title || "")} ${qa.edit ? "" : `<button class="ghost" id="qaedit" style="padding:2px 8px;font-size:.82rem">✏️ Change name</button>`}
+        ${qa.edit ? `<div style="margin:4px 0"><input id="qat" type="text" maxlength="200" value="${esc(qa.t)}" style="width:100%">
+          <div class="muted" style="font-size:.8rem" id="qatn">${qa.t.length} letters${qa.t.length > 80 ? " - eBay shows the first 80" : ""}. Changes eBay, Etsy, AbeBooks and Airtable.</div>
+          <div class="row"><button id="qatsave" ${qa.busy ? "disabled" : ""}>💾 Save new name everywhere</button><button class="ghost" id="qatcancel">Cancel</button></div></div>` : ""}
         <div style="margin:4px 0"><span class="hpill yellow">Listed as: ${esc(L.condition || "not set")}</span></div>
         <div class="muted" style="font-size:.86rem">${Number(L.qty)} cop${Number(L.qty) === 1 ? "y" : "ies"} now · ${L.price ? money(L.price) : "no price"}${L.cost ? " · cost " + money(L.cost) : ""}${L.source ? " · " + esc(L.source) : ""}</div></div></div>
     <p style="margin:0;font-size:.9rem">Only add copies in the <b>same condition (${esc(L.condition || "?")})</b>. A different condition gets its own PD number in the Book Station.</p>
     <div class="row" style="align-items:center"><label for="qan">How many more?</label>
       <input id="qan" type="number" min="1" max="500" inputmode="numeric" value="${esc(qa.n)}" style="width:90px">
       <button id="qago" ${qa.busy ? "disabled" : ""}>${qa.arm ? `Tap again: ${Number(L.qty)} → ${Number(L.qty) + n}` : "➕ Add copies"}</button></div>` : "";
-  const line = (x) => { const r = x.result || {}, ok = x.status === "done", wait = x.status === "sending";
+  const line = (x) => { const r = x.result || {}, ok = x.status === "done", wait = x.status === "sending", ren = Number(x.add_n) === 0;
     const ch = ["ebay", "etsy", "abe", "airtable"].filter((k) => r[k] && r[k] !== "not listed").map((k) => `${({ ebay: "eBay", etsy: "Etsy", abe: "AbeBooks", airtable: "Airtable" })[k]}: ${esc(String(r[k]).replace(/\s*\((item|listing) \d+\)/, ""))}`).join(" · ");
-    return `<div style="font-size:.88rem">${wait ? "⏳" : ok ? "✅" : "⚠️"} <b>${esc(x.pd)}</b> +${Number(x.add_n)}${r.qty ? ` → ${Number(r.qty)} copies` : ""} ${wait ? "<span class='muted'>updating the stores…</span>" : ""}
+    return `<div style="font-size:.88rem">${wait ? "⏳" : ok ? "✅" : "⚠️"} <b>${esc(x.pd)}</b> ${ren ? `✏️ renamed “${esc(x.title || "")}”` : `+${Number(x.add_n)}${r.qty ? ` → ${Number(r.qty)} copies` : ""}`} ${wait ? "<span class='muted'>updating the stores…</span>" : ""}
       ${ch ? `<div class="muted">${ch}</div>` : ""}${r.error ? `<div>${esc(r.error)}</div>` : ""}</div>`; };
   el.innerHTML = `<section class="card" aria-label="Add copies">
     <h2 style="margin:0">➕ Add copies</h2>
@@ -1839,6 +1842,16 @@ function renderQty() {
   const lk = $("qalook"); if (lk) lk.onclick = qtyLook;
   const pi = $("qapd"); if (pi) pi.onkeydown = (e) => { if (e.key === "Enter") qtyLook(); };
   const go = $("qago"); if (go) go.onclick = qtyAdd;
+  const ed = $("qaedit"); if (ed) ed.onclick = () => { qa.edit = true; qa.t = (qa.look && qa.look.title) || ""; renderQty(); const t = $("qat"); if (t) t.focus(); };
+  const tc = $("qatcancel"); if (tc) tc.onclick = () => { qa.edit = false; renderQty(); };
+  const ti = $("qat"); if (ti) ti.oninput = () => { qa.t = ti.value; const n = $("qatn"); if (n) n.textContent = ti.value.length + " letters" + (ti.value.length > 80 ? " - eBay shows the first 80" : "") + ". Changes eBay, Etsy, AbeBooks and Airtable."; };
+  const ts = $("qatsave"); if (ts) ts.onclick = async () => {
+    const t = String(qa.t || "").replace(/\s+/g, " ").trim(); if (t.length < 3) { qa.msg = "Type the new name."; return renderQty(); }
+    qa.busy = true; renderQty();
+    try { const r = await q(`select pipeline.title_set(${lit(qa.look.pd)}, ${lit(t)}) as r`); const R = r[0] && r[0].r;
+      if (R && R.ok) { qa.look.title = t; qa.edit = false; qa.busy = false; qa.msg = "Renaming in every store now (about a minute)."; return loadQty(true); }
+      qa.msg = (R && R.error) || "Could not start."; } catch (e) { qa.msg = String(e && e.message || e).slice(0, 160); }
+    qa.busy = false; renderQty(); };
   const ni = $("qan"); if (ni) ni.oninput = () => { qa.n = ni.value; if (qa.arm) { qa.arm = false; renderQty(); const n2 = $("qan"); if (n2) { n2.focus(); n2.setSelectionRange && null; } } };
 }
 // ---------- Collapsed cards (Papa Duck 2026-11-18 23:14): "On launch app can everything be in collapsed mode except sales to be shipped out".

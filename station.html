@@ -4314,9 +4314,10 @@ $('qcgo').addEventListener('click', async () => {
     const body = {};
     if ([8, 10, 12, 13].indexOf(isbn.length) !== -1) body.isbn = isbn;   // 12 / 8 = UPC barcode (VHS, DVDs, games)
     else { const d = await qcShrink(file); body.image = d.split(',')[1]; }
-    if (body.isbn) haveCheck(body.isbn, q);
+    if (body.isbn) haveCheck(body.isbn, q, '');
     q.r = await ((a, b) => api(a, b, 2))('check', body);
-    if (!body.isbn && q.r && (q.r.read_isbn || (q.r.ident && q.r.ident.isbn))) haveCheck(q.r.read_isbn || q.r.ident.isbn, q);
+    // 2026-11-22 "remember abeka does not have bar code": a cover photo matches by the ISBN it read, else by the title it read
+    if (!body.isbn && q.r) haveCheck(q.r.read_isbn || (q.r.ident && q.r.ident.isbn) || '', q, (q.r.ident && q.r.ident.title) || q.r.read_title || '');
     q.state = 'done';
     // 2026-11-13 ("still called up family even though price was 5.99"): under the $7.99 minimum it is Goodwill anyway - skip the family question
     if (q.r && q.r.family && q.r.list != null && Number(q.r.list) < 7.99) {
@@ -4342,12 +4343,13 @@ async function dq2(sqlText){
 }
 const sq = (x) => "'" + String(x).replace(/'/g, "''") + "'";
 let haveList = [];   // [{key, isbn, q, live, drafts, n, arm, state, msg, job}]
-async function haveCheck(isbn, q){
+async function haveCheck(isbn, q, title){
   try {
-    const h = await dq2('select pipeline.have_isbn(' + sq(isbn) + ') as r');
+    const h = await dq2('select pipeline.have_book(' + sq(isbn || '') + ', ' + sq(title || '') + ') as r');
     if (!h || !h.ok || (!(h.live || []).length && !(h.drafts || []).length)) return;
-    haveList = haveList.filter((x) => x.isbn !== h.isbn);
-    haveList.unshift({ key: Date.now() + Math.random(), isbn: h.isbn, q: q, live: h.live || [], drafts: h.drafts || [], n: '1', arm: '', state: '', msg: '' });
+    const k = h.isbn || ('t:' + (h.live[0] && h.live[0].pd));
+    haveList = haveList.filter((x) => x.isbn !== k);
+    haveList.unshift({ key: Date.now() + Math.random(), isbn: k, by: h.by || 'isbn', q: q, live: h.live || [], drafts: h.drafts || [], n: '1', arm: '', state: '', msg: '', edit: '', editT: '' });
     haveList = haveList.slice(0, 3); haveRender();
   } catch(e){ /* the normal scan carries on either way */ }
 }
@@ -4360,7 +4362,12 @@ function haveRender(){
       return '<div style="display:flex;gap:10px;align-items:flex-start;margin-top:8px">' +
         (L.cover ? '<img src="' + qcEsc(L.cover) + '" alt="" style="width:62px;height:82px;object-fit:cover;border-radius:6px;flex:none">' : '') +
         '<div style="flex:1;min-width:0"><div style="font-size:1.25em;font-weight:900">' + qcEsc(L.pd) + '</div>' +
-        '<div style="font-weight:600">' + qcEsc(L.title || '') + '</div>' +
+        (h.edit === L.pd
+          ? '<div style="margin:4px 0"><input type="text" data-het="' + h.key + '" value="' + qcEsc(h.editT) + '" maxlength="200" style="width:100%;min-height:44px">' +
+            '<div style="font-size:.85em;color:var(--dim)">' + h.editT.length + ' letters' + (h.editT.length > 80 ? ' - eBay shows the first 80' : '') + '. Changes eBay, Etsy, AbeBooks and Airtable.</div>' +
+            '<div style="display:flex;gap:8px;margin-top:4px"><button type="button" data-hsave="' + h.key + '" data-hpd="' + qcEsc(L.pd) + '" style="min-height:44px;font-weight:800">💾 Save new name everywhere</button>' +
+            '<button type="button" data-hcancel="' + h.key + '" style="min-height:44px">Cancel</button></div></div>'
+          : '<div style="font-weight:600">' + qcEsc(L.title || '') + ' <button type="button" data-hedit="' + h.key + '" data-hpd="' + qcEsc(L.pd) + '" data-ht="' + qcEsc(L.title || '') + '" style="min-height:32px;padding:0 8px;font-size:.85em">✏️ Change name</button></div>') +
         '<div style="margin:4px 0"><span style="display:inline-block;background:#fff3b0;border:2px solid #e0b84a;border-radius:999px;padding:2px 10px;font-weight:800">Listed as: ' + qcEsc(L.condition || 'not set') + '</span></div>' +
         '<div style="color:var(--dim)">' + now + ' cop' + (now === 1 ? 'y' : 'ies') + ' now · ' + (L.price ? qcMoney(L.price) : 'no price') + '</div>' +
         (h.state === 'sending' || h.state === 'done' || h.state === 'problem' ? '' :
@@ -4369,18 +4376,50 @@ function haveRender(){
           '<button type="button" data-hadd="' + h.key + '" data-hpd="' + qcEsc(L.pd) + '" style="min-height:48px;font-weight:800;background:var(--ok);color:#fff;border:0;border-radius:10px;padding:0 14px">' +
           (armed ? 'Tap again: ' + now + ' → ' + (now + n) : '➕ Add to ' + qcEsc(L.pd) + ' (same condition)') + '</button></div>') + '</div></div>'; }).join('');
     const dr = h.drafts.map((d) => '<div style="margin-top:6px;color:var(--dim)">Also waiting in Drafts (not live yet): <b>' + qcEsc(d.pd) + '</b>' + (d.condition ? ' · ' + qcEsc(d.condition) : '') + ' · ' + Number(d.qty) + ' cop' + (Number(d.qty) === 1 ? 'y' : 'ies') + ' - change its Quantity in Drafts.</div>').join('');
-    const st = h.state === 'sending' ? '<div style="margin-top:8px;font-weight:700">⏳ Adding copies - updating eBay, Etsy, AbeBooks and Airtable (about a minute)…</div>'
+    const st = h.state === 'sending' ? '<div style="margin-top:8px;font-weight:700">⏳ Updating eBay, Etsy, AbeBooks and Airtable (about a minute)…</div>'
       : h.state === 'done' ? '<div style="margin-top:8px;font-weight:800;color:var(--ok)">✅ ' + qcEsc(h.msg) + '</div>'
       : h.state === 'problem' ? '<div style="margin-top:8px;font-weight:800;color:var(--err)">⚠️ ' + qcEsc(h.msg) + '</div>'
       : (h.msg ? '<div style="margin-top:6px;color:var(--err);font-weight:700">' + qcEsc(h.msg) + '</div>' : '');
     return '<div style="margin-top:10px;padding:12px;border-radius:12px;border:4px solid #2b6cb0;background:#eef5fc">' +
-      '<div style="font-size:1.15em;font-weight:900;color:#2b6cb0">📚 You already have this one</div>' + lv + dr + st +
+      '<div style="font-size:1.15em;font-weight:900;color:#2b6cb0">' + (h.by === 'title' ? '📚 Looks like one you already have (matched by the cover)' : '📚 You already have this one') + '</div>' +
+      (h.by === 'title' ? '<div style="color:var(--dim)">Check it\'s the same book and grade before adding.</div>' : '') + lv + dr + st +
       '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' + (h.state ? '<button type="button" data-hok="' + h.key + '" style="min-height:44px">OK</button>'
         : (h.live.length ? '<button type="button" data-hok="' + h.key + '" style="min-height:44px">This one\'s different - give it a new number</button>' : '<button type="button" data-hok="' + h.key + '" style="min-height:44px">OK</button>')) + '</div></div>';
   }).join('');
   el.querySelectorAll('[data-hn]').forEach((i) => i.oninput = () => { const h = haveList.find((x) => String(x.key) === i.dataset.hn); if (h) { h.n = i.value; if (h.arm) { h.arm = ''; haveRender(); const k = el.querySelector('[data-hn="' + i.dataset.hn + '"]'); if (k) k.focus(); } } });
   el.querySelectorAll('[data-hok]').forEach((b) => b.onclick = () => { haveList = haveList.filter((x) => String(x.key) !== b.dataset.hok); haveRender(); });
   el.querySelectorAll('[data-hadd]').forEach((b) => b.onclick = () => haveAdd(b.dataset.hadd, b.dataset.hpd));
+  el.querySelectorAll('[data-hedit]').forEach((b) => b.onclick = () => { const h = haveList.find((x) => String(x.key) === b.dataset.hedit); if (!h) return; h.edit = b.dataset.hpd; h.editT = b.dataset.ht || ''; haveRender(); const i = el.querySelector('[data-het="' + b.dataset.hedit + '"]'); if (i) i.focus(); });
+  el.querySelectorAll('[data-hcancel]').forEach((b) => b.onclick = () => { const h = haveList.find((x) => String(x.key) === b.dataset.hcancel); if (h) { h.edit = ''; haveRender(); } });
+  el.querySelectorAll('[data-het]').forEach((i) => i.oninput = () => { const h = haveList.find((x) => String(x.key) === i.dataset.het); if (h) h.editT = i.value; const n = i.parentElement.querySelector('div'); if (n) n.textContent = i.value.length + ' letters' + (i.value.length > 80 ? ' - eBay shows the first 80' : '') + '. Changes eBay, Etsy, AbeBooks and Airtable.'; });
+  el.querySelectorAll('[data-hsave]').forEach((b) => b.onclick = () => haveRename(b.dataset.hsave, b.dataset.hpd));
+}
+async function haveWait(h, pd, rename){
+  for (let i = 0; i < 24; i++) {
+    await sleepMs(8000);
+    let rows = []; try { rows = await dq2('select pipeline.qty_adds_recent() as r') || []; } catch(e){}
+    const x = rows.find((y) => Number(y.id) === Number(h.job));
+    if (x && x.status !== 'sending') {
+      const R = x.result || {};
+      const ch = ['ebay', 'etsy', 'abe', 'airtable'].filter((k) => R[k] && R[k] !== 'not listed').map((k) => ({ ebay: 'eBay', etsy: 'Etsy', abe: 'AbeBooks', airtable: 'Airtable' })[k] + ' ' + String(R[k]).replace(/\s*\((item|listing) \d+\)/, '')).join(' · ');
+      h.state = x.status === 'done' ? 'done' : 'problem';
+      h.msg = x.status === 'done' ? (rename ? pd + ' renamed. ' : pd + ' now has ' + (R.qty || '?') + ' copies. ') + ch : (R.error || 'A store did not update') + (ch ? ' - ' + ch : '');
+      return haveRender();
+    }
+  }
+  h.state = 'problem'; h.msg = 'No answer yet - look at ' + pd + ' on the Launch Pad Add copies card.'; haveRender();
+}
+async function haveRename(key, pd){
+  const h = haveList.find((x) => String(x.key) === key); if (!h) return;
+  const t = String(h.editT || '').replace(/\s+/g, ' ').trim();
+  if (t.length < 3) { h.msg = 'Type the new name.'; return haveRender(); }
+  h.state = 'sending'; h.msg = ''; haveRender();
+  try {
+    const r = await dq2('select pipeline.title_set(' + sq(pd) + ', ' + sq(t) + ') as r');
+    if (!r || !r.ok) { h.state = ''; h.msg = (r && r.error) || 'Could not start.'; return haveRender(); }
+    h.job = r.id; h.edit = ''; (h.live.find((L) => L.pd === pd) || {}).title = t; haveRender();
+    await haveWait(h, pd, true);
+  } catch(e){ h.state = 'problem'; h.msg = String(e.message || e).slice(0, 160); haveRender(); }
 }
 async function haveAdd(key, pd){
   const h = haveList.find((x) => String(x.key) === key); if (!h) return;
@@ -4395,19 +4434,7 @@ async function haveAdd(key, pd){
     // the scan is not a new book - take it back out of the bin / LIST pile
     const pid = h.q && h.q.r && h.q.r.pile_id;
     if (pid) { try { await api('undo', { id: pid }, 1); } catch(e){} if (h.q) { h.q.pile = 'Added to ' + pd; qcRenderQ(); } }
-    for (let i = 0; i < 24; i++) {
-      await sleepMs(8000);
-      let rows = []; try { rows = await dq2('select pipeline.qty_adds_recent() as r') || []; } catch(e){}
-      const x = rows.find((y) => Number(y.id) === Number(h.job));
-      if (x && x.status !== 'sending') {
-        const R = x.result || {};
-        const ch = ['ebay', 'etsy', 'abe', 'airtable'].filter((k) => R[k] && R[k] !== 'not listed').map((k) => ({ ebay: 'eBay', etsy: 'Etsy', abe: 'AbeBooks', airtable: 'Airtable' })[k] + ' ' + String(R[k]).replace(/\s*\((item|listing) \d+\)/, '')).join(' · ');
-        h.state = x.status === 'done' ? 'done' : 'problem';
-        h.msg = x.status === 'done' ? pd + ' now has ' + (R.qty || '?') + ' copies. ' + ch : (R.error || 'A store did not update') + (ch ? ' - ' + ch : '');
-        return haveRender();
-      }
-    }
-    h.state = 'problem'; h.msg = 'No answer yet - look at ' + pd + ' on the Launch Pad Add copies card.'; haveRender();
+    await haveWait(h, pd, false);
   } catch(e){ h.state = 'problem'; h.msg = String(e.message || e).slice(0, 160); haveRender(); }
 }
 
