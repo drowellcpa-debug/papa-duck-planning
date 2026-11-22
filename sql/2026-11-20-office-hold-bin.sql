@@ -30,3 +30,16 @@ drop trigger if exists pd_norm on pipeline.draft_presets;
 create trigger pd_norm before insert or update of pd on pipeline.draft_presets for each row execute function pipeline.pd_norm_trg();
 drop trigger if exists pd_norm on pipeline.drafts;
 create trigger pd_norm before insert or update of pd on pipeline.drafts for each row execute function pipeline.pd_norm_trg();
+
+-- 2026-11-21: bin_status - bins 900+ (Office Hold) never count as "the current bin" and never fill up (cap 9999)
+CREATE OR REPLACE FUNCTION pipeline.bin_status(b integer DEFAULT NULL::integer)
+ RETURNS jsonb LANGUAGE sql STABLE AS $function$
+  with cur as (select coalesce(b, greatest((select max(bin) from pipeline.cleanup_piles where bin < 900), (select max(bin) from pipeline.drafts where bin < 900)), 1) n),
+  books as (
+    select upper(d.pd) k from pipeline.drafts d, cur where d.bin = cur.n and d.pd is not null and coalesce(d.status,'') not in ('deleted','dont_list')
+    union
+    select upper(c.pd) from pipeline.cleanup_piles c, cur where c.bin = cur.n and c.pd is not null
+    union
+    select upper(p.pd) from pipeline.draft_presets p, cur where p.bin = cur.n and p.used_at is null)
+  select jsonb_build_object('bin', cur.n, 'n', (select count(*) from books),
+    'cap', case when cur.n >= 900 then 9999 else coalesce((select value::int from pipeline.config where key = 'bin_cap'), 18) end) from cur $function$;

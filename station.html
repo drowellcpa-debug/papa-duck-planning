@@ -4115,9 +4115,13 @@ $('qcisbn').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.prev
    One shared numbering line with the Sorting page: every LIST IT goes in your bin; a full bin hands you the next unused number. */
 const QC_WHO = 'papa';
 let qcBin = null, qcBinNote = '', qcBookBin = null;
+// 2026-11-21 Papa Duck: "How do I select the in office bin we setup yesterday for the scan app" - bin 900 = 🏢 Office Hold
+// (sets scanned outside that wait for the office). Pick it from the bin list; it never fills up and never takes a bin number.
+const QC_OFFICE = 900;
+const qcBinName = (b) => Number(b) === QC_OFFICE ? '🏢 Office Hold' : 'Bin ' + b;
 // 2026-11-12 "can you have the bin in the confirm number on book area": the bin shows under the sticker number, and goes to Drafts with the book
 function pdBinShow(){ const el = $('pdbinline'); if (!el) return; const b = qcBookBin || (qcBin && qcBin.bin);
-  el.innerHTML = b ? '📦 Goes in <span style="background:#fff8e1;border:2px dashed #e0b84a;border-radius:6px;padding:0 8px">Bin ' + b + '</span>' : '📦 Bin: getting your bin number…'; }
+  el.innerHTML = b ? '📦 Goes in <span style="background:#fff8e1;border:2px dashed #e0b84a;border-radius:6px;padding:0 8px">' + qcBinName(b) + '</span>' : '📦 Bin: getting your bin number…'; }
 async function qcBinToPd(pd){ const b = qcBookBin || (qcBin && qcBin.bin); if (!pd || !b) return;
   try { const x = await api('bin_pd', { pd: pd, bin: b, who: QC_WHO });
     if (qcBin && Number(qcBin.bin) === Number(b)) { qcBin.n = x.n; qcBin.cap = x.cap || qcBin.cap; }
@@ -4130,10 +4134,11 @@ function qcBinRender(){
   const el = $('qcbin'); if (!el) return;
   if (!qcBin) { el.innerHTML = ''; return; }
   el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;border:2px solid #e0b84a;border-radius:10px;padding:8px 10px">' +
-    '<span style="flex:1;font-weight:800">📦 Your bin: Bin ' + qcBin.bin + ' <span style="font-weight:600;color:var(--dim)">· ' + Number(qcBin.n || 0) + ' of ' + Number(qcBin.cap || 18) + ' books</span>' +
+    '<span style="flex:1;font-weight:800">📦 Your bin: ' + qcBinName(qcBin.bin) + ' <span style="font-weight:600;color:var(--dim)">· ' + Number(qcBin.n || 0) + (Number(qcBin.bin) === QC_OFFICE ? '' : ' of ' + Number(qcBin.cap || 18)) + ' books</span>' +
     (qcBinNote ? '<div style="color:#8a5a00;font-weight:800;margin-top:2px">' + qcEsc(qcBinNote) + '</div>' : '') + '</span>' +
     '<select id="qcbinpick" style="min-height:44px;font-weight:700;max-width:46%">' +
-      (qcBin.all || qcBin.mine || [{ bin: qcBin.bin, n: qcBin.n }]).map((x) => '<option value="' + x.bin + '"' + (Number(x.bin) === Number(qcBin.bin) ? ' selected' : '') + '>Bin ' + x.bin + (x.who ? ' · ' + String(x.who).replace(/^\w/, (c) => c.toUpperCase()) : '') + ' · ' + (Number(x.bin) === Number(qcBin.bin) ? Number(qcBin.n || 0) : x.n) + '</option>').join('') +
+      (qcBin.all || qcBin.mine || [{ bin: qcBin.bin, n: qcBin.n }]).filter((x) => Number(x.bin) !== QC_OFFICE).map((x) => '<option value="' + x.bin + '"' + (Number(x.bin) === Number(qcBin.bin) ? ' selected' : '') + '>Bin ' + x.bin + (x.who ? ' · ' + String(x.who).replace(/^\w/, (c) => c.toUpperCase()) : '') + ' · ' + (Number(x.bin) === Number(qcBin.bin) ? Number(qcBin.n || 0) : x.n) + '</option>').join('') +
+      '<option value="' + QC_OFFICE + '"' + (Number(qcBin.bin) === QC_OFFICE ? ' selected' : '') + '>🏢 Office Hold</option>' +
       '<option value="new">🆕 New bin</option></select></div>';
   // 2026-11-14 Papa Duck: "I will have multiple bins open, I need the ability to pick from open or create a new" (garage + office)
   const sel = $('qcbinpick'); if (sel) sel.onchange = async () => {
@@ -4141,6 +4146,7 @@ function qcBinRender(){
     const v = sel.value; const mine = qcBin.mine, all = qcBin.all; const pick = (all || []).find((x) => String(x.bin) === v);
     try {
       if (v === 'new') { const r = await api('bin_new', { who: QC_WHO }); qcBin = r; qcBinNote = 'Start Bin ' + r.bin + ' - write ' + r.bin + ' on an empty bin.'; }
+      else if (Number(v) === QC_OFFICE) { const r = await api('bin', { bin: QC_OFFICE }); qcBin = Object.assign({}, r, { bin: QC_OFFICE }); qcBinNote = 'Sets for the office collect here until you scan them in the office.'; }
       else if (pick && pick.who && pick.who !== QC_WHO) { const r = await api('bin', { bin: Number(v) }); qcBin = Object.assign({}, r, { bin: Number(v) }); qcBinNote = '📸 Photographing ' + String(pick.who).replace(/^\w/, (c) => c.toUpperCase()) + "'s Bin " + v; }
       else { const r = await api('bin_take', { bin: Number(v), who: QC_WHO }); qcBin = r; qcBinNote = ''; }
       try { localStorage.setItem('pd_qc_bin', String(qcBin.bin)); } catch(e){}
@@ -4154,7 +4160,8 @@ async function qcBinLoad(){
     const m = await api('bin_mine', { who: QC_WHO });
     let keep = null; try { keep = Number(localStorage.getItem('pd_qc_bin')) || null; } catch(e){}
     const kp = keep && (m.all || m.mine || []).find((x) => Number(x.bin) === keep);
-    if (keep && keep !== Number(m.bin) && kp) {
+    if (keep === QC_OFFICE) { try { const r = await api('bin', { bin: QC_OFFICE }); qcBin = Object.assign({}, r, { bin: QC_OFFICE }); qcBin.mine = m.mine; qcBin.all = m.all; } catch(e){ qcBin = m; } }
+    else if (keep && keep !== Number(m.bin) && kp) {
       try { const r = kp.who && kp.who !== QC_WHO ? await api('bin', { bin: keep }) : await api('bin_take', { bin: keep, who: QC_WHO }); qcBin = Object.assign({}, r, { bin: keep }); qcBin.mine = m.mine; qcBin.all = m.all; } catch(e){ qcBin = m; }
     } else qcBin = m;
     qcBinRender();
