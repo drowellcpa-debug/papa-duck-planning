@@ -87,7 +87,7 @@ const DOT = { LIST: '🟢', VINTED: '🟣', SELL: '🔵', GOODWILL: '⚪', TOSS:
 function recentHtml(){
   if (!recent.length) return '';
   return `<div class="recent"><h2>Last books sorted</h2>` + recent.slice(0, 10).map((r, i) => `<div class="rrow"><span class="dot">${DOT[r.bin] || '•'}</span>
-    <span class="t">${r.pd ? `<span class="pd">${esc(r.pd)}</span> · ` : ''}${r.box ? `<b>Bin ${esc(r.box)}</b> · ` : ''}${esc(r.title || '(no title)')}</span>
+    <span class="t">${r.pd ? `<span class="pd">${esc(r.pd)}</span> · ` : ''}${r.box ? `<b>${esc(binLabel(r.box))}</b> · ` : ''}${esc(r.title || '(no title)')}</span>
     ${r.bin === 'LIST' && r.id ? `<button data-fix="${i}">✏️ ${r.pd ? 'Fix sticker' : 'Add sticker'}</button>` : ''}</div>`).join('') + `</div>`;
 }
 try { tally = JSON.parse(ls.get(TALLY_KEY) || '{}'); if (tally.day !== new Date().toDateString()) tally = { day: new Date().toDateString() }; } catch(e){ tally = { day: new Date().toDateString() }; }
@@ -130,10 +130,13 @@ function passScreen(msg){
   $('pwgo').onclick = go; $('pw').onkeydown = (e) => { if (e.key === 'Enter') go(); };
 }
 
+// 2026-11-21 Papa Duck: "How do I select the in office bin" - bin 900 = Office Hold (sets that go to the office), shared by everyone, never fills
+const OFFICE_BIN = 900;
+const binLabel = (b) => Number(b) === OFFICE_BIN ? '🏢 Office Hold' : 'Bin ' + b;
 function binBarHtml(){
   if (!binNo) return `<div class="binbar"><span class="lbl">📦 Getting your bin…<small>one moment</small></span></div>`;
   const nm = WHO ? WHO.charAt(0).toUpperCase() + WHO.slice(1) : '';
-  return `<div class="binbar"><span class="lbl">📦 ${nm ? esc(nm) + ' · ' : ''}Filling Bin ${binNo}<small>${binN == null ? 'counting…' : `${binN} of ${binCap} books`} · tap to pick another bin</small></span><button id="binplus" style="font-size:.95rem">🆕 New bin</button><button id="whoswitch" style="font-size:.85rem" title="Someone else sorting">👤 Switch</button></div>`;
+  return `<div class="binbar"><span class="lbl">📦 ${nm ? esc(nm) + ' · ' : ''}Filling ${binLabel(binNo)}<small>${binN == null ? 'counting…' : Number(binNo) === OFFICE_BIN ? `${binN} book${binN === 1 ? '' : 's'}` : `${binN} of ${binCap} books`} · tap to pick another bin</small></span><button id="binplus" style="font-size:.95rem">🆕 New bin</button><button id="whoswitch" style="font-size:.85rem" title="Someone else sorting">👤 Switch</button></div>`;
 }
 // "always give me a new one so I dont overlap" - a new bin is the next number nobody has used (shared with the Book Station)
 async function newBin(){
@@ -147,6 +150,7 @@ async function loadBin(){
   if (!WHO) await askWho();
   try {
     if (!binNo) { const m = await api('bin_mine', { who: WHO }); binNo = Number(m.bin); ls.set(BIN_KEY, String(binNo)); binN = Number(m.n) || 0; binCap = Number(m.cap) || 18; }
+    else if (Number(binNo) === OFFICE_BIN) { const r = await api('bin', { bin: OFFICE_BIN }); binN = Number(r.n) || 0; binCap = 9999; }
     else {
       // 2026-11-14: the remembered bin must still be checked out to this person - otherwise go back to their current bin
       let r = null; try { r = await api('bin_take', { bin: binNo, who: WHO }); } catch(e){ r = null; }
@@ -171,9 +175,14 @@ function wireBin(){
     box.onclick = (ev) => { if (ev.target === box) box.remove(); };
     $('binpicknew').onclick = () => { box.remove(); newBin(); };
     let m = null; try { m = await api('bin_mine', { who: WHO }); } catch(e){}
-    const list = (m && m.mine) || [];
+    const list = ((m && m.mine) || []).filter((x) => Number(x.bin) !== OFFICE_BIN);
     $('binpicklist').innerHTML = list.length ? list.map((x) => `<button data-bin="${x.bin}" style="width:100%;margin-top:6px;text-align:left;${Number(x.bin) === Number(binNo) ? 'border:3px solid var(--brand);font-weight:800' : 'background:#fff;color:#333;border:2px solid #ccc'}">
         ${Number(x.bin) === Number(binNo) ? '✅ ' : ''}Bin ${x.bin} <span class="muted" style="font-weight:600">· ${x.n} book${x.n === 1 ? '' : 's'}</span></button>`).join('') : 'No open bins yet - start a new one.';
+    $('binpicklist').insertAdjacentHTML('beforeend', `<button data-office="1" style="width:100%;margin-top:10px;text-align:left;${Number(binNo) === OFFICE_BIN ? 'border:3px solid var(--brand);font-weight:800' : 'background:#fff;color:#333;border:2px solid #ccc'}">${Number(binNo) === OFFICE_BIN ? '✅ ' : ''}🏢 Office Hold <span class="muted" style="font-weight:600">· sets for the office</span></button>`);
+    box.querySelector('[data-office]').onclick = async () => {
+      try { const r = await api('bin', { bin: OFFICE_BIN }); binNo = OFFICE_BIN; ls.set(BIN_KEY, String(OFFICE_BIN)); binN = Number(r.n) || 0; binCap = 9999; }
+      catch(e){ alert("Couldn't open Office Hold. Try again."); }
+      box.remove(); const bb = document.querySelector('.binbar'); if (bb) { bb.outerHTML = binBarHtml(); wireBin(); } };
     box.querySelectorAll('[data-bin]').forEach((btn) => btn.onclick = async () => {
       const n = Number(btn.dataset.bin);
       try { const r = await api('bin_take', { bin: n, who: WHO }); binNo = n; ls.set(BIN_KEY, String(n)); binN = Number(r.n) || 0; binCap = Number(r.cap) || binCap; }
@@ -185,7 +194,7 @@ function wireBin(){
   if ($('whoswitch')) $('whoswitch').onclick = () => { ls.set(PASS_KEY, ''); passScreen('Type the PIN of the person sorting now.'); };
   const l = document.querySelector('.binbar .lbl'); if (l && binNo) { l.style.cursor = 'pointer'; l.onclick = ask; }
 }
-const PAGE_V = '2026-11-15a';   // must match version.json "sort"
+const PAGE_V = '2026-11-21a';   // must match version.json "sort"
 let vChecked = 0;
 async function checkVersion(){ if (Date.now() - vChecked < 120000) return; vChecked = Date.now();
   try { const v = await (await fetch('version.json?t=' + Date.now(), { cache: 'no-store' })).json(); if (v && v.sort && v.sort !== PAGE_V) location.reload(); } catch(e){} }
@@ -340,7 +349,7 @@ async function decide(j){
 function showList(title, err, fixing, fixBox){
   const next = fixing ? String(fixing).replace(/\D/g, '') : (ls.get(STK_KEY) || '');
   $('app').innerHTML = `<div class="res LIST" style="margin-top:4px"><div class="bin">🟢 LIST</div>
-    ${!fixing && binNo ? `<div class="what">Goes in</div><div class="binbig">BIN ${binNo}</div>` : ''}
+    ${!fixing && binNo ? `<div class="what">Goes in</div><div class="binbig">${Number(binNo) === OFFICE_BIN ? '🏢 OFFICE HOLD' : 'BIN ' + binNo}</div>` : ''}
     <div class="what">${fixing ? 'Fix the sticker number for this book.' : 'Put the next sticker on a tab, then type its number.'}</div><div class="title">${esc(title)}</div>
     ${!fixing && cur && cur.second_look ? `<div class="what" style="background:#c0392b;color:#fff;border-radius:8px;padding:8px 10px;font-weight:800">⚠️ SECOND LOOK FOUND IT - do NOT put it in Goodwill</div>` : ''}
     ${!fixing && cur && cur.price_flag ? `<div class="what" style="background:#fff3b0;color:#5a3d00;border-radius:8px;padding:6px 10px">🚩 Price flagged - Dad checks it in Drafts</div>` : ''}
