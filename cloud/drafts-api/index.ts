@@ -1,3 +1,4 @@
+// v11 (2026-11-22): + pipeline.draft_bin_set (change a book's bin right in Drafts - "I need a way to change the bin when it gets to draft").
 // v10 (2026-11-22): + pipeline.have_book (cover-photo match - "abeka does not have bar code") and pipeline.title_set (Change name everywhere).
 // v9 (2026-11-22): + pipeline.have_isbn - the Book Station asks "do I already have this book live?" on every ISBN scan (Add copies pop-up).
 // v8 (2026-11-22): + pipeline.qty_lookup / qty_add / qty_adds_recent for the ➕ Add copies card ("grab an old Pd# and add additional quanity").
@@ -37,7 +38,7 @@ const LP_FN = new Set(["audit.report_full","bd.add_book","bd.board","bd.bought",
   "pipeline.unrestrict_applied","pipeline.unrestrict_recheck","pipeline.vinted_box","pipeline.vinted_lot_make","pipeline.vinted_lot_ready",
   "pipeline.vinted_lot_remove","pipeline.vinted_lot_save","pipeline.vinted_lot_write","pipeline.week_check","pipeline.week_keep","pipeline.week_print",
   "pipeline.week_print_draft","pipeline.bin_board","pipeline.health_board","pipeline.health_kick",
-  "pipeline.combine_list","pipeline.combine_send","pipeline.combine_dismiss","pipeline.sold_today",
+  "pipeline.combine_list","pipeline.combine_send","pipeline.combine_dismiss","pipeline.sold_today","pipeline.draft_bin_set",
   "pipeline.hold_board","pipeline.hold_mark","pipeline.hold_check",
   "pipeline.qty_lookup","pipeline.qty_add","pipeline.qty_adds_recent","pipeline.have_isbn","pipeline.have_book","pipeline.title_set"]);
 const LIT = "(?:-?\\d+(?:\\.\\d+)?|null|true|false|'(?:[^']|'')*'(?:::jsonb)?|array\\[(?:\\d+(?:,\\d+)*)?\\]::bigint\\[\\])";

@@ -1274,6 +1274,12 @@ function renderDetail(d){
          (m.location === "Hold Shelf" ? '<p class="muted" style="margin:6px 0 0">🦆 Bargain Duck book: it stays out of blast off until its selling season, then goes out on its own.</p>' : "") + "</section>";
   }
 
+  // which bin (2026-11-22, "I need a way to change the bin when it gets to draft")
+  h += '<section class="sec"><h3>📦 Which bin is it in?</h3><p style="margin:0 0 8px">Now: <b>' + (d.bin ? esc(binName(d.bin)) : "no bin yet") + '</b></p>' +
+       '<div class="seg" role="group" aria-label="Bin"><button type="button" id="binoffice"' + (d.bin === 900 ? ' aria-pressed="true"' : "") + '>🏢 Office Hold</button></div>' +
+       '<div style="display:flex;gap:8px;margin-top:8px;align-items:center"><input id="binnum" type="number" inputmode="numeric" min="1" max="899" placeholder="Bin #" style="width:110px;font-size:1.05rem;padding:8px;border:2px solid #ccc;border-radius:10px"><button type="button" class="btn small" id="binmove">Move to this bin</button></div>' +
+       '<p class="muted" id="binmsg" style="margin:6px 0 0"></p></section>';
+
   // editable details
   const f = (k, label, v) => '<div class="field"><label class="label" for="f-' + k + '">' + label + '</label><input id="f-' + k + '" data-k="' + k + '" value="' + esc(v || "") + '"' + (locked ? " disabled" : "") + "></div>";
   h += '<section class="sec"><h3>Details</h3><div class="grid2">' +
@@ -1616,6 +1622,20 @@ function wireDetail(d){
   document.querySelectorAll("[data-amz]").forEach((b) => b.onclick = () => setAmazon(d, b.dataset.amz === "on" ? true : b.dataset.amz === "off" ? false : null));
   document.querySelectorAll("[data-amzre]").forEach((b) => b.onclick = () => recheckAmazon(d.id));
   document.querySelectorAll("[data-loc]").forEach((b) => b.onclick = () => { edit(d).location = b.dataset.loc; renderDetail(d); autoSave(d); });
+  const binSet = async (n) => {
+    const msg = $("binmsg"); if (!n || n < 1 || n > 999) { msg.textContent = "Type a bin number first."; return; }
+    msg.textContent = "Moving…";
+    try {
+      const rows = await sql("select pipeline.draft_bin_set(" + Number(d.id) + ", " + Number(n) + ", 'papa') as r");
+      const r = rows[0] && rows[0].r;
+      if (!r || !r.ok) { msg.textContent = "Couldn't move it: " + ((r && r.error) || "no answer"); return; }
+      d.bin = Number(n); renderDetail(d);
+      if ($("binmsg")) $("binmsg").textContent = "✅ Moved to " + binName(n) + ". Airtable will catch up on its own.";
+    } catch (e) { msg.textContent = "Couldn't move it: " + (e.message || e); }
+  };
+  if ($("binoffice")) $("binoffice").onclick = () => binSet(900);
+  if ($("binmove")) $("binmove").onclick = () => binSet(Number($("binnum").value));
+  if ($("binnum")) $("binnum").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); binSet(Number($("binnum").value)); } };
   document.querySelectorAll("input[data-k]").forEach((el) => { el.oninput = () => { (edit(d).ident = edit(d).ident || {})[el.dataset.k] = el.value; }; el.onchange = () => autoSave(d); });
   document.querySelectorAll("[data-grade]").forEach((b) => b.onclick = () => { (edit(d).ident = edit(d).ident || {}).grade = b.dataset.grade; renderDetail(d); autoSave(d); });
   const noteSet = (notes, skipped) => { const e = edit(d).ident = edit(d).ident || {}; e.condition_notes = notes; e.condition_skipped = skipped; noteEditing = null; renderDetail(d); refreshCheck(d); autoSave(d); };
