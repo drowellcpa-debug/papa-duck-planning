@@ -33,6 +33,7 @@
 // v8e (2026-11-19 18:14, from BookMine's Keepa tutorial, "yes if you think it is more accurate"): the season price is what the book
 //   actually SOLD for (used price at each sales-rank drop in the season window, 75th percentile per year), not just the highest asking
 //   price; and every check shows the most he can offer and still make his minimum profit (pipeline.config hunter_min_profit).
+// v17 (2026-11-24): the cloud fetches the listing photos itself when the extension sends none (see the check block).
 // v8f (2026-11-19 18:17): the season row only appears when the book proves it sells in that season, and only a proven store can be
 //   the headline "Best profit" (a PASS showed "Best profit $55.67" from a season price with 0 sales).
 // v8b (2026-11-19 18:00, "track when i buy them and watch the real prices weekly to let me know when to list them. I will not list them
@@ -397,6 +398,27 @@ Deno.serve(async (req) => {
     // No photos at all -> the seller's ISBN, marked "seller-isbn-unchecked".
     const sent = (Array.isArray(b.images) ? b.images : []).filter((x: any) => x && typeof x.data === "string" && x.data.length > 3000 && x.data.length < 6_000_000).slice(0, 4)
       .map((x: any) => ({ data: x.data, mt: /^image\/(jpeg|png|webp)$/.test(String(x.mt)) ? String(x.mt) : "image/jpeg" }));
+    // v17 (2026-11-24, Papa Duck "it should have been able to see the picture?" / "I thought we had fixed this?"): since 11/17 the
+    //   extension's in-tab photo copy comes back empty (0 photos read on every check), so the cloud now fetches the listing photo
+    //   links itself (b.photos, Vinted's image servers only) whenever no photo data arrived.
+    let photoSrc = sent.length ? "extension" : "";
+    if (!sent.length && Array.isArray(b.photos)) {
+      const urls = (b.photos as any[]).map(String).filter((u) => /^https:\/\/[a-z0-9.-]*vinted\.(net|com)\//i.test(u)).slice(0, 4);
+      const got = await Promise.all(urls.map(async (u) => {
+        try {
+          const r = await fetch(u, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "Mozilla/5.0", Accept: "image/avif,image/webp,image/jpeg,*/*" } });
+          if (!r.ok) return null;
+          const ct = (r.headers.get("content-type") || "image/jpeg").split(";")[0].trim();
+          if (!/^image\/(jpeg|png|webp)$/.test(ct)) return null;
+          const bytes = new Uint8Array(await r.arrayBuffer());
+          if (bytes.length < 3000 || bytes.length > 4_500_000) return null;
+          let bin = ""; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+          return { data: btoa(bin), mt: ct };
+        } catch (_) { return null; }
+      }));
+      for (const g of got) if (g) sent.push(g);
+      if (sent.length) photoSrc = "cloud";
+    }
     const listIsbn = isbn;
     let method = "", idNote = "", cover: any = null, kpFound: any = null;
     if (sent.length) {
@@ -486,7 +508,7 @@ Deno.serve(async (req) => {
       if (/good and the beautiful|jenny phillips/i.test([p?.manufacturer, p?.publisher, p?.title, base.ident.title, base.ident.publisher].join(" "))) base.ident.tgatb = true;
     }
     if (cover?.tgatb) base.ident.tgatb = true;
-    base.id = { method, note: idNote, cover_title: cover?.title || "", cover_edition: cover?.edition || "", seller_isbn: listIsbn || "", photos_read: sent.length };
+    base.id = { method, note: idNote, cover_title: cover?.title || "", cover_edition: cover?.edition || "", seller_isbn: listIsbn || "", photos_read: sent.length, photo_src: photoSrc, photo_links: Array.isArray(b.photos) ? b.photos.length : 0 };
     base.from_photos = sent.length > 0;
 
     // ---------- profit per store and the call (profit = what it sells for minus his cost) ----------
