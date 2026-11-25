@@ -1773,7 +1773,7 @@ function renderSold() {
 // ---------- 🦆 Holding for the season (Papa Duck 2026-11-19): "track when i buy them and watch the real prices weekly to let me know when
 //   to list them. I will not list them until the prices reaches the good time for profit". Every Duck Hunter buy is held with a target
 //   (its season high from the 3-year Keepa graph). Every Monday the cloud reads today's Amazon used price; at 95% of target it says List now.
-let holds = null, holdAt = 0, holdArm = "";
+let holds = null, holdAt = 0, holdArm = "", holdMsg = {};
 async function loadHold(force) {
   if (!force && Date.now() - holdAt < 300000) return;
   holdAt = Date.now();
@@ -1784,6 +1784,14 @@ async function holdTap(id, st) {
   const k = id + ":" + st;
   if (holdArm !== k) { holdArm = k; setTimeout(() => { if (holdArm === k) { holdArm = ""; renderHold(); } }, 6000); return renderHold(); }
   holdArm = "";
+  if (st === "listnow") {
+    // 2026-11-25 Papa Duck: "when ... the books are ready in that red urgent I can click list please and it will list them"
+    holdMsg[id] = "Re-pricing…"; renderHold();
+    try { const r = await q(`select pipeline.hold_list_now(${Number(id)}) as r`); const x = r[0] && r[0].r;
+      holdMsg[id] = x && x.ok ? `✅ ${esc(x.pd || "")} ${x.price ? "at " + money(x.price) + " · " : ""}${esc(x.note || "")}` : "⚠️ " + esc((x && x.error) || "Didn't work - try again");
+    } catch (e) { holdMsg[id] = "⚠️ " + esc(e.message || String(e)); }
+    holdAt = 0; await loadHold(true); return;
+  }
   try { const r = await q(`select pipeline.hold_mark(${Number(id)}, ${lit(st)}) as h`); holds = (r[0] && r[0].h) || holds; } catch (e) { showError(e); }
   renderHold();
 }
@@ -1803,14 +1811,16 @@ function renderHold() {
       <div style="min-width:0"><b>${isR ? "📈 " : ""}${esc(r.title)}</b>
         <div class="muted" style="font-size:.84rem">Paid ${money(r.cost)} · target ${r.target != null ? money(r.target) : "—"}${r.month ? " around " + esc(r.month) : ""} · now ${r.now != null ? money(r.now) : "—"}${profit != null ? ` · profit now <b style="color:${profit >= 20 ? "var(--green-text)" : "inherit"}">${money(profit)}</b>` : ""}</div>
         ${r.target ? `<div class="hbar"><span style="width:${pct}%"></span></div>` : ""}
-        ${r.note ? `<div style="font-size:.84rem;margin-top:2px">${esc(r.note)}</div>` : ""}</div>
+        ${r.note ? `<div style="font-size:.84rem;margin-top:2px">${esc(r.note)}</div>` : ""}
+        <div class="muted" style="font-size:.8rem">${r.pd ? "📷 Photographed as " + esc(r.pd) + " - ready in Drafts" : "📷 Not photographed yet - do it in the Book Station when it arrives"}</div>
+        ${holdMsg[r.id] ? `<div style="font-size:.86rem;margin-top:2px"><b>${holdMsg[r.id]}</b></div>` : ""}</div>
       <div class="hbtns">${done ? `<span class="muted">${r.status === "listed" ? "✓ Listed" : "Dropped"}</span>` : isR
-        ? `<button data-hold="${r.id}" data-hst="listed">${holdArm === r.id + ":listed" ? "Tap again" : "✓ I listed it"}</button><button class="ghost" data-hold="${r.id}" data-hst="holding">${holdArm === r.id + ":holding" ? "Tap again" : "Keep holding"}</button>`
-        : `<button class="ghost" data-hold="${r.id}" data-hst="listed">${holdArm === r.id + ":listed" ? "Tap again" : "List anyway"}</button>`}</div></div>`;
+        ? `<button data-hold="${r.id}" data-hst="listnow">${holdArm === r.id + ":listnow" ? "Tap again to list" : "📚 List it now"}</button><button class="ghost" data-hold="${r.id}" data-hst="holding">${holdArm === r.id + ":holding" ? "Tap again" : "Keep holding"}</button>`
+        : `<button class="ghost" data-hold="${r.id}" data-hst="listnow">${holdArm === r.id + ":listnow" ? "Tap again to list" : "List anyway"}</button>`}</div></div>`;
   };
   el.innerHTML = `<section class="card" aria-label="Holding for the season">
     <div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">🦆 Holding for the season</h2>${pill}</div>
-    <p class="muted" style="margin:0;font-size:.86rem">Duck Hunter buys wait here until Amazon's real used price reaches the season high. Prices checked every Monday · last ${esc(last)}.</p>
+    <p class="muted" style="margin:0;font-size:.86rem">Duck Hunter buys wait here until Amazon's real used price reaches the season high. Prices checked every morning · last ${esc(last)}. When one is ready, tap 📚 List it now: it is re-priced and goes in the next blast off.</p>
     ${rows.map(row).join("")}
     <div class="row"><button class="ghost" id="holdnow">🔄 Check prices now</button></div></section>`;
   el.querySelectorAll("[data-hold]").forEach((b) => b.onclick = () => holdTap(b.dataset.hold, b.dataset.hst));
