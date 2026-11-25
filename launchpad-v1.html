@@ -749,13 +749,16 @@ function renderHealth() {
   const pill = ov === "green" ? "✅ All good" : ov === "yellow" ? `🟡 ${yel.length} to keep an eye on` : `🔴 ${red.length} need${red.length === 1 ? "s" : ""} fixing`;
   const at = new Date(h.at), when = at.toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
   const old = Number(h.age_h) > 26;
-  if (healthOpen === null) healthOpen = ov !== "green";     // all green: just the one line; anything else: the gauges open
-  const dots = (h.days || []).map((d) => `<i class="${esc(d.o)}" title="${esc(d.d)}: ${esc(d.o)}"></i>`).join("");
+  // 2026-11-25 Papa Duck: "if all is good, and I still want to see the guages they dont show" - the gauges are open every time
+  //   (all green too); Hide is remembered on this device until he taps Show again
+  if (healthOpen === null) { let s = null; try { s = localStorage.getItem("lpHealthOpen"); } catch (e) {} healthOpen = s !== "0"; }
+  // 2026-11-25 Papa Duck: "on the system health can you have the yellow dots from prior days go away only keep todays health"
+  const dots = (h.days || []).slice(-1).map((d) => `<i class="${esc(d.o)}" title="Today: ${esc(d.o)}"></i>`).join("");
   const tiles = gs.map((g) => `<div class="hg ${esc(g.status)}"><b>${esc(g.icon)} ${esc(g.name)}</b><span class="v">${esc(g.value)}</span>${g.fix ? `<span class="fx">${g.status === "red" ? "🔴" : "🟡"} ${esc(g.fix)}</span>` : ""}</div>`).join("");
   el.innerHTML = `<section class="card" aria-label="System Health"${ov === "red" ? ' style="border:2px solid var(--red)"' : ""}>
     <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">🩺 System Health</h2><span class="hpill ${ov}">${pill}</span>
-        <span class="muted" style="font-size:.88rem">checked ${esc(when)}${old ? " · ⚠️ the morning check didn't run" : ""}</span>${dots ? `<span class="hdots" title="last 14 days">${dots}</span>` : ""}</div>
+        <span class="muted" style="font-size:.88rem">checked ${esc(when)}${old ? " · ⚠️ the morning check didn't run" : ""}</span>${dots ? `<span class="hdots" title="today">${dots}</span>` : ""}</div>
       <div class="row" style="gap:6px">${btn}<button id="htog" class="ghost" style="min-height:34px;padding:0 12px">${healthOpen ? "Hide gauges ▴" : `Show all ${gs.length} gauges ▾`}</button></div>
     </div>
     ${healthMsg ? `<p style="margin:0">${esc(healthMsg)}</p>` : ""}
@@ -764,7 +767,7 @@ function renderHealth() {
   wireHealth();
 }
 function wireHealth() {
-  const t = $("htog"); if (t) t.onclick = () => { healthOpen = !healthOpen; renderHealth(); };
+  const t = $("htog"); if (t) t.onclick = (ev) => { if (ev) { ev.preventDefault(); ev.stopPropagation(); } healthOpen = !healthOpen; try { localStorage.setItem("lpHealthOpen", healthOpen ? "1" : "0"); } catch (e) {} renderHealth(); };
   const b = $("hnow"); if (b) b.onclick = async () => {
     b.disabled = true; b.textContent = "Checking…"; healthMsg = "Checking every system now - about 30 seconds.";
     try { await q("select pipeline.health_kick() as r"); } catch (e) { healthMsg = "Couldn't start the check. Try again."; renderHealth(); return; }
