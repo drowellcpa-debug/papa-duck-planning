@@ -1,0 +1,3 @@
+-- 2026-11-24 Papa Duck: "Add another ikon add manually". pipeline.pile_manual(title, pd, bin, who) adds a LIST book to the sort piles by hand
+-- (same sticker checks as a scan). Called from the scan app (sort.html "✍️ Add a book by hand") through drafts-api v12.
+-- (function body applied as migration pile_manual)
