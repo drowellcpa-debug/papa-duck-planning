@@ -1,3 +1,4 @@
+// v14 (2026-11-26): + pipeline.pd_prescan (Book Station shows what a sticker number was pre-scanned as - "some of the tags fall off in the bin").
 // v13 (2026-11-25): + pipeline.hold_list_now (📚 List it now on the Holding for the season card).
 // v12 (2026-11-24): + pipeline.pile_manual (scan app "✍️ Add by hand" - "Add another ikon add manually").
 // v11 (2026-11-22): + pipeline.draft_bin_set (change a book's bin right in Drafts - "I need a way to change the bin when it gets to draft").
@@ -40,7 +41,7 @@ const LP_FN = new Set(["audit.report_full","bd.add_book","bd.board","bd.bought",
   "pipeline.unrestrict_applied","pipeline.unrestrict_recheck","pipeline.vinted_box","pipeline.vinted_lot_make","pipeline.vinted_lot_ready",
   "pipeline.vinted_lot_remove","pipeline.vinted_lot_save","pipeline.vinted_lot_write","pipeline.week_check","pipeline.week_keep","pipeline.week_print",
   "pipeline.week_print_draft","pipeline.bin_board","pipeline.health_board","pipeline.health_kick",
-  "pipeline.combine_list","pipeline.combine_send","pipeline.combine_dismiss","pipeline.sold_today","pipeline.draft_bin_set","pipeline.pile_manual",
+  "pipeline.combine_list","pipeline.combine_send","pipeline.combine_dismiss","pipeline.sold_today","pipeline.draft_bin_set","pipeline.pile_manual","pipeline.pd_prescan",
   "pipeline.hold_board","pipeline.hold_mark","pipeline.hold_check","pipeline.hold_list_now",
   "pipeline.qty_lookup","pipeline.qty_add","pipeline.qty_adds_recent","pipeline.have_isbn","pipeline.have_book","pipeline.title_set"]);
 const LIT = "(?:-?\\d+(?:\\.\\d+)?|null|true|false|'(?:[^']|'')*'(?:::jsonb)?|array\\[(?:\\d+(?:,\\d+)*)?\\]::bigint\\[\\])";

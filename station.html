@@ -537,7 +537,8 @@
 </head>
 <body>
 <div id="gwbar" style="display:none;position:sticky;top:0;z-index:999;background:#c0392b;color:#fff;padding:10px 14px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>
-<h1>🦆 Papa Duck Book Station v62 ⚡ Direct</h1>
+<h1>🦆 Papa Duck Book Station v63 ⚡ Direct</h1>
+<!-- v63 (2026-11-26): typing the sticker number shows what it was pre-scanned as (tags fall off in the bin). -->
 <!-- v62 (2026-11-26): the bin list is the outstanding bins from Drafts (+ Office Hold and New), each with how many are left to photograph. -->
 <!-- v61 (2026-11-09): QUICK CHECK — first thing, before any photos. Papa Duck: "it will need to be a top of the book station app so It is the first thing I do"
      and "also family friendly check there as well". Cover photo or ISBN -> Scout (Clean-up mode, $7.99 floor for proven sellers) -> LIST / SELL / GOODWILL,
@@ -647,6 +648,7 @@
       </div>
       <div id="pdmatchnote"></div>
       <div id="pdbinline" style="margin-top:6px;font-weight:800;color:#8a5a00;font-size:1.05em"></div>
+      <div id="pdprescan" style="margin-top:6px"></div>
     </div>
 
     <div class="amzbox" id="amzbox" title="Click if this book is on Amazon — Claude will skip eBay and Etsy for it">
@@ -2546,6 +2548,32 @@ function updatePdMatch(){
   refreshUploadGate();
 }
 $('pdconfirm').addEventListener('input', updatePdMatch);
+// v63 (2026-11-26) Papa Duck: "can you have it warn me when the tag does not match the book we have pre scanned, some of the tags fall off in the bin".
+// Typing the sticker number shows what that number was pre-scanned as, so a wrong tag is caught before the photos go up.
+// (Drafts also flags 🏷️ Sticker check on its own once the cloud reads the book.)
+let prescanT = null, prescanFor = '';
+function prescanShow(){
+  const el = $('pdprescan'); if (!el) return;
+  const d = stickerDigits();
+  if (d.length < 3) { el.innerHTML = ''; prescanFor = ''; return; }
+  if (d === prescanFor) return;
+  prescanFor = d; clearTimeout(prescanT);
+  prescanT = setTimeout(async () => {
+    try {
+      const r = await dq2('select pipeline.pd_prescan(' + sq(d) + ') as r');
+      if (prescanFor !== d) return;
+      if (!r || !r.found) { el.innerHTML = ''; return; }
+      const pile = String(r.pile || '').toUpperCase();
+      el.innerHTML = '<div style="border:2px solid #1f7791;background:#eef7fb;border-radius:8px;padding:6px 8px;font-size:.95em">' +
+        '🏷️ <b>' + r.pd + '</b> was pre-scanned as:<div style="font-weight:800;font-size:1.05em;margin:2px 0">' + qcEsc(r.title || '(no title)') + '</div>' +
+        (r.bin ? 'Bin ' + r.bin + ' · ' : '') + (pile && pile !== 'LIST' ? '<b style="color:var(--err)">sorted to ' + qcEsc(pile) + '</b> · ' : '') +
+        '<b>Is this the book in your hand?</b> If not, the tag may have fallen off another book.</div>';
+    } catch(e){ if (prescanFor === d) el.innerHTML = ''; }
+  }, 450);
+}
+$('pdconfirm').addEventListener('input', prescanShow);
+$('pdconfirm').addEventListener('change', prescanShow);
+$('newbookbtn').addEventListener('click', () => { prescanFor = ''; const el = $('pdprescan'); if (el) el.innerHTML = ''; });
 $('pdmatchnote').addEventListener('click', e => {   /* v59 */
   if (!e.target || e.target.id !== 'jumpyes') return;
   const j = stickerJump(); if (!j) return;
