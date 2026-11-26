@@ -1,0 +1,4 @@
+-- 2026-11-26 night 11262026-L58: the PD check listed PD-6097..PD-6151 as "in Drafts: sent" - they were listed on 11/18.
+-- launch_gaps now skips numbers already listed on an earlier night (patched in place with a DO block):
+--   where not (x.p = any(n.pds))
+--     and not exists (select 1 from pipeline.drafts d where d.pd = x.p and d.built_at is not null and d.built_at < n.created_at);
