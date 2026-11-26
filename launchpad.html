@@ -909,7 +909,11 @@ function fbaTrackCard() {
     const bar = STEPS.map((n, i) => `<i title="${n}" style="flex:1;height:6px;border-radius:3px;background:${i <= st ? (i === st && st < 5 ? "var(--yellow)" : "var(--green)") : "var(--gray)"}"></i>`).join("");
     const tr = (t.tracking || [])[0];
     const head = t.problem ? `<span style="color:var(--red);font-weight:800">⚠️ ${t.problem} missing/damaged</span>`
-      : t.ready === all && all ? `<span class="ok">✅ All ${all} ready</span>` : `<b>${t.ready}/${all}</b> ready`;
+      : t.ready === all && all ? `<span class="ok">✅ All ${all} ready</span>`
+      // 2026-11-26 Papa Duck: "The email about the 2nd fba being complete did not change the app" - Amazon closed the box (all checked in)
+      //   but still has the books on its shelving hold, so say that plainly instead of a bare "0/21 ready"
+      : st >= 5 && all && (t.books || []).every((b) => Number(b.received) >= 1) ? `<span class="ok">📥 All ${all} checked in</span> · <b>${t.ready}/${all}</b> ready`
+      : `<b>${t.ready}/${all}</b> ready`;
     const counts = {}; (t.books || []).forEach((b) => { const [ic, lab] = bookLabel(b, st); const k = ic + " " + lab; counts[k] = (counts[k] || 0) + 1; });
     return `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 10px;display:grid;gap:4px">
       <div class="row" style="justify-content:space-between;gap:6px;flex-wrap:nowrap;font-size:.92rem"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>📦 ${esc(t.where || "Amazon")}</b> · <b>${STEPS[st]}</b></span>
@@ -922,7 +926,7 @@ function fbaTrackCard() {
   };
   return `<section class="card" aria-label="FBA boxes at Amazon" style="gap:6px"><h2 style="font-size:1.1rem">🚚 FBA boxes · ${fbaTrack.length}</h2>
     ${fbaTrack.map(box).join("")}
-    <p class="muted" style="margin:0;font-size:.74rem">Checked every 2 hours. Books are usually ready 3–10 days after Amazon gets the box.</p></section>`;
+    <p class="muted" style="margin:0;font-size:.74rem">Checked every 2 hours. Books are usually ready 3–10 days after Amazon gets the box. "Done" means Amazon finished checking the box in - books marked ⏳ being shelved still need Amazon to put them on the shelf (usually 1–3 more days) before they can sell.</p></section>`;
 }
 // ---------- ⚠️ To deal with: anything the cloud or the hourly email check found ("if there is any issues to deal with put it on there as well") ----------
 // v58 (Papa Duck 2026-11-09): "it should show up on the right in a prominent box, list again" - the Goodwill double-check's finds
