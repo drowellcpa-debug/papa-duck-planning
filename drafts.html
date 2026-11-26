@@ -385,6 +385,7 @@ body.nobar .wrap{padding-bottom:40px}
     <div class="tabs" role="group" aria-label="Which drafts">
       <button class="tab" id="tab-check" aria-pressed="true" data-tab="check">To check <span class="n" id="n-check">0</span></button>
       <button class="tab" id="tab-station" aria-pressed="false" data-tab="station">Book Station <span class="n" id="n-station">0</span></button>
+      <button class="tab" id="tab-hold" aria-pressed="false" data-tab="hold">🦆 Holding <span class="n" id="n-hold">0</span></button>
       <button class="tab" id="tab-sent" aria-pressed="false" data-tab="sent">Sent <span class="n" id="n-sent">0</span></button>
       <button class="tab" id="tab-fba" aria-pressed="false" data-tab="fba">📦 FBA <span class="n" id="n-fba">0</span></button>
       <button class="tab" id="tab-dont" aria-pressed="false" data-tab="dont">Not listing <span class="n" id="n-dont">0</span></button>
@@ -714,10 +715,18 @@ async function save(id, patch){
 function bucket(d){
   if (d.status === "fba") return "fba";            // Amazon FBA only - its own tab, never in blast off
   if (d.archived_at || (d.status === "sent" && d.built_at)) return "archive";   // cleared at blast off - fresh start each day
+  // 2026-11-25 Papa Duck: "If its not their time it should wisk it away to holding for future date in a section in this drafts"
+  if (isHeld(d)) return "hold";
   if (d.status === "sent") return "sent";
   if (d.status === "dont_list") return "dont";
   if (d.status === "failed" || d.status === "processing") return "problem";
   return d.source === "station" ? "station" : "check";
+}
+// same test as pipeline.on_hold(): on the Hold Shelf and not released yet (📚 List it now / its season sets release = yes)
+function isHeld(d){
+  if (!d || d.built_at || d.status === "dont_list" || d.status === "fba" || d.status === "failed" || d.status === "processing") return false;
+  const bd = (d.answers && d.answers.bd) || {};
+  return d.location === "Hold Shelf" && String(bd.release || "") !== "yes";
 }
 function latest(d){ return (d && Array.isArray(drafts) && drafts.find((x) => x.id === d.id)) || d; }   // v59: a screen built before a save can hold an old copy of the draft
 function merged(d){
@@ -814,11 +823,11 @@ function isMedia(d){
 // ---------- render ----------
 function render(){
   const all = list();
-  const counts = { check: 0, station: 0, sent: 0, fba: 0, dont: 0, problem: 0, archive: 0 };
+  const counts = { check: 0, station: 0, hold: 0, sent: 0, fba: 0, dont: 0, problem: 0, archive: 0 };
   all.forEach((d) => counts[bucket(d)]++);
   Object.keys(counts).forEach((k) => { $("n-" + k).textContent = counts[k]; });
   document.querySelectorAll(".tab").forEach((b) => b.setAttribute("aria-pressed", b.dataset.tab === tab ? "true" : "false"));
-  const waiting = all.filter((d) => d.status === "sent" && !d.built_at).length;
+  const waiting = all.filter((d) => d.status === "sent" && !d.built_at && !isHeld(d)).length;   // held books never go out at blast off
   $("bartxt").innerHTML = blastConfirm
     ? "Send <b>" + waiting + "</b> book" + (waiting === 1 ? "" : "s") + " to blast off?"
     : "<b>" + waiting + "</b> sent, waiting for blast off";
@@ -863,6 +872,7 @@ function renderList(){
   if (!items.length) {
     const msg = { check: "Nothing to check right now. Fill a P folder in PapaDuck Inbox and its draft shows up here a few minutes later.",
                   station: "Nothing from the Book Station yet. Upload a book there and press 📤 Send to Drafts — it shows up here.",
+                  hold: "Nothing waiting for its season. Vinted buys that are not ready yet move here on their own.",
                   sent: "No books sent yet.", dont: "Nothing set aside for Goodwill, trash or Don't list.", problem: "No problems.", archive: "Nothing archived yet. Blast off moves listed, Not listing and Problem books here." }[tab];
     $("main").innerHTML = justHtml() + '<p class="empty">' + (q ? "No draft matches “" + esc(q) + "”." : msg) + "</p>";
     wireFbaCards();
@@ -874,6 +884,7 @@ function renderList(){
     '<div class="scanhead"><span>' + esc(g.scan) + "</span>" + runSummary(g.rows) + "</div>" +
     '<div class="rows">' + g.rows.map(rowHtml).join("") + "</div>").join("");
   if (tab === "check" || tab === "station") { $("main").insertAdjacentHTML("afterbegin", justHtml()); wireFbaCards(); }
+  if (tab === "hold") $("main").insertAdjacentHTML("afterbegin", '<p class="muted" style="margin:0 0 10px">🦆 These books wait here, out of blast off, until their price is right. Prices are checked every morning. When one is ready it shows in the red urgent list on the Launch Pad - tap 📚 List it now and it comes back to go out with your next blast off.</p>');
   const nr = items.filter((d) => d.amazon && d.amazon.status === "restricted" && !d.built_at).length;
   if (nr) {
     $("main").insertAdjacentHTML("afterbegin", '<div class="amzall"><button type="button" id="amzall">🔄 Got Amazon approvals? Recheck all ' + nr + ' restricted books</button></div>');
@@ -1101,6 +1112,7 @@ function rowHtml(d){
   const miss = d.status === "drafted" ? missingFor(d) : [];
   const nq = (d.questions || []).filter((q, i) => !isStd(q) && !String(merged(d).answers[i] || "").trim()).length;
   let chips = "";
+  if (isHeld(d)) chips += '<span class="chip">🦆 Waiting for its season</span>' + (d.status === "drafted" ? '<span class="chip">Still to check</span>' : "");
   if (d.status === "failed") chips += '<span class="chip bad">Upload problem</span>';
   else if (d.status === "processing") chips += '<span class="chip">Working…</span>';
   else if (d.status === "dont_list") chips += '<span class="chip bad">' + esc(NOT_LISTING[d.channel] || "Don't list") + "</span>";
@@ -1271,7 +1283,7 @@ function renderDetail(d){
     h += "</section>";
     h += '<section class="sec"><h3>Where is it kept?</h3><div class="seg" role="group" aria-label="Location">' +
          ["Garage", "Storage", "Office", "Hold Shelf"].map((l) => '<button type="button" data-loc="' + l + '" aria-pressed="' + (m.location === l) + '"' + (d.built_at ? " disabled" : "") + ">" + (l === "Hold Shelf" ? "📦 Hold Shelf" : l) + "</button>").join("") + "</div>" +
-         (m.location === "Hold Shelf" ? '<p class="muted" style="margin:6px 0 0">🦆 Bargain Duck book: it stays out of blast off until its selling season, then goes out on its own.</p>' : "") + "</section>";
+         (m.location === "Hold Shelf" ? '<p class="muted" style="margin:6px 0 0">🦆 It waits in the 🦆 Holding section, out of blast off, until its selling season.</p>' : "") + "</section>";
   }
 
   // which bin (2026-11-22, "I need a way to change the bin when it gets to draft")
