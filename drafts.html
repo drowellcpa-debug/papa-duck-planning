@@ -970,9 +970,20 @@ function etsyChip(d){
   if (r.rec) return '<span class="chip etsyrec" title="' + esc(r.why || "") + '">★ Etsy OK · recommended</span>';
   return '<span class="chip etsyok" title="' + d.etsy_year + ' — old enough for Etsy. Open the book to switch Etsy ON.">✓ Etsy OK · ' + d.etsy_year + '</span>';
 }
+/* 2026-11-26 Papa Duck: "when we decided not to list amazon when there is no barcode can you make it not show as ok to select, put Rule by it with an ikon".
+   Rule CV (2026-11-14): Amazon is for barcode books only - same test as pipeline.has_barcode() (the database forces amazon_on off). */
+function hasBarcode(d){
+  const i = merged(d).ident || {};
+  const isbn = String(i.isbn || "").replace(/ISBN[- ]?1[03]/gi, "").replace(/[- ]/g, "");
+  const upc = String(i.upc || "").replace(/[- ]/g, "");
+  return /(^|[^0-9])(97[89][0-9]{10}|[0-9]{9}[0-9Xx])([^0-9]|$)/.test(isbn) || /(^|[^0-9])([0-9]{12,13})([^0-9]|$)/.test(upc);
+}
+const RULE_CV = "📏 Rule CV: no barcode, no Amazon";
+const RULE_CV_WHY = "Rule CV (Nov 14): Amazon is for barcode books only. Vintage and no-barcode copies go to eBay, Etsy and AbeBooks - an old copy gets matched to a modern reprint and Amazon flags a pricing error.";
 /* v33 (2026-10-01): Amazon - can he list it in this condition, and is it worth it. Filled by Dispatch v26 on his PC. */
 function amzChip(d){
   const a = d.amazon; if (!a) return "";
+  if (a.status === "ok" && !hasBarcode(d)) return '<span class="chip amznone" title="' + esc(RULE_CV_WHY) + '">' + RULE_CV + "</span>";
   if (a.status === "restricted") return '<span class="chip amzno" title="' + esc(((a.reasons||[])[0]||{}).message || "") + '">🚫 Amazon restricted</span>';
   if (a.status === "not_on_amazon") return '<span class="chip amznone" title="No Amazon page (no ASIN)">Not on Amazon</span>';
   if (a.status !== "ok") return "";
@@ -1036,7 +1047,7 @@ async function recheckAmazon(id){
 }
 /* v46 (2026-10-24, his ask: "if the status for amazon is good or better ... auto list on for only non fba. I still want to decide on fba"):
    automatic ON = Amazon says OK to list AND the fit is Good. Never automatic for a book going to FBA - FBA stays his call. */
-function amzWill(d){ const a = d.amazon || {}; if (a.status !== "ok") return false; if (d.amazon_on === false) return false; if (d.amazon_on === true) return true;
+function amzWill(d){ const a = d.amazon || {}; if (a.status !== "ok") return false; if (!hasBarcode(d)) return false; if (d.amazon_on === false) return false; if (d.amazon_on === true) return true;
   if (merged(d).channel === "fba" || d.status === "fba") return false; return /^(Good|OK)/.test(a.fit || ""); }   // 2026-10-24: OK fit too ("yes still list")
 async function setAmazon(d, v){
   if (example){ toast("This is the example card. Nothing is saved."); return; }
@@ -1056,6 +1067,7 @@ function amzAddHtml(d, locked){
   if (a.status === "restricted") return h + '<span class="alock">🔒 Restricted in this condition</span>' + re + '</div>';
   if (a.status === "not_on_amazon") return h + '<span class="alock">🔒 Not on Amazon (no page)</span>' + re + '</div>';
   if (a.status !== "ok") return h + '<span class="alock">🔒 Amazon check failed</span>' + re + '</div>';
+  if (!hasBarcode(d)) return h + '<span class="alock" title="' + esc(RULE_CV_WHY) + '">' + RULE_CV + '</span><span class="small"> Type the ISBN in the details if the book has one.</span></div>';
   const dis = locked && d.built_at ? " disabled" : "";
   return h + '<span class="seg"><button type="button" class="aon" data-amz="on" aria-pressed="' + on + '"' + dis + '>Amazon ON</button>' +
     '<button type="button" data-amz="off" aria-pressed="' + !on + '"' + dis + '>Off</button></span>' +
@@ -1066,6 +1078,7 @@ function amzBoxHtml(d){
   if (!a) return '<div class="amzbox"><h4>🛒 Amazon</h4><span class="small">Checking Amazon now — the answer shows here in about a minute.</span></div>';
   const row = (k, v) => v == null || v === "" ? "" : "<tr><td>" + esc(k) + "</td><td><b>" + v + "</b></td></tr>";
   const money = v => v == null ? null : "$" + Number(v).toFixed(2);
+  if (a.status === "ok" && !hasBarcode(d)) return '<div class="amzbox"><h4>🛒 Amazon — ' + RULE_CV + '</h4><div class="small">' + esc(RULE_CV_WHY) + '</div></div>';
   let h = '<div class="amzbox"><h4>🛒 Amazon — ' + (a.status === "ok" ? "✓ you can list it (" + esc(a.grade || "") + ")" : a.status === "restricted" ? "🚫 restricted in " + esc(a.grade || "this condition") : a.status === "not_on_amazon" ? "not on Amazon" : "check failed") + "</h4>";
   if (a.status === "restricted") h += (a.reasons || []).map(r => '<div class="small">' + esc(r.message) + (r.link ? ' — <a href="' + esc(r.link) + '" target="_blank" rel="noopener">request approval</a>' : "") + "</div>").join("");
   if (a.status === "not_on_amazon" || a.status === "error") h += '<div class="small">' + esc(a.note || "") + "</div>";
@@ -1270,10 +1283,11 @@ function renderDetail(d){
   // where it goes
   if (!locked || d.status === "sent"){
     h += '<section class="sec"><h3>Where does it go?</h3><div class="seg" role="group" aria-label="Channel">' +
-         CHANNELS.map((c) => { const fb = c[0] === "fba" && m.channel !== "fba" ? fbaBlock(d) : "";
-           const ff = c[0] === "fba" && !fb ? fbaFit(d) : null;
-           return '<button type="button" data-chan="' + c[0] + '" aria-pressed="' + (m.channel === c[0]) + '"' + (locked || fb ? " disabled" : "") + (fb ? ' title="' + esc("FBA locked: " + fb) + '"' : ff ? ' title="' + esc(ff.why) + '"' : "") + ">" + c[1] +
-             (fb ? " 🔒" : ff ? (ff.level === "good" ? " 🟢" : ff.level === "maybe" ? " 🟡" : " 🔴") : "") + "</button>"; }).join("") + "</div>";
+         CHANNELS.map((c) => { const cv = (c[0] === "fba" || c[0] === "amazon") && m.channel !== c[0] && !hasBarcode(d);   // Rule CV
+           const fb = cv ? "" : c[0] === "fba" && m.channel !== "fba" ? fbaBlock(d) : "";
+           const ff = c[0] === "fba" && !fb && !cv ? fbaFit(d) : null;
+           return '<button type="button" data-chan="' + c[0] + '" aria-pressed="' + (m.channel === c[0]) + '"' + (locked || fb || cv ? " disabled" : "") + (cv ? ' title="' + esc(RULE_CV_WHY) + '"' : fb ? ' title="' + esc("FBA locked: " + fb) + '"' : ff ? ' title="' + esc(ff.why) + '"' : "") + ">" + c[1] +
+             (cv ? " 📏" : fb ? " 🔒" : ff ? (ff.level === "good" ? " 🟢" : ff.level === "maybe" ? " 🟡" : " 🔴") : "") + "</button>"; }).join("") + "</div>";
     if (m.channel === "fba") h += '<div class="fbabox"><div class="fw" style="color:var(--ink)"><b>📦 Amazon FBA only.</b> At blast off it is listed on Amazon (fulfilled by Amazon) and its sticker waits in <b>Dispatch → Ready to print</b>. It does not go to eBay, AbeBooks or Etsy.</div>' + fbaFitHtml(d) + '</div>';
     else if (m.channel !== "amazon") h += amzAddHtml(d, locked);
     if (!locked) h += '<div class="seg" style="margin-top:8px" role="group" aria-label="Not listing"><button type="button" class="notlist" data-not="dont_list">Don\'t list this book</button><button type="button" class="notlist" data-not="goodwill">Goodwill</button><button type="button" class="notlist" data-not="vinted" style="color:#7b3fa0;border-color:#7b3fa0">🛍️ Vinted box</button><button type="button" class="notlist" data-not="trash">Throw away</button></div>';
