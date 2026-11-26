@@ -537,7 +537,8 @@
 </head>
 <body>
 <div id="gwbar" style="display:none;position:sticky;top:0;z-index:999;background:#c0392b;color:#fff;padding:10px 14px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>
-<h1>🦆 Papa Duck Book Station v61 ⚡ Direct</h1>
+<h1>🦆 Papa Duck Book Station v62 ⚡ Direct</h1>
+<!-- v62 (2026-11-26): the bin list is the outstanding bins from Drafts (+ Office Hold and New), each with how many are left to photograph. -->
 <!-- v61 (2026-11-09): QUICK CHECK — first thing, before any photos. Papa Duck: "it will need to be a top of the book station app so It is the first thing I do"
      and "also family friendly check there as well". Cover photo or ISBN -> Scout (Clean-up mode, $7.99 floor for proven sellers) -> LIST / SELL / GOODWILL,
      plus the family check. LIST carries the cover photo into the book below. -->
@@ -4135,10 +4136,15 @@ function qcBinRender(){
   const el = $('qcbin'); if (!el) return;
   if (!qcBin) { el.innerHTML = ''; return; }
   el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;border:2px solid #e0b84a;border-radius:10px;padding:8px 10px">' +
-    '<span style="flex:1;font-weight:800">📦 Your bin: ' + qcBinName(qcBin.bin) + ' <span style="font-weight:600;color:var(--dim)">· ' + Number(qcBin.n || 0) + (Number(qcBin.bin) === QC_OFFICE ? '' : ' of ' + Number(qcBin.cap || 18)) + ' books</span>' +
+    '<span style="flex:1;font-weight:800">📦 Your bin: ' + qcBinName(qcBin.bin) + ' <span style="font-weight:600;color:var(--dim)">· ' + (function(){
+        const o = (qcBin.all || []).find((x) => Number(x.bin) === Number(qcBin.bin));
+        if (o && o.left != null) return o.left + ' to photograph';      // a sorted bin: show what is left, not "28 of 18"
+        return Number(qcBin.n || 0) + (Number(qcBin.bin) === QC_OFFICE ? '' : ' of ' + Number(qcBin.cap || 18)) + ' books'; })() + '</span>' +
     (qcBinNote ? '<div style="color:#8a5a00;font-weight:800;margin-top:2px">' + qcEsc(qcBinNote) + '</div>' : '') + '</span>' +
     '<select id="qcbinpick" style="min-height:44px;font-weight:700;max-width:46%">' +
-      (qcBin.all || qcBin.mine || [{ bin: qcBin.bin, n: qcBin.n }]).filter((x) => Number(x.bin) !== QC_OFFICE).map((x) => '<option value="' + x.bin + '"' + (Number(x.bin) === Number(qcBin.bin) ? ' selected' : '') + '>Bin ' + x.bin + (x.who ? ' · ' + String(x.who).replace(/^\w/, (c) => c.toUpperCase()) : '') + ' · ' + (Number(x.bin) === Number(qcBin.bin) ? Number(qcBin.n || 0) : x.n) + '</option>').join('') +
+      // 2026-11-26 Papa Duck: "it should match the outstanding bins in the draft other than office hold and new" - the list is the
+      //   Drafts board's outstanding bins (+ your current bin), each with how many books are still to photograph
+      (qcBin.all || qcBin.mine || [{ bin: qcBin.bin, n: qcBin.n }]).filter((x) => Number(x.bin) !== QC_OFFICE).map((x) => '<option value="' + x.bin + '"' + (Number(x.bin) === Number(qcBin.bin) ? ' selected' : '') + '>Bin ' + x.bin + (x.who ? ' · ' + String(x.who).replace(/^\w/, (c) => c.toUpperCase()) : '') + ' · ' + (x.left != null ? x.left + ' to photograph' : (Number(x.bin) === Number(qcBin.bin) ? Number(qcBin.n || 0) : x.n) + ' books') + '</option>').join('') +
       '<option value="' + QC_OFFICE + '"' + (Number(qcBin.bin) === QC_OFFICE ? ' selected' : '') + '>🏢 Office Hold</option>' +
       '<option value="new">🆕 New bin</option></select></div>';
   // 2026-11-14 Papa Duck: "I will have multiple bins open, I need the ability to pick from open or create a new" (garage + office)
