@@ -1,3 +1,7 @@
+// v30 (2026-11-26 night): eBay's daily limit (5,000 Browse calls) ran out at 4:58 PM and every scan after that was priced without eBay -
+//   Goodwill calls made blind. Now: sold counters are cached 2 days (pipeline.ebay_sold_cache) and capped at 25 (12 on a Quick check);
+//   when eBay says the day is used up, Scout stops asking until the reset (pipeline.config ebay_out_until) and a book that would have
+//   gone to Goodwill / Pass gets YOUR CALL "⏳ ... Maybe later box" and is re-checked automatically once eBay is back.
 // v29 (2026-11-26): reads pages for what they are - a contents page of an anthology = the volume name, vintage books keep publisher/year/catalog number in the search ("It is not reading pages right").
 // v28 (2026-11-26): college_custom only when the book says custom / names a school or course - not for a title with "College" in it.
 // Papa Duck — SCOUT. Phone page -> this function.
@@ -142,6 +146,15 @@ async function identify(model: string, shots: Shot[]) {
 }
 
 // ---------- eBay ----------
+let EBAY_OUT = false;   // v30: eBay's daily lookups are used up (429) - stop asking for this scan
+async function ebayQuota(tok: string): Promise<{ remaining: number; reset: string } | null> {
+  // eBay's own report (Analytics API - does not count against the Browse limit)
+  const r = await fetch("https://api.ebay.com/developer/analytics/v1_beta/rate_limit/?api_name=browse&api_context=buy", { headers: { Authorization: `Bearer ${tok}` } }).catch(() => null);
+  if (!r || !r.ok) return null;
+  const j = await r.json().catch(() => null);
+  const rate = j?.rateLimits?.[0]?.resources?.find((x: any) => x.name === "buy.browse")?.rates?.[0];
+  return rate ? { remaining: Number(rate.remaining), reset: String(rate.reset) } : null;
+}
 async function ebayToken(): Promise<string> {
   const id = (Deno.env.get("EBAY_CLIENT_ID") || "").trim(), sec = (Deno.env.get("EBAY_CLIENT_SECRET") || "").trim();
   const r = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
@@ -160,9 +173,11 @@ async function browse(tok: string, q: string, cat: boolean): Promise<any[]> {
   u.searchParams.set("filter", "buyingOptions:{FIXED_PRICE},priceCurrency:USD,itemLocationCountry:US");
   if (cat) u.searchParams.set("category_ids", "267");
   for (let a = 1; a <= 3; a++) {
+    if (EBAY_OUT) return [];
     const r = await fetch(u, { headers: { Authorization: `Bearer ${tok}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } });
     if (r.ok) return (await r.json()).itemSummaries || [];
-    if (r.status === 429 || r.status >= 500) { await sleep(1500 * a); continue; }
+    if (r.status === 429) { if (a >= 2) { EBAY_OUT = true; return []; } await sleep(1500); continue; }
+    if (r.status >= 500) { await sleep(1500 * a); continue; }
     throw new Error(`eBay search refused (${r.status})`);
   }
   return [];
@@ -180,7 +195,9 @@ async function browseGtin(tok: string, code: string): Promise<any[]> {
     const u = new URL("https://api.ebay.com/buy/browse/v1/item_summary/search");
     u.searchParams.set("gtin", g); u.searchParams.set("limit", "40");
     u.searchParams.set("filter", "buyingOptions:{FIXED_PRICE},priceCurrency:USD,itemLocationCountry:US");
+    if (EBAY_OUT) break;
     const r = await fetch(u, { headers: { Authorization: `Bearer ${tok}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } }).catch(() => null);
+    if (r && r.status === 429) EBAY_OUT = true;
     if (r && r.ok) out.push(...(((await r.json()).itemSummaries) || []));
   }
   return out;
@@ -221,19 +238,36 @@ async function comps(ident: any, tok: string) {
 
 // ---------- SOLD counters (same method as papaduck_ebay.py --sold) ----------
 // eBay's item call reports estimatedSoldQuantity: copies that actually sold off that listing.
-async function soldCounts(tok: string, items: any[]) {
+// v30: answers are kept 2 days in pipeline.ebay_sold_cache so the same listing is never looked up twice (eBay allows 5,000 calls a day)
+async function soldCounts(tok: string, items: any[], sql?: any) {
+  const ids = items.map((c) => String(c.id || "")).filter(Boolean);
+  const cache = new Map<string, any>();
+  if (sql && ids.length) {
+    try { for (const r of await sql`select item_id, sold, seller, ship from pipeline.ebay_sold_cache where item_id in ${sql(ids)} and checked_at > now() - interval '2 days'`) cache.set(r.item_id, r); }
+    catch (e) { DIAG.cache_err = String(e); }
+  }
+  const fresh: any[] = [];
   await Promise.all(items.map(async (c) => {
+    const hit = cache.get(String(c.id || ""));
+    if (hit) { c.sold = hit.sold; c.seller = hit.seller || c.seller || ""; if (!c.ship && hit.ship) c.ship = +hit.ship || 0; return; }
+    if (EBAY_OUT) { c.sold = null; return; }
     try {
       const r = await fetch(`https://api.ebay.com/buy/browse/v1/item/${encodeURIComponent(c.id)}?fieldgroups=PRODUCT`,
         { headers: { Authorization: `Bearer ${tok}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } });
+      if (r.status === 429) { EBAY_OUT = true; c.sold = null; return; }
       if (!r.ok) { c.sold = null; return; }
       const j = await r.json();
       const av = j.estimatedAvailabilities?.[0] || {};
       c.sold = Number(av.estimatedSoldQuantity ?? 0) || 0;
       c.seller = j.seller?.username || c.seller || "";
       if (!c.ship && j.shippingOptions?.[0]?.shippingCost) c.ship = +j.shippingOptions[0].shippingCost.value || 0;
+      fresh.push({ item_id: String(c.id), sold: c.sold, seller: c.seller, ship: c.ship || 0 });
     } catch { c.sold = null; }
   }));
+  if (sql && fresh.length) {
+    await sql`insert into pipeline.ebay_sold_cache ${sql(fresh, "item_id", "sold", "seller", "ship")}
+      on conflict (item_id) do update set sold = excluded.sold, seller = excluded.seller, ship = excluded.ship, checked_at = now()`.catch((e: any) => { DIAG.cache_err = String(e); });
+  }
   return items;
 }
 
@@ -485,6 +519,9 @@ Deno.serve(async (req) => {
       const shots = shotsOf(body);
       if (!shots.length && !body.ident && !body.isbn) return json({ error: "No photo" }, 400);
       for (const k in DIAG) delete DIAG[k];
+      // v30: eBay's daily lookups already used up? don't ask again until the reset
+      EBAY_OUT = !!conf.ebay_out_until && Date.now() < Date.parse(String(conf.ebay_out_until));
+      const ebayWasOut = EBAY_OUT;
       const ident = shots.length ? await identify(visionModel, shots)
         : body.isbn && upcCode(String(body.isbn)) ? await upcIdent(upcCode(String(body.isbn)), await ebayToken(), fastModel)   // v26: product barcode
         : body.isbn ? await isbnIdent(sql, String(body.isbn))            // typed or barcode-scanned ISBN
@@ -507,7 +544,17 @@ Deno.serve(async (req) => {
       const notMine = (c: any) => !me || String(c.seller || "").toLowerCase() !== me;
       const kept0: any = await judge(fastModel, ident, found.filter(notMine));
       // sold counters on the matching copies (Drafts checks 40; a shelf sweep checks fewer to spare eBay's daily limit)
-      const kept = (await soldCounts(tok, kept0.slice(0, body.quick ? 20 : 40))).filter(notMine);
+      const kept = (await soldCounts(tok, kept0.slice(0, body.quick ? 12 : 25), sql)).filter(notMine);
+      // v30: eBay said no more today - ask eBay's own report; if the day really is used up, pause eBay until the reset
+      if (EBAY_OUT) {
+        DIAG.ebay_out = true;
+        if (!ebayWasOut) {
+          const qa = await ebayQuota(tok);
+          DIAG.ebay_quota = qa;
+          if (qa && qa.remaining <= 0 && qa.reset) await sql`insert into pipeline.config (key, value) values ('ebay_out_until', ${qa.reset})
+            on conflict (key) do update set value = excluded.value`.catch(() => {});
+        }
+      }
       let source = kept.length ? "ebay" : "";
       let alt: any[] = [];
       const meAbe = String(conf.my_abe_seller || "").toLowerCase();
@@ -661,12 +708,21 @@ Deno.serve(async (req) => {
         if (buyback && buyback.missing) flags.push("Buyback check is off until the BookScouter key is added");
       }
 
+      // v30: no eBay data because the day's lookups ran out - never send a book to Goodwill / Pass on that; it gets re-checked
+      if (EBAY_OUT && !hard.length && ["GOODWILL", "PASS", "SELL"].includes(verdict)) {
+        const was = reason;
+        verdict = "CHECK";
+        reason = "⏳ eBay's lookups are used up for today (back at midnight), so this was priced without eBay. " +
+          (body.mode === "cleanup" ? "Put it in the 🕒 Maybe later box - it gets re-checked automatically." : "Your call - check eBay yourself before passing.");
+        flags.push("Without eBay it looked like: " + was);
+      }
       // Clean-up: keep a pile list for the batch so he can sort bins at the end
       let pile_id: number | null = null;
       if (body.mode === "cleanup" && body.batch) {
-        const [row] = await sql`insert into pipeline.cleanup_piles (batch, title, isbn, author, pile, pile_suggested, list_price, buyback_vendor, buyback_price, reason)
+        const [row] = await sql`insert into pipeline.cleanup_piles (batch, title, isbn, author, pile, pile_suggested, list_price, buyback_vendor, buyback_price, reason, recheck)
           values (${String(body.batch).slice(0, 80)}, ${String(ident.title || "").slice(0, 250)}, ${cleanIsbn(ident.isbn) || String(ident.isbn || "")}, ${String(ident.author || "")},
-                  ${verdict}, ${verdict}, ${list}, ${buyback && buyback.price > 0 ? buyback.vendor : null}, ${buyback && buyback.price > 0 ? buyback.price : null}, ${reason}) returning id`;
+                  ${verdict}, ${verdict}, ${list}, ${buyback && buyback.price > 0 ? buyback.vendor : null}, ${buyback && buyback.price > 0 ? buyback.price : null}, ${reason},
+                  ${EBAY_OUT ? sql.json({ ebay_wait: true }) : null}) returning id`;
         pile_id = Number(row.id);
       }
       // Every scan is logged; when the same book later lands in Drafts, the Scout numbers ride along as a note
