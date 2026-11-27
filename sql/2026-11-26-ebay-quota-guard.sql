@@ -31,7 +31,8 @@ as $function$
 -- 2026-11-15 "the list again can not be this delayed": runs every MINUTE (was 15), and a book he already re-scanned that landed on
 --   another pile (LIST / MAYBE / BASKET ...) is never carded again (The Rosebud I Remember showed twice after he had already listed it).
 -- 2026-11-26: pauses while eBay's daily lookups are used up (pipeline.config ebay_out_until), and also re-checks books that were
---   scanned while eBay was out (recheck->>'ebay_wait'), whatever price they got without eBay.
+--   scanned while eBay was out (recheck->>'ebay_wait'), whatever price they got without eBay. Those use the Quick-check size (12 sold counters)
+--   so the morning re-check doesn't use up the new day's eBay lookups.
 declare x record; r extensions.http_response; j jsonb; n int := 0; outu text; wait boolean;
 begin
   insert into pipeline.config(key, value) values ('gw_recheck_last', to_char(now() at time zone 'America/Los_Angeles', 'YYYY-MM-DD HH24:MI'))
@@ -52,7 +53,7 @@ begin
     perform extensions.http_set_curlopt('CURLOPT_TIMEOUT_MS', '25000');
     begin
       r := extensions.http(('POST', 'https://gdwxwiwckxthwcsrgywh.supabase.co/functions/v1/scout', array[]::extensions.http_header[], 'application/json',
-            jsonb_build_object('pin', (select value from backup.config where key = 'scout_pin'), 'action', 'evaluate', 'mode', 'cleanup',
+            jsonb_build_object('pin', (select value from backup.config where key = 'scout_pin'), 'action', 'evaluate', 'mode', 'cleanup', 'quick', wait,
               'ident', jsonb_build_object('kind','book','title', x.title, 'author', coalesce(x.author,''), 'isbn', coalesce(x.isbn,''), 'confidence','medium'))::text)::extensions.http_request);
       j := r.content::jsonb;
     exception when others then j := jsonb_build_object('error', left(sqlerrm, 200));
