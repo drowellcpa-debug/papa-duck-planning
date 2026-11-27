@@ -1,3 +1,4 @@
+// v28 (2026-11-26): college_custom only when the book says custom / names a school or course - not for a title with "College" in it.
 // Papa Duck — SCOUT. Phone page -> this function.
 // v27 (2026-11-09): Clean-up mode (books he already owns) uses a $7.99 minimum for proven sellers; buying keeps $10.
 // v26 (2026-10-28): UPC / product BARCODES ("can you add the bar code scan to scout"). A typed or scanned code that is not a book ISBN
@@ -85,7 +86,7 @@ Also check for his instant-pass red flags and set each true only if you can actu
 - ex_library: library stickers, stamps, call-number labels, card pockets, barcodes, Mylar wrap
 - book_club: book club edition (no price on jacket, "Book Club Edition", small blind-stamp)
 - international_edition: "International Edition", "Not for sale in the USA"
-- college_custom: Pearson / McGraw-Hill custom or college-specific edition
+- college_custom: Pearson / McGraw-Hill custom or college-specific edition. Only true when the book itself SAYS so: "Custom Edition", "Custom Edition for <school>", or a named school/course printed on the cover or copyright page. A title that merely contains the word "College" (College Accounting, College Algebra, College Physics) is a normal textbook - NOT custom.
 - imagination_library: Dolly Parton Imagination Library seal
 - occult: occult / witchcraft / tarot subject
 
@@ -530,7 +531,9 @@ Deno.serve(async (req) => {
       if (ident.ex_library) hard.push("Ex-library markings");
       if (ident.book_club) hard.push("Book club edition");
       if (ident.international_edition) hard.push("International edition");
-      if (ident.college_custom) hard.push("Custom college edition");
+      // v28 (2026-11-26): "College Accounting Theory/Practice" (1960s McGraw-Hill) was sent to Goodwill as a custom edition just for the word College -
+      //   only honor the flag when the book's own text says custom or names a course/school
+      if (ident.college_custom && /custom|prepared (exclusively )?for|course|university|\bcollege of\b|community college/i.test([ident.title, ident.edition, ident.publisher, ident.subject].join(" ").replace(/^college\s/i, ""))) hard.push("Custom college edition");
       if (ident.imagination_library) hard.push("Imagination Library seal");
       if (ident.occult) hard.push("Occult title — you don't carry these");
       if (ident.confidence === "low") flags.push("Low-confidence read — double-check the title");
