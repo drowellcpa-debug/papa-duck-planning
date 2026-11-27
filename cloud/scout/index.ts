@@ -1,3 +1,7 @@
+// v31 (2026-11-26 night, "42 per book does not make sense"): SMART LOOKUPS, a test mode until he OKs it (body.smart, or pipeline.config
+//   scout_smart = 'on'). ISBN search first, the title search only when the ISBN finds fewer than 8 copies; eBay search results are kept
+//   3 days (pipeline.scout_search_cache) so re-checks and second looks cost nothing; sold counters only when they change the call
+//   (Clean-up: a $6.99-$13.99 gray-zone price -> top 5 copies; buying -> top 10). Every scan now logs how many eBay lookups it used (ebay_calls).
 // v30 (2026-11-26 night): eBay's daily limit (5,000 Browse calls) ran out at 4:58 PM and every scan after that was priced without eBay -
 //   Goodwill calls made blind. Now: sold counters are cached 2 days (pipeline.ebay_sold_cache) and capped at 25 (12 on a Quick check);
 //   when eBay says the day is used up, Scout stops asking until the reset (pipeline.config ebay_out_until) and a book that would have
@@ -147,6 +151,7 @@ async function identify(model: string, shots: Shot[]) {
 
 // ---------- eBay ----------
 let EBAY_OUT = false;   // v30: eBay's daily lookups are used up (429) - stop asking for this scan
+let EBAY_CALLS = 0;     // v31: eBay lookups used by this scan
 async function ebayQuota(tok: string): Promise<{ remaining: number; reset: string } | null> {
   // eBay's own report (Analytics API - does not count against the Browse limit)
   const r = await fetch("https://api.ebay.com/developer/analytics/v1_beta/rate_limit/?api_name=browse&api_context=buy", { headers: { Authorization: `Bearer ${tok}` } }).catch(() => null);
@@ -174,6 +179,7 @@ async function browse(tok: string, q: string, cat: boolean): Promise<any[]> {
   if (cat) u.searchParams.set("category_ids", "267");
   for (let a = 1; a <= 3; a++) {
     if (EBAY_OUT) return [];
+    EBAY_CALLS++;
     const r = await fetch(u, { headers: { Authorization: `Bearer ${tok}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } });
     if (r.ok) return (await r.json()).itemSummaries || [];
     if (r.status === 429) { if (a >= 2) { EBAY_OUT = true; return []; } await sleep(1500); continue; }
@@ -196,6 +202,7 @@ async function browseGtin(tok: string, code: string): Promise<any[]> {
     u.searchParams.set("gtin", g); u.searchParams.set("limit", "40");
     u.searchParams.set("filter", "buyingOptions:{FIXED_PRICE},priceCurrency:USD,itemLocationCountry:US");
     if (EBAY_OUT) break;
+    EBAY_CALLS++;
     const r = await fetch(u, { headers: { Authorization: `Bearer ${tok}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } }).catch(() => null);
     if (r && r.status === 429) EBAY_OUT = true;
     if (r && r.ok) out.push(...(((await r.json()).itemSummaries) || []));
@@ -220,12 +227,32 @@ Name the product. Respond ONLY JSON: {"kind":"item","title":"clear eBay-style na
 }
 const cleanIsbn = (s: string) => { const d = String(s || "").replace(/[^0-9Xx]/g, ""); return d.length === 10 || d.length === 13 ? d.toUpperCase() : ""; };
 
-async function comps(ident: any, tok: string) {
+async function comps(ident: any, tok: string, smart = false, sql?: any) {
   const isbn = cleanIsbn(ident.isbn);
   const q = String(ident.search || [ident.title, ident.author].filter(Boolean).join(" ")).replace(/[^\w\s'-]/g, " ").replace(/\s+/g, " ").trim();
   const seen = new Map<string, any>();
-  // both searches every time (same as Drafts): the ISBN finds sellers who filled in the ISBN, the title finds everyone else
   const isItem = ident.kind === "item";   // non-books: every category, never the Books category
+  if (smart) {
+    // v31: remembered search results (3 days), then the ISBN search, and the title search only when the ISBN finds fewer than 8 copies
+    const key = ((isItem ? "item:" + (ident.upc || "") + ":" : "") + (isbn && !isItem ? "isbn:" + isbn : "q:" + q.toLowerCase())).slice(0, 300);
+    if (sql) {
+      try { const [h] = await sql`select found from pipeline.scout_search_cache where k = ${key} and at > now() - interval '3 days'`; if (h) { DIAG.search_cache = "hit"; return h.found; } }
+      catch (e) { DIAG.cache_err = String(e); }
+    }
+    const c = isItem && ident.upc ? await browseGtin(tok, String(ident.upc)).catch(() => []) : [];
+    const a = isbn && !isItem ? await browse(tok, isbn, false).catch(() => []) : [];
+    const b = q && (a.length + c.length) < 8 ? await browse(tok, q, !isItem).catch(() => []) : [];
+    for (const x of [...c, ...a, ...b]) if (!seen.has(x.itemId)) seen.set(x.itemId, x);
+    const out = [...seen.values()].filter((x) => x.price && +x.price.value > 0).slice(0, 60).map((x, k) => ({
+      i: k + 1, id: String(x.itemId || ""), seller: String(x.seller?.username || ""), title: String(x.title || ""), price: +x.price.value, cond: String(x.condition || ""),
+      ship: x.shippingOptions?.[0]?.shippingCost ? +x.shippingOptions[0].shippingCost.value : 0,
+      url: String(x.itemWebUrl || "").split("?")[0],
+    }));
+    if (sql && !EBAY_OUT) await sql`insert into pipeline.scout_search_cache (k, found, at) values (${key}, ${sql.json(out)}, now())
+      on conflict (k) do update set found = excluded.found, at = now()`.catch((e: any) => { DIAG.cache_err = String(e); });
+    return out;
+  }
+  // both searches every time (same as Drafts): the ISBN finds sellers who filled in the ISBN, the title finds everyone else
   const [a, b, c] = await Promise.all([isbn && !isItem ? browse(tok, isbn, false).catch(() => []) : Promise.resolve([]), q ? browse(tok, q, !isItem).catch(() => []) : Promise.resolve([]),
     isItem && ident.upc ? browseGtin(tok, String(ident.upc)).catch(() => []) : Promise.resolve([])]);   // v26: exact barcode matches first
   for (const x of [...c, ...a, ...b]) if (!seen.has(x.itemId)) seen.set(x.itemId, x);
@@ -251,6 +278,7 @@ async function soldCounts(tok: string, items: any[], sql?: any) {
     const hit = cache.get(String(c.id || ""));
     if (hit) { c.sold = hit.sold; c.seller = hit.seller || c.seller || ""; if (!c.ship && hit.ship) c.ship = +hit.ship || 0; return; }
     if (EBAY_OUT) { c.sold = null; return; }
+    EBAY_CALLS++;
     try {
       const r = await fetch(`https://api.ebay.com/buy/browse/v1/item/${encodeURIComponent(c.id)}?fieldgroups=PRODUCT`,
         { headers: { Authorization: `Bearer ${tok}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } });
@@ -522,6 +550,8 @@ Deno.serve(async (req) => {
       // v30: eBay's daily lookups already used up? don't ask again until the reset
       EBAY_OUT = !!conf.ebay_out_until && Date.now() < Date.parse(String(conf.ebay_out_until));
       const ebayWasOut = EBAY_OUT;
+      EBAY_CALLS = 0;
+      const smart = body.smart === true || (body.smart !== false && String(conf.scout_smart || "") === "on");   // v31
       const ident = shots.length ? await identify(visionModel, shots)
         : body.isbn && upcCode(String(body.isbn)) ? await upcIdent(upcCode(String(body.isbn)), await ebayToken(), fastModel)   // v26: product barcode
         : body.isbn ? await isbnIdent(sql, String(body.isbn))            // typed or barcode-scanned ISBN
@@ -536,7 +566,7 @@ Deno.serve(async (req) => {
       const tok = await ebayToken();
       const abeP = isItem ? Promise.resolve([] as any[]) : abeComps(ident).catch((e) => { DIAG.abe_err = String(e); return [] as any[]; });   // second opinion, runs alongside eBay
       const [found, prior] = await Promise.all([
-        comps(ident, tok).catch(() => []),
+        comps(ident, tok, smart, sql).catch(() => []),
         findBuys(sql, ident).catch(() => []),
       ]);
       // Never compare him against his own listings
@@ -544,7 +574,18 @@ Deno.serve(async (req) => {
       const notMine = (c: any) => !me || String(c.seller || "").toLowerCase() !== me;
       const kept0: any = await judge(fastModel, ident, found.filter(notMine));
       // sold counters on the matching copies (Drafts checks 40; a shelf sweep checks fewer to spare eBay's daily limit)
-      const kept = (await soldCounts(tok, kept0.slice(0, body.quick ? 12 : 25), sql)).filter(notMine);
+      let kept: any[];
+      if (smart) {
+        // v31: sold counters only when they can change the call. Clean-up: only a gray-zone price ($6.99-$13.99) needs them (top 5 copies);
+        //   clearly over or under the minimums, the copies for sale already decide it. Buying: top 10. The rest of the copies still price it.
+        const pre = chatPrice(kept0, kept0.fair || 0);
+        const lo = Number(conf.min_list_owned) || 7.99, hi = Number(conf.min_list) || 12;
+        const pick = body.mode === "cleanup" ? (pre && pre.list >= lo - 1 && pre.list < hi + 2 ? 5 : 0) : 10;
+        DIAG.sold_checked = Math.min(pick, kept0.length);
+        const head = await soldCounts(tok, kept0.slice(0, pick), sql);
+        const tail = kept0.slice(pick).map((c: any) => { c.sold = null; return c; });
+        kept = [...head, ...tail].filter(notMine);
+      } else kept = (await soldCounts(tok, kept0.slice(0, body.quick ? 12 : 25), sql)).filter(notMine);
       // v30: eBay said no more today - ask eBay's own report; if the day really is used up, pause eBay until the reset
       if (EBAY_OUT) {
         DIAG.ebay_out = true;
@@ -731,9 +772,9 @@ Deno.serve(async (req) => {
         if (kept.length) bits.push(`eBay ${soldN ? soldN + " sold" : "no sold count"}, ${kept.length} listed` + (cheapest ? ` from $${cheapest.toFixed(2)} delivered` : ""));
         if (amazon && amazon.usedBB) bits.push(`Amazon used buy box $${amazon.usedBB.toFixed(2)}` + (amzSales ? `, ${amzSales}` : ""));
         if (buyback && buyback.price > 0) bits.push(`buyback ${buyback.vendor} $${buyback.price.toFixed(2)}`);
-        await sql`insert into pipeline.scout_scans (isbn, title, author, mode, verdict, list, summary, pile_id)
+        await sql`insert into pipeline.scout_scans (isbn, title, author, mode, verdict, list, summary, pile_id, ebay_calls, smart)
           values (${cleanIsbn(ident.isbn) || null}, ${String(ident.title || "").slice(0, 250)}, ${String(ident.author || "")}, ${body.mode === "cleanup" ? "cleanup" : body.quick ? "shelf" : "scout"},
-                  ${verdict}, ${list}, ${bits.join(" · ")}, ${pile_id})`.catch((e: any) => { DIAG.log_err = String(e); });
+                  ${verdict}, ${list}, ${bits.join(" · ")}, ${pile_id}, ${EBAY_CALLS}, ${smart})`.catch((e: any) => { DIAG.log_err = String(e); });
       }
 
       const result = {
@@ -750,7 +791,7 @@ Deno.serve(async (req) => {
           .map((c: any) => ({ price: c.price, ship: 0, sold: c.sold, seller: c.seller || "", title: c.title, cond: c.cond, url: c.url })) :
           [...kept].sort((a: any, b: any) => (b.sold || 0) - (a.sold || 0)).slice(0, 8)
           .map((c: any) => ({ price: c.price, ship: c.ship || 0, sold: c.sold, seller: c.seller || "", title: c.title, cond: c.cond, url: c.url })),
-        secs: Math.round((Date.now() - t0) / 1000),
+        secs: Math.round((Date.now() - t0) / 1000), ebay_calls: EBAY_CALLS, smart,
       };
       if (body.save_test) (result as any).diag = DIAG;
       if (body.save_test) await sql`insert into backup.config (key, value) values ('scout_test', ${JSON.stringify(result)}) on conflict (key) do update set value = excluded.value`;
