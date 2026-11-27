@@ -44,3 +44,7 @@ begin
 end $function$;
 
 select cron.schedule('pd-smart-compare', '* * * * *', 'select pipeline.smart_compare_step()');
+
+-- 2026-11-26 21:46 Papa Duck: "Auto turn on change you don't need my ok" -> pipeline.smart_compare_decide() runs when the test ends:
+-- smart lookups switch on by themselves (pipeline.config scout_smart = 'on') when at most 2 books change call and at most 3 move more than $1
+-- (20+ books compared). The verdict is saved in pipeline.config scout_smart_decision. (Applied as migration smart_compare_auto_on.)
