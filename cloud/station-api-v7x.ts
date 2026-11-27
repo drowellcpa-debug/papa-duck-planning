@@ -1,0 +1,480 @@
+// v7x 2026-11-26: on a book, the printed ISBN beats a store UPC barcode (old books carry both) - a 12-digit UPC on a book is never used as its ISBN.
+// v7w 2026-11-15: Goodwill double-check runs inside the Quick check (second look by title before answering); gw_alerts / gw_done for the pull-it-back banner.
+// v7v 2026-11-14: action undo ("I need cancel scan again") erases a scan; bins never auto-advance ("keep going until I say full new bin").
+// v7u 2026-11-14: read-along books (book + tape/record kits) are marked readalong; the scan asks "Tape included?" - no tape = LOT pile "Read-Along (no tapes)".
+// v7t 2026-11-14: Morning Basket family friendly = "no cult or sex or profanity" (classics and Shakespeare plays are fine).
+// v7s 2026-11-14: 🧺 Morning Basket pile - low-value books that suit a homeschool morning basket go to BASKET (with a theme) instead of Goodwill.
+// v7r 2026-11-14: a book with no price proof is LISTED and flagged (price_flag -> Drafts chip), not left as Your call; photo-read title kept.
+// v7q 2026-11-14: off-eBay price ignores crazy-high asks - other sellers' outliers, and an Amazon buy box with no sales (Rosebud I Remember: $209.08 Amazon, 0 sales; AbeBooks $17.75).
+// v7i 2026-11-12: Vinted on/off switch (config vinted_on).
+// v7p 2026-11-13: looser family check (high-schooler rule of thumb); it overrides Scout's photo flag.
+// v7o 2026-11-13: bin_pd = pipeline.bin_assign_pd (count at send to Drafts; returns status + next bin).
+// v7n 2026-11-13: 10-digit scan that finds nothing as an ISBN is retried as the rebuilt UPC-A (Farset G47).
+// v7m 2026-11-13: sorter PINs (config sorter_pins) work as the passcode and set who; action whoami.
+// v7l 2026-11-12: bins checked out to one person (bin_take), bin_pd for drafts sent without a Quick check.
+// v7k 2026-11-12: shared bin numbering - bin_mine / bin_new / bin_put.
+// v7j 2026-11-12: sticker takes {bin}; action "bin" returns how full a bin is.
+// v7h 2026-11-12: "sticker" action for the Sorting helper (links a pre-printed PD sticker to a Quick check).
+// v7g 2026-11-11: careful family check on every Quick check (photo too); low photo read re-checked by its plain title.
+// v7f 2026-11-11: Quick check no longer sends ex-library books worth $12+ to Goodwill - list them with the Ex-Library note.
+// v7e 2026-11-11: Vinted box item is sorted into its bag right away (vinted-sort) and the V-number is returned to the Quick check.
+// v7d 2026-11-11: Vinted box keeps the snapped photo (storage p/vinted/<id>.jpg -> cleanup_piles.photo_url).
+// v7c 2026-11-11: CDs/tapes/records/VHS not worth the store -> VINTED (personal Vinted box) instead of Goodwill.
+// v7b 2026-11-10: CDs / tapes never asked for an ISBN; UPC read from photo; media searched by name; a photo check that found nothing retries by name across all of eBay.
+// Papa Duck — Edge Function "station-api" (2026-10-21). The Book Station's back end WITHOUT the claude.ai connector.
+// Papa Duck, 2026-10-21, after a Claude connector outage stalled the Station: "yes plase" (remove the connector dependence).
+// The Station page is now also served as its own website (Netlify) and calls this function directly over HTTPS.
+// Auth: header x-station-pass must equal pipeline.config.station_passcode (the page keeps it in the browser, never in its code).
+// Actions (POST JSON {action, ...}):
+//   boot  {limit}                      -> pipeline.station_boot(limit)  (settings, vendors, counters, Saved Books)
+//   kv    {entries:{key:value}}        -> upsert pipeline.station_kv
+//   books {ups:[{key,label,item,ts}], gone:[key]}  -> upsert pipeline.station_books / mark deleted (kept for safety)
+//   store {path, b64}                  -> storage bucket "p" (Rule BZ), read back from the PUBLIC url, returns {url,bytes,w,h}
+//   isbn  {isbn}                       -> Open Library, then Google Books
+//   send  {payload}                    -> forwards to station-intake (the token is added here, server side)
+import postgres from "npm:postgres@3.4.4";
+
+const SUPA = "https://gdwxwiwckxthwcsrgywh.supabase.co";
+const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "content-type, x-station-pass" };
+const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+function b64ToBytes(b: string): Uint8Array { const s = atob(b); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+function jpegDims(u: Uint8Array): { w: number; h: number } | null {
+  if (u[0] !== 0xff || u[1] !== 0xd8) return null;
+  let i = 2;
+  while (i + 9 < u.length) {
+    if (u[i] !== 0xff) { i++; continue; }
+    const m = u[i + 1], len = (u[i + 2] << 8) | u[i + 3];
+    if ((m >= 0xc0 && m <= 0xc3) || (m >= 0xc5 && m <= 0xc7) || (m >= 0xc9 && m <= 0xcb) || (m >= 0xcd && m <= 0xcf))
+      return { h: (u[i + 5] << 8) | u[i + 6], w: (u[i + 7] << 8) | u[i + 8] };
+    i += 2 + len;
+  }
+  return null;
+}
+
+async function doStore(b: any) {
+  const path = String(b.path || "");
+  if (!/^\d{3,5}[A-Z]?\/\d{2}-[a-z0-9]{4,8}\.jpg$/.test(path)) throw new Error("bad photo path");
+  const bytes = b64ToBytes(String(b.b64 || ""));
+  if (bytes.length < 2000) throw new Error("no photo data arrived");
+  const dims = jpegDims(bytes);
+  if (!dims) throw new Error("that was not a JPEG");
+  const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  let ok = false, err = "";
+  for (let a = 1; a <= 3 && !ok; a++) {
+    const r = await fetch(`${SUPA}/storage/v1/object/p/${path}`, { method: "POST",
+      headers: { Authorization: "Bearer " + svc, apikey: svc, "Content-Type": "image/jpeg", "x-upsert": "true", "cache-control": "max-age=31536000" }, body: bytes });
+    if (r.ok) ok = true; else { err = r.status + " " + (await r.text()).slice(0, 120); await sleep(1000 * a); }
+  }
+  if (!ok) throw new Error("storage refused it: " + err);
+  const url = `${SUPA}/storage/v1/object/public/p/${path}`;
+  const back = await fetch(url, { cache: "no-store" });
+  const got = back.ok ? new Uint8Array(await back.arrayBuffer()) : new Uint8Array();
+  if (got.length !== bytes.length) throw new Error(`stored copy is ${got.length} bytes, sent ${bytes.length}`);
+  return { url, bytes: bytes.length, w: dims.w, h: dims.h };
+}
+
+async function doIsbn(b: any) {
+  const isbn = String(b.isbn || "").replace(/[^0-9X]/gi, "").toUpperCase();
+  if (!isbn) throw new Error("no ISBN");
+  try {
+    const r = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+    const d = (await r.json())["ISBN:" + isbn];
+    if (d && d.title) return { hit: { title: d.title + (d.subtitle ? ": " + d.subtitle : ""), author: (d.authors || []).map((a: any) => a.name).join(", "),
+      publisher: (d.publishers || []).map((p: any) => p.name).join(", "), year: ((d.publish_date || "").match(/\d{4}/) || [""])[0], src: "Open Library" } };
+  } catch (_) { /* try Google */ }
+  try {
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+    const v = ((await r.json()).items || [])[0]?.volumeInfo;
+    if (v && v.title) return { hit: { title: v.title + (v.subtitle ? ": " + v.subtitle : ""), author: (v.authors || []).join(", "),
+      publisher: v.publisher || "", year: (v.publishedDate || "").slice(0, 4), src: "Google Books" } };
+  } catch (_) { /* nothing */ }
+  return { hit: null };
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method !== "POST") return json({ ok: false, error: "POST only" }, 405);
+  const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { max: 1, prepare: false });
+  try {
+    const [cfg] = await sql`select value from pipeline.config where key = 'station_passcode'`;
+    const pass = String(req.headers.get("x-station-pass") || "");
+    // v7m (2026-11-13, per-person PINs): each sorter has a PIN; a PIN works as the passcode and says who is sorting
+    const [pc] = await sql`select value from pipeline.config where key = 'sorter_pins'`;
+    let pins: Record<string, string> = {}; try { pins = JSON.parse(String(pc?.value || "{}")); } catch (_) { pins = {}; }
+    const pinWho = pass && pins[pass] ? String(pins[pass]) : "";
+    if (!cfg || !pass || (pass !== cfg.value && !pinWho)) return json({ ok: false, error: "bad_passcode" }, 403);
+    let b: any; try { b = await req.json(); } catch (_) { return json({ ok: false, error: "bad request" }, 400); }
+    const act = String(b.action || "");
+    if (act === "whoami") return json({ ok: true, who: pinWho || "papa" });
+    if (act === "boot") {
+      const [r] = await sql`select pipeline.station_boot(${Math.min(2000, Number(b.limit) || 400)}) as b`;
+      return json({ ok: true, boot: r.b });
+    }
+    if (act === "kv") {
+      const e = b.entries && typeof b.entries === "object" ? b.entries : {};
+      for (const [k, v] of Object.entries(e)) {
+        if (!/^[A-Za-z0-9_.-]{1,60}$/.test(k)) continue;
+        await sql`insert into pipeline.station_kv(key, value, updated_at) values (${k}, to_jsonb(${String(v)}::text), now())
+          on conflict (key) do update set value = excluded.value, updated_at = now()`;
+      }
+      return json({ ok: true });
+    }
+    if (act === "books") {
+      const ups = Array.isArray(b.ups) ? b.ups : [], gone = Array.isArray(b.gone) ? b.gone : [];
+      for (const u of ups) {
+        const t = Date.parse(u.ts); const ts = isFinite(t) ? new Date(t).toISOString() : new Date().toISOString();
+        await sql`insert into pipeline.station_books(key, label, item, ts, updated_at) values (${String(u.key)}, ${String(u.label || "")}, ${sql.json(u.item || {})}, ${ts}, now())
+          on conflict (key) do update set label = excluded.label, item = excluded.item, updated_at = now()`;
+      }
+      if (gone.length) await sql`update pipeline.station_books set item = item || '{"deleted":true}'::jsonb, updated_at = now() where key = any(${gone.map(String)})`;
+      return json({ ok: true, saved: ups.length, removed: gone.length });
+    }
+    if (act === "store") return json({ ok: true, ...(await doStore(b)) });
+    if (act === "isbn") return json({ ok: true, ...(await doIsbn(b)) });
+    if (act === "send") {
+      const [t] = await sql`select value from pipeline.config where key = 'station_token'`;
+      const payload = Object.assign({}, b.payload || {}, { token: String(t?.value || "") });
+      const r = await fetch(`${SUPA}/functions/v1/station-intake`, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(payload) });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j || !j.ok) return json({ ok: false, error: (j && j.error) || ("Drafts answered " + r.status) }, 502);
+      return json(j);
+    }
+    // v2 (2026-11-09): Papa Duck "it will need to be a top of the book station app so it is the first thing I do" - QUICK CHECK before photos.
+    //   Cover photo or ISBN -> Scout brain in Clean-up mode (he already owns the book) -> LIST / SELL / GOODWILL / TOSS. Read-only for listings.
+    // v7c (2026-11-11): Papa Duck "I would like to do my personal Vinted instead of Goodwill for my CDs, etc" - "no more than 1 item per day ... or a lot of CDs".
+    //   Scout only knows LIST/SELL/GOODWILL/TOSS piles, so the Vinted box (and Maybe later) are written here.
+    if (act === "pile" && ["VINTED", "MAYBE", "BASKET", "LOT"].includes(String(b.pile))) {
+      const pid = Number(b.id) || 0;
+      await sql`update pipeline.cleanup_piles set pile = ${String(b.pile)} where id = ${pid}`;
+      if ((b.pile === "BASKET" || b.pile === "LOT") && b.theme) await sql`update pipeline.cleanup_piles set basket_theme = ${String(b.theme).slice(0, 40)} where id = ${pid}`;
+      // v7d (2026-11-11): the Vinted box keeps the snapped photo -> storage p/vinted/<id>.jpg (Launch Pad Vinted sorting box, lots, V-numbers).
+      if (b.pile === "VINTED" && b.image && pid) {
+        try {
+          const bytes = b64ToBytes(String(b.image));
+          if (bytes.length > 2000 && jpegDims(bytes)) {
+            const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, path = `vinted/${pid}.jpg`;
+            const r = await fetch(`${SUPA}/storage/v1/object/p/${path}`, { method: "POST",
+              headers: { Authorization: "Bearer " + svc, apikey: svc, "Content-Type": "image/jpeg", "x-upsert": "true", "cache-control": "max-age=31536000" }, body: bytes });
+            if (r.ok) await sql`update pipeline.cleanup_piles set photo_url = ${`${SUPA}/storage/v1/object/public/p/${path}`} where id = ${pid}`;
+          }
+        } catch (_) { /* the pile is saved either way */ }
+      }
+      // v7e (2026-11-11): "put them in their pre-assigned V number so ... I will know what bag to put it in" -> sort into a bag now.
+      if (b.pile === "VINTED" && pid) {
+        try {
+          const [cs] = await sql`select value from backup.config where key = 'cron_secret'`;
+          const sr = await fetch(`${SUPA}/functions/v1/vinted-sort`, { method: "POST", headers: { "Content-Type": "application/json", "x-backup-secret": String(cs?.value || "") }, body: JSON.stringify({ pile: pid }) });
+          const sj = await sr.json();
+          if (sj && sj.vnum) return json({ ok: true, vnum: sj.vnum, group: sj.group, n: sj.n, cap: sj.cap, full: !!sj.full });
+        } catch (_) { /* the cron sorts it within 2 minutes */ }
+      }
+      return json({ ok: true });
+    }
+    // v7h (2026-11-12, Sorting helper): the family sorts ahead of Papa Duck and puts the next pre-printed PD sticker on each LIST book.
+    //   {id: pile id, pd: "3671" | "PD-3671"} links that sticker to the Quick check; a sticker already used is refused with what it's on.
+    if (act === "sticker") {
+      const pid = Number(b.id) || 0;
+      const m = String(b.pd || "").toUpperCase().replace(/\s+/g, "").match(/^(?:PD-?)?(\d{3,5}[A-Z]?)$/);
+      if (!pid || !m) return json({ ok: false, error: "Type the sticker number, like 3671" }, 400);
+      const pd = "PD-" + m[1];
+      const [dup] = await sql`select id, title from pipeline.cleanup_piles where upper(pd) = ${pd} and id <> ${pid} limit 1`;
+      if (dup && !b.force) return json({ ok: false, error: `Sticker ${pd} is already on "${String(dup.title || "another book").slice(0, 60)}" - check the number`, dup: true }, 409);
+      const [dr] = await sql`select ident->>'title' t from pipeline.drafts where upper(pd) = ${pd} limit 1`;
+      if (dr && !b.force) return json({ ok: false, error: `${pd} is already used in Drafts ("${String(dr.t || "").slice(0, 60)}") - check the number`, dup: true }, 409);
+      // v7j (2026-11-12): "add Bin#" - the plastic bin (15-20 books) the book goes into; flows to Drafts + Airtable "Bin"
+      const bin = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : null;
+      await sql`update pipeline.cleanup_piles set pd = ${pd}, pile = 'LIST', bin = coalesce(${bin}::int, bin) where id = ${pid}`;
+      const [bs] = bin ? await sql`select pipeline.bin_status(${bin}::int) s` : [{ s: null }];
+      return json({ ok: true, pd, bin, bin_status: bs ? bs.s : null });
+    }
+    // v7k (2026-11-12, "always give me a new one so I dont overlap"): one shared bin numbering line.
+    //   bin_mine {who} -> that person's current bin (a new one if full); bin_new {who, from} -> next unused number;
+    //   bin_put {id, bin|null, who} -> a Quick check LIST goes in that bin (full -> next bin handed out as "next").
+    const who = pinWho || String(b.who || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 40) || "station";
+    // v7w: open "List again" cards for the scan screens' big pull-it-back warning; gw_done closes one (pulled back / leave)
+    if (act === "gw_alerts") {
+      const rows = await sql`select id, title, detail, created_at from pipeline.alerts where source = 'Goodwill check' and done_at is null order by id desc limit 10`;
+      return json({ ok: true, alerts: rows });
+    }
+    if (act === "gw_done" && Number(b.id) > 0) {
+      await sql`select pipeline.goodwill_pull(${Number(b.id)}, ${!!b.back})`;
+      return json({ ok: true });
+    }
+    if (act === "bin_mine") { const [r] = await sql`select pipeline.bin_mine(${who}) s`; return json({ ok: true, ...r.s }); }
+    if (act === "bin_new") { const [r] = await sql`select pipeline.bin_new(${who}, ${Number(b.from) > 0 ? Math.floor(Number(b.from)) : null}::int) s`; return json({ ok: true, ...r.s }); }
+    // v7l (2026-11-12, "it can not be reused once selected"): a bin is checked out to one person. bin_take {bin, who} only
+    //   returns a bin that person already has; someone else's bin or an unused old number is refused. bin_pd {pd, bin, who}
+    //   gives a Book Station draft its bin when it was sent without a Quick check.
+    if (act === "bin_take") {
+      const n = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : 0;
+      const [c] = await sql`select who from pipeline.bin_claims where bin = ${n}`;
+      if (!c) return json({ ok: false, error: `Bin ${n} isn't checked out to anyone. Tap New bin to get your next number.` }, 409);
+      if (String(c.who) !== who) return json({ ok: false, error: `Bin ${n} is checked out to ${String(c.who).replace(/^\w/, (x: string) => x.toUpperCase())}. Tap New bin for your own.` }, 409);
+      const [r] = await sql`select pipeline.bin_status(${n}::int) s`; return json({ ok: true, ...r.s });
+    }
+    if (act === "bin_pd") {
+      // v7o (2026-11-13, "how do we avoid this discrepancy?"): a Book Station book counts in the bin when it is SENT to Drafts.
+      const n = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : 0;
+      const [r] = await sql`select pipeline.bin_assign_pd(${String(b.pd || "")}, ${n || null}::int, ${who}) s`;
+      return json({ ...(r.s as any) });
+    }
+    if (act === "bin_put") {
+      const pid = Number(b.id) || 0, n = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : null;
+      if (!pid) return json({ ok: false, error: "no pile id" }, 400);
+      await sql`update pipeline.cleanup_piles set bin = ${n}::int where id = ${pid}`;
+      if (!n) return json({ ok: true, bin: null });
+      const [r] = await sql`select pipeline.bin_status(${n}::int) s`;
+      const st: any = r.s;
+      return json({ ok: true, ...st });
+    }
+    // v7v (2026-11-14, "I need cancel scan again"): erase a scan that went wrong so the book can be scanned again
+    if (act === "undo") {
+      const pid = Number(b.id) || 0;
+      const [row] = await sql`delete from pipeline.cleanup_piles where id = ${pid} and draft_id is null returning pd`;
+      if (row?.pd) await sql`delete from pipeline.draft_presets where upper(pd) = upper(${String(row.pd)}) and used_at is null`;
+      return json({ ok: true, removed: !!row });
+    }
+    if (act === "bin") {
+      const n = Number(b.bin) > 0 ? Math.floor(Number(b.bin)) : null;
+      const [bs] = await sql`select pipeline.bin_status(${n}::int) s`;
+      return json({ ok: true, ...bs.s });
+    }
+    if (act === "check" || act === "pile") {
+      const [pin] = await sql`select value from backup.config where key = 'scout_pin'`;
+      const fwd: any = act === "pile" ? { action: "pile", id: b.id, pile: b.pile }
+        : { action: "evaluate", mode: "cleanup", batch: "Station " + new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" }), cost: b.cost ?? null };
+      if (act === "check") {
+        if (b.isbn) fwd.isbn = String(b.isbn).replace(/[^0-9Xx]/g, "");
+        else if (b.image) {
+          // v5 (2026-11-09): Papa Duck photographed the Spurgeon copyright page, ISBN plainly printed ("0 85151 076 0"), and the quick
+          //   photo read missed it. Read the photo carefully first; when an ISBN is on it, check by ISBN (exact edition, exact comps).
+          let read: any = null;
+          try {
+            const [m] = await sql`select value from pipeline.config where key = 'claude_model'`;
+            const ar = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
+              headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+              body: JSON.stringify({ model: String(m?.value || "claude-sonnet-4-6"), max_tokens: 300, messages: [{ role: "user", content: [
+                { type: "image", source: { type: "base64", media_type: "image/jpeg", data: String(b.image) } },
+                { type: "text", text: 'This photo is a book\'s cover, back, title page or copyright page, or a CD, cassette, 8-track, record, VHS or DVD. Read any ISBN printed on it exactly (old books print it with spaces, e.g. "ISBN 0 85151 076 0"; a barcode\'s 978 number counts too). On a BOOK the printed "ISBN ..." line always wins: books from before about 2007 often carry a store UPC price barcode (12 digits, starts with 0 or 7) beside the ISBN - never put that UPC in isbn for a book. On music or video, put the 12-digit UPC barcode number (the digits under the bars) in isbn. Plus the title and author/artist if shown. Set kind to "media" for a CD, cassette, 8-track, record, VHS or DVD (else "book"); for media, search = the best short eBay search words: artist or series + album name + format word (CD / cassette / 8 track / vinyl LP / VHS / DVD) + set count if a set, e.g. "Grand Old Country 4 cassette tape set". Set readalong to true if the cover says Read-Along, Book and Tape or Book and Record. Never guess a digit. Respond ONLY JSON: {"kind":"book","isbn":"","title":"","author":"","search":"","readalong":false}' } ] }] }) });
+            const aj = await ar.json();
+            const txt = (aj.content || []).map((x: any) => x.text || "").join("");
+            read = JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}") + 1));
+          } catch (_) { read = null; }
+          const ri = String(read?.isbn || "").replace(/[^0-9Xx]/g, "");
+          b.read_along = read?.readalong === true;   // v7u: the cover says Read-Along / Book and Tape
+          const okIsbn = (d: string) => {
+            if (d.length === 10) { let t = 0; for (let i = 0; i < 10; i++) t += (d[i] === "X" || d[i] === "x" ? 10 : +d[i]) * (10 - i); return t % 11 === 0; }
+            if (d.length === 13) { let t = 0; for (let i = 0; i < 13; i++) t += +d[i] * (i % 2 ? 3 : 1); return t % 10 === 0; }
+            if (d.length === 12) { let t = 0; for (let i = 0; i < 12; i++) t += +d[i] * (i % 2 ? 1 : 3); return t % 10 === 0; }   // v7: UPC-A on CDs / tapes
+            return false;
+          };
+          // v7x (2026-11-26, Sunset Light Cuisine 1986): an old book's back has "ISBN 0-376-02473-9" printed over a store UPC barcode (0 70661 00695);
+          //   the read took the UPC and the book was checked as a product. A 12-digit UPC on a BOOK is never its ISBN - read the photo instead.
+          const bookUpc = ri.length === 12 && read?.kind !== "media";
+          if (okIsbn(ri) && !bookUpc) { fwd.isbn = ri; b.read_isbn = ri; b.read_title = String(read?.title || "").slice(0, 200); b.read_author = String(read?.author || "").slice(0, 120); }
+          // v7: CD / tape / record / VHS with no readable barcode - search eBay in every category by artist + album + format
+          //   (the photo path treated a tape set as a book and searched only Books, so "Grand Old Country - 4 Tape Set" found nothing).
+          else if (read && (read.kind === "media" || /8[- ]?track|stereo 8|cassette|\btapes?\b|\bcds?\b|vinyl|\blp\b|vhs|dvd/i.test(String(read.title || "") + " " + String(read.search || ""))) && (read.search || read.title)) {
+            const name = String(read.title || read.search) + (read.author && !String(read.title || "").toLowerCase().includes(String(read.author).toLowerCase()) ? " - " + read.author : "");
+            fwd.ident = { kind: "item", title: name.slice(0, 80), search: String(read.search || name).slice(0, 80), author: "", isbn: "", format: "Other", confidence: "medium" };
+            b.read_ident = true;
+          }
+          else fwd.images = [{ data: String(b.image), mt: "image/jpeg" }];
+        }
+        else return json({ ok: false, error: "Snap the cover or type the ISBN first" }, 400);
+      }
+      let r = await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: String(pin?.value || ""), ...fwd }) });
+      let j = await r.json().catch(() => null);
+      // v7n (2026-11-13, Farset G47 CD read as 9362494841 - a 10-digit number that happens to pass the ISBN-10 check): the scanner
+      //   drops the first and last digit of UPC barcodes. When a 10-digit number finds nothing as an ISBN, try it as the rebuilt UPC-A.
+      if (act === "check" && fwd.isbn && /^\d{10}$/.test(fwd.isbn) && j && !(j.ident && j.ident.title)) {
+        const b11 = "0" + fwd.isbn; let t = 0; for (let i = 0; i < 11; i++) t += +b11[i] * (i % 2 ? 1 : 3);
+        const upc = b11 + String((10 - t % 10) % 10);
+        const ru = await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: String(pin?.value || ""), ...fwd, isbn: upc }) });
+        const ju = await ru.json().catch(() => null);
+        if (ru.ok && ju && ju.ok !== false && !ju.error && ju.ident && ju.ident.title) {
+          if (j.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: j.pile_id }) }).catch(() => null);
+          r = ru; j = ju; fwd.isbn = upc;
+        } else if (ju && ju.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: ju.pile_id }) }).catch(() => null);
+      }
+      // v7b (2026-11-10, "quick check for grand old opry is saying goodwill?"): a photo check that found nothing gets one more try by name
+      //   across all of eBay (the photo path searches Books only), before anyone is told Goodwill.
+      if (act === "check" && (fwd.images || fwd.ident) && j && j.list == null && (j.verdict === "GOODWILL" || j.verdict === "SELL")) {
+        const nm = String((j.ident && j.ident.title) || "").trim();
+        if (nm.length >= 4) {
+          const f2 = { action: "evaluate", mode: "cleanup", batch: fwd.batch, cost: fwd.cost,
+            ident: { kind: "item", title: nm.slice(0, 80), search: [nm, (j.ident && j.ident.author) || ""].join(" ").trim().slice(0, 80), author: "", isbn: "", format: "Other" } };
+          const r2 = await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: String(pin?.value || ""), ...f2 }) });
+          const j2 = await r2.json().catch(() => null);
+          if (r2.ok && j2 && j2.ok !== false && !j2.error && j2.list != null) {   // only when the name search actually found copies
+            if (j.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: j.pile_id }) }).catch(() => null);
+            r = r2; j = j2; b.read_ident = true;
+          }
+        }
+      }
+      if (!r.ok || !j || j.ok === false || j.error) return json({ ok: false, error: (j && j.error) || ("Scout answered " + r.status) }, 502);
+      // v7g (2026-11-11, "the pocket handyman said goodwill but then I ran it again and it said list"): the photo read added a store
+      //   brand, publisher and year ("Ace Handyman-In-Your Pocket Reference Book by Sequoia Publishing 2001"), found no sold copies and
+      //   fell under the $12 minimum; the plain title found 9 sold. A photo check that comes back low with nothing sold is re-checked once
+      //   by its plain title, and the better answer is kept.
+      if (act === "check" && (fwd.images || fwd.ident) && j && j.ident && j.ident.kind !== "item" && (j.verdict === "GOODWILL" || j.verdict === "SELL") && !Number(j.soldN || 0)) {
+        const plain = String(j.ident.title || "").replace(/\s+by\s+.*$/i, "").replace(/\(.*?\)/g, "").replace(/\b(1[89]|20)\d{2}\b/g, "")
+          .replace(/\b(reference book|paperback|hardcover|edition|book)\b/gi, "").replace(/^\s*(ace|sears|true value|home depot|lowe'?s)\s+/i, "").replace(/\s{2,}/g, " ").trim();
+        if (plain.length >= 4 && plain.toLowerCase() !== String(j.ident.title || "").toLowerCase().trim()) {
+          const f3 = { action: "evaluate", mode: "cleanup", batch: fwd.batch, cost: fwd.cost,
+            ident: { ...j.ident, title: plain, isbn: "", confidence: "medium" } };
+          const r3 = await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: String(pin?.value || ""), ...f3 }) });
+          const j3 = await r3.json().catch(() => null);
+          if (r3.ok && j3 && j3.ok !== false && !j3.error && (j3.verdict === "LIST" || j3.verdict === "CHECK") && Number(j3.soldN || 0) > 0) {
+            if (j.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: j.pile_id }) }).catch(() => null);
+            r = r3; j = j3; b.read_ident = true;
+          } else if (j3 && j3.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: j3.pile_id }) }).catch(() => null);
+        }
+      }
+      // v7w (2026-11-15, "this needs to happen at the scanner time or in the papa duck book station quick check, almost immediately"):
+      //   the Goodwill double-check (same title + author look the 15-minute job did) now runs RIGHT HERE before the answer goes back.
+      //   If the second look finds it worth listing, the answer becomes LIST with a big "second look found it" warning.
+      if (act === "check" && j && j.list == null && (j.verdict === "GOODWILL" || j.verdict === "SELL") && !(j.ident && j.ident.kind === "item")) {
+        const t2 = String((j.ident && j.ident.title) || b.read_title || "").trim();
+        if (t2.length >= 4) {
+          try {
+            const f4 = { action: "evaluate", mode: "cleanup", batch: fwd.batch, cost: fwd.cost,
+              ident: { kind: "book", title: t2.slice(0, 120), author: String((j.ident && j.ident.author) || b.read_author || ""), isbn: String((j.ident && j.ident.isbn) || ""), confidence: "medium" } };
+            const r4 = await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: String(pin?.value || ""), ...f4 }),
+              signal: AbortSignal.timeout(30000) });
+            const j4 = await r4.json().catch(() => null);
+            if (r4.ok && j4 && j4.ok !== false && !j4.error && j4.verdict === "LIST" && j4.list != null) {
+              if (j.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: j.pile_id }) }).catch(() => null);
+              r = r4; j = j4; b.read_ident = true;
+              j.second_look = true;
+              j.reason = "⚠️ SECOND LOOK FOUND IT - do NOT Goodwill. " + String(j.reason || "");
+              if (j.pile_id) await sql`update pipeline.cleanup_piles set rechecked_at = now(), reason = ${j.reason} where id = ${Number(j.pile_id)}`;
+            } else if (j4 && j4.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: j4.pile_id }) }).catch(() => null);
+          } catch (_) { /* the every-minute job still double-checks it */ }
+        }
+      }
+      // v4 (2026-11-09): Spurgeon Autobiography Vol 1 ($34.99 book) came back GOODWILL because the cover photo only gave "Autobiography"
+      //   and no copies were found. "Found nothing" is not "worth nothing": say so, ask for the ISBN, and take it off the Goodwill pile list.
+      // v7 (2026-11-10): "it only worked on cd with the isbn but these and tapes dont have it" - CDs, tapes, records, VHS have no ISBN,
+      //   so never ask for one. Nothing found on eBay for a real item = Goodwill, said plainly, with the barcode as a double-check.
+      const isItem = j.ident && j.ident.kind === "item";
+      if (act === "check" && isItem && j.list == null && (j.verdict === "GOODWILL" || j.verdict === "SELL")) {
+        j.verdict = "GOODWILL";
+        j.reason = `Nothing like it selling on eBay${j.ident.title ? ' (looked for "' + j.ident.title + '")' : ""}. If it has a barcode, type those numbers to double-check.`;
+      }
+      // v7c: CDs, tapes, records, VHS, DVDs that aren't worth the store go to his personal Vinted box instead of Goodwill.
+      const isMedia = isItem && /8[- ]?track|stereo 8|cassette|\btapes?\b|\bcds?\b|vinyl|\blp\b|record|vhs|dvd|blu-?ray/i.test(String(j.ident.title || "") + " " + String(j.ident.search || ""));
+      // v7i (2026-11-12, "I think I will hold on that for now"): Vinted can be paused - config vinted_on = 'false' keeps media on GOODWILL.
+      const [von] = await sql`select value from pipeline.config where key = 'vinted_on'`;
+      if (act === "check" && isMedia && j.verdict === "GOODWILL" && String(von?.value ?? "true") !== "false") {
+        j.verdict = "VINTED";
+        j.reason = (j.list != null ? `Only worth about $${Number(j.list).toFixed(2)} on eBay - not worth the store. ` : "Not worth the store. ") + "Put it in your 🛍️ Vinted box (your personal Vinted: one item or one bundle a day).";
+        if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = 'VINTED' where id = ${Number(j.pile_id)}`;
+      }
+      // v7f (2026-11-11, "The Sony Vision" $24.99 -> "Ex-library markings. Won't list it."): Scout's ex-library stop is a BUYING rule.
+      //   Books he already owns that are ex-library still get listed (🏷️ Ex-Library disclosed), and a price sticker can look like one.
+      if (act === "check" && j.verdict === "GOODWILL" && /^Ex-library markings/i.test(String(j.reason || "")) && j.list != null && Number(j.list) >= 12) {
+        j.verdict = "LIST";
+        j.reason = `Ex-library markings seen, but still worth about $${Number(j.list).toFixed(2)} - list it with the 🏷️ Ex-Library note. (If it's only a price sticker, list it normally.)`;
+        if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = 'LIST', reason = ${j.reason} where id = ${Number(j.pile_id)}`;
+      }
+      if (act === "check" && !isItem && j.list == null && (j.verdict === "GOODWILL" || j.verdict === "SELL")) {
+        if (j.pile_id) await fetch(`${SUPA}/functions/v1/scout`, { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin: String(pin?.value || ""), action: "pile_delete", id: j.pile_id }) }).catch(() => null);
+        j.pile_id = null;
+        j.verdict = "RETAKE";
+        j.reason = `Couldn't find this book from the photo${j.ident && j.ident.title ? ' (read it as "' + j.ident.title + '")' : ""}. Scan or type the ISBN — it's on the back or the copyright page.`;
+      }
+      // v7q (2026-11-14, "Yes" - fix it so one crazy-high seller can't throw off the price): with no eBay copies Scout prices from the
+      //   other sellers' asks (average or median). Drop any ask more than 3x the cheapest copy, then price again; only ever lowers.
+      if (act === "check" && Number(j.grid?.ebay?.n || 0) === 0 && Array.isArray(j.comps) && j.comps.length >= 1 && j.list != null) {
+        const pool = j.comps.map((c: any) => Number(c.price)).filter((v: number) => v > 0).sort((a: number, b: number) => a - b);
+        const keep = pool.filter((v: number) => v <= pool[0] * 3);
+        //   An Amazon used buy box with no sales in 90 days is just an asking price too: it can't lift the price past 3x the cheapest copy.
+        const amzOnly = Number(j.list) > pool[0] * 3 && !Number(j.grid?.amazon?.sales90 || 0);
+        if (keep.length && (keep.length < pool.length || amzOnly)) {
+          const avg = keep.reduce((t: number, v: number) => t + v, 0) / keep.length;
+          const med = keep.length % 2 ? keep[(keep.length - 1) / 2] : (keep[keep.length / 2 - 1] + keep[keep.length / 2]) / 2;
+          const fix = Math.ceil(Math.max(avg, med)) - 0.01;
+          if (fix > 0 && fix < Number(j.list)) {
+            const was = Number(j.list);
+            j.list = fix; j.market = fix;
+            j.reason = String(j.reason || "").replace(/List at \$[\d.]+/, `List at $${fix.toFixed(2)}`) + ` (skipped a crazy-high asking price of $${was.toFixed(2)})`;
+            if (j.pile_id) await sql`update pipeline.cleanup_piles set list_price = ${fix}, reason = ${j.reason} where id = ${Number(j.pile_id)}`;
+          }
+        }
+      }
+      // v6 (2026-11-09): "A Walk in the Clouds ... it thought it was $35" - LIST priced from only 1 eBay copy and no sales.
+      //   One or two copies with nothing sold is not enough to trust a price: say so and let him decide.
+      const en = Number(j.grid?.ebay?.n || 0), es = Number(j.soldN || 0);
+      if (act === "check" && j.verdict === "LIST" && es === 0 && en <= 2) {
+        // v7r (2026-11-14, "if it cant decide on price it should be listed, flag it, and have it show flagged on drafts"): LIST it with a
+        //   price flag. The flag rides the pile -> sticker PD / Book Station draft (trigger piles_flag_push) -> Drafts shows 🚩 Price check.
+        j.verdict = "LIST";
+        j.price_flag = en === 0 && Number(j.altLow || 0) > 0
+          ? `No eBay copies or sales. Other sellers ask from $${Number(j.altLow).toFixed(2)}, priced about $${Number(j.list || 0).toFixed(2)}. Check the price.`
+          : `Only ${en} on eBay and none sold, so about $${Number(j.list || 0).toFixed(2)} is a guess. Check the price.`;
+        j.reason = `List at $${Number(j.list || 0).toFixed(2)}. 🚩 Price flagged for Dad to check in Drafts.`;
+        if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = 'LIST', price_flag = ${j.price_flag}, reason = ${j.reason} where id = ${Number(j.pile_id)}`;
+      }
+      // Papa Duck 2026-11-09: "also family friendly check there as well". A photo check already asks it (Scout's identify);
+      // an ISBN-only check looks the book up by number, so ask Claude about the title here.
+      // v7g (2026-11-11, "A Separate Reality" passed the Quick check, flagged in Drafts): the careful family check now runs on EVERY
+      //   check, photo or ISBN, not only when the book was looked up by number.
+      // v7p (2026-11-13, "yes I agree make this change"): looser family check, and it always has the last word over Scout's photo flag.
+      // v7r: the photo read the ISBN and the title, but the ISBN lookup found no title (Rosebud I Remember) - keep the title from the photo
+      if (act === "check" && b.read_title && j.ident && !j.ident.title) {
+        j.ident.title = b.read_title; if (!j.ident.author) j.ident.author = b.read_author || "";
+        if (j.pile_id) await sql`update pipeline.cleanup_piles set title = ${b.read_title}, author = coalesce(nullif(author, ''), ${b.read_author || ""}) where id = ${Number(j.pile_id)}`;
+      }
+      const scoutFam = String(j.family || "");
+      if (act === "check" && j.ident && j.ident.title) {
+        try {
+          const ar = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
+            headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({ model: String((await sql`select value from pipeline.config where key = 'claude_model'`)[0]?.value || "claude-sonnet-4-6"), max_tokens: 200, messages: [{ role: "user", content:
+              `Papa Duck Homeschool is a Christian, family-friendly book shop. Rule of thumb: would a homeschool parent reasonably assign or shelve this book for a high schooler? If yes, it is ok.\nNOT ok ONLY if one of these is clearly true: sexual content or erotica, or a sexually suggestive cover; occult, witchcraft or New Age/shamanic practice as the main focus (e.g. Carlos Castaneda's Don Juan books); horror or gore as the main focus; glorifies drug use; HEAVY profanity throughout.\nThese are OK - do not flag: serious history of any kind including war, the Holocaust and politics (e.g. Night); classics and school reading-list books; political or economic history from any viewpoint (e.g. A People's History, To the Finland Station); mild or absurd humor (e.g. Cruel Shoes); ordinary biographies and memoirs; ordinary adult fiction with some mature themes. Do not flag just because you are unsure.\nAlso: would this book suit a homeschool family's MORNING BASKET (books read together in the morning: poetry, hymns, classics, Shakespeare, nature, Bible, art, history read-alouds)? It must have NO occult or witchcraft, NO sexual content and NO profanity. Classics and Shakespeare plays are fine. If clearly yes, set basket to ONE theme: "Poetry & Hymns", "Read-Aloud Classics", "Nature Study", "Bible & Character", "Shakespeare & Classics", "Art & Picture Study", "History Read-Alouds", "Advent & Christmas". If in doubt, basket is "". Textbooks, workbooks, adult novels, manuals and reference books are "".\nAlso set readalong to true if this is a READ-ALONG book that came as a kit with a cassette tape or record (e.g. Disney Storyteller "24 Page Read-Along Book and Tape", Disneyland Records read-along), else false.\n${JSON.stringify({ title: j.ident.title, author: j.ident.author, publisher: j.ident.publisher, year: j.ident.year })}\nRespond ONLY JSON: {"ok":true,"note":"short reason if not ok","basket":"","readalong":false}` }] }) });
+          const aj = await ar.json();
+          const txt = (aj.content || []).map((x: any) => x.text || "").join("");
+          const fj = JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}") + 1));
+          if (fj && fj.ok === false) j.family = String(fj.note || "May not fit your family-friendly shop");
+          else if (fj && fj.ok === true && scoutFam) {
+            // Scout's photo read flagged it, the looser check clears it: give the book its normal answer back
+            j.family = "";
+            if (j.verdict === "TOSS") {
+              const minL = Number(j.soldN || 0) > 0 ? 7.99 : 12;
+              j.verdict = j.list != null && Number(j.list) >= minL ? "LIST" : "GOODWILL";
+              j.reason = j.verdict === "LIST" ? `List at $${Number(j.list).toFixed(2)}.` : (j.list != null ? `Only worth about $${Number(j.list).toFixed(2)}.` : "Not worth listing.");
+              if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = ${j.verdict}, reason = ${j.reason} where id = ${Number(j.pile_id)}`;
+            }
+          }
+          // v7s (2026-11-14, "Yes can you set this up" - Morning Basket lots): a Goodwill book that suits a morning basket goes to the 🧺 box
+          // v7u (2026-11-14, "I dont have tapes" - Disney read-along books): flag read-along kits so the scan asks whether the tape is there
+          j.readalong = !!b.read_along || fj?.readalong === true || /read-?along|book (and|&) (tape|cassette|record)/i.test(String(j.ident.title || "") + " " + String(j.ident.subtitle_or_series || ""));
+          const theme = String(fj?.basket || "").trim().slice(0, 40);
+          if (theme && !j.readalong && !j.family && j.verdict === "GOODWILL" && !isItem) {
+            j.verdict = "BASKET"; j.basket_theme = theme;
+            j.reason = `Worth more in a 🧺 Morning Basket lot (${theme}) than alone.`;
+            if (j.pile_id) await sql`update pipeline.cleanup_piles set pile = 'BASKET', basket_theme = ${theme}, reason = ${j.reason} where id = ${Number(j.pile_id)}`;
+          }
+          j.family_checked = true;
+        } catch (_) { j.family_checked = false; }
+      } else if (act === "check") j.family_checked = true;
+      if (b.read_isbn) j.read_isbn = b.read_isbn;
+      if (j.second_look && !/SECOND LOOK/.test(String(j.reason || ""))) j.reason = "⚠️ SECOND LOOK FOUND IT - do NOT Goodwill. " + String(j.reason || "");
+      return json({ ...j, ok: true });
+    }
+    return json({ ok: false, error: "unknown action" }, 400);
+  } catch (e) {
+    return json({ ok: false, error: String((e as Error).message || e).slice(0, 300) }, 500);
+  } finally { await sql.end({ timeout: 2 }); }
+});
