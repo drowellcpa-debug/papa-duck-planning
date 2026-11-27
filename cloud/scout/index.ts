@@ -1,3 +1,4 @@
+// v29 (2026-11-26): reads pages for what they are - a contents page of an anthology = the volume name, vintage books keep publisher/year/catalog number in the search ("It is not reading pages right").
 // v28 (2026-11-26): college_custom only when the book says custom / names a school or course - not for a title with "College" in it.
 // Papa Duck — SCOUT. Phone page -> this function.
 // v27 (2026-11-09): Clean-up mode (books he already owns) uses a $7.99 minimum for proven sellers; buying keeps $10.
@@ -80,6 +81,11 @@ async function claude(model: string, content: any, maxTokens = 1500): Promise<an
 
 const ID_PROMPT = `You are Papa Duck's book scout. He is standing in a store holding this book and needs to know what it is. Read the photo (cover, spine, copyright page or barcode — whatever is shown). Never invent a detail you cannot read; leave it blank.
 
+READ THE PAGE FOR WHAT IT IS:
+- A CONTENTS page or title page listing SEVERAL works (Reader's Digest Condensed Books, Best Loved Books for Young Readers, omnibus volumes, anthologies): the title is the VOLUME's name (series + year/volume number), never just one of the stories. Put the works in notes.
+- A copyright page: take the publisher, year, printing/edition and ISBN from it exactly. "First Edition" on a book-club or Reader's Digest volume is that volume's first printing only - say so in notes.
+- A vintage book (no ISBN, or before about 1975): the publisher, year and any series or catalog number on the cover (e.g. "Merrill 3427") identify the exact edition - always fill publisher and year and put the number in edition. Modern reprints of the same title sell for very different prices.
+
 Also check for his instant-pass red flags and set each true only if you can actually see evidence:
 - tgatb: The Good and the Beautiful / Jenny Phillips material
 - self_printed: looks photocopied, home-printed or home-bound from a PDF
@@ -107,7 +113,7 @@ Respond with ONLY JSON, no fences:
  "is_set":false,"weight_lb":1,"subject":"",
  "family_friendly":true,"family_note":"",
  "tgatb":false,"self_printed":false,"ex_library":false,"book_club":false,"international_edition":false,"college_custom":false,"imagination_library":false,"occult":false,
- "search":"best eBay search words for THIS exact book (title + author surname), no punctuation",
+ "search":"best eBay search words for THIS exact book (title + author surname; for a book with no ISBN or printed before about 1975 ALSO the publisher and year, plus any series or catalog number printed on the cover), no punctuation",
  "confidence":"high | medium | low","notes":"one short line: anything notable (first edition, signed, vintage, curriculum brand, or what you could not read)"}`;
 
 // ---------- SHELF: one photo of 1-2 shelves -> every spine, in order, so he can find the good ones ----------
